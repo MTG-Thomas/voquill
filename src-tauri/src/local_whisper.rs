@@ -1,7 +1,6 @@
 use crate::model_manager::ModelManager;
 use crate::transcription::{TranscriptionError, TranscriptionService};
 use async_trait::async_trait;
-use hound;
 use std::path::PathBuf;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
@@ -12,7 +11,7 @@ pub struct LocalWhisperService {
 
 impl LocalWhisperService {
     pub fn new(model_size: &str, use_gpu: bool) -> Result<Self, TranscriptionError> {
-        let model_manager = ModelManager::new().map_err(|e| TranscriptionError::ModelError(e))?;
+        let model_manager = ModelManager::new().map_err(TranscriptionError::ModelError)?;
 
         let model_path = model_manager.get_model_path(model_size);
 

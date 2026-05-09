@@ -21,12 +21,14 @@ interface ConfigPageProps {
     transcription_mode: 'API' | 'Local';
     local_model_size: string;
     local_engine: string;
+    local_accelerator: string;
     hotkey: string;
     language: string;
     openai_api_key: string;
     api_url: string;
     api_model: string;
     copy_on_typewriter: boolean;
+    streaming_typewriter: boolean;
     output_method: 'Typewriter' | 'Clipboard';
     audio_device: string | null;
     input_sensitivity: number;
@@ -44,6 +46,7 @@ interface ConfigPageProps {
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
   isDownloading: boolean;
+  isWarmingModel: boolean;
   isTestingApi: boolean;
   portalVersion: number;
   isSystemManagedShortcut: boolean;
@@ -56,6 +59,7 @@ interface ConfigPageProps {
   updateConfig: (key: string, value: any) => void;
   testApiKey: () => void;
   downloadModel: (size: string) => void;
+  warmUpModel: () => void;
   loadModels: () => void;
   loadMics: () => void;
   handleConfigureHotkey: () => void;
@@ -100,6 +104,7 @@ export function ConfigPage(props: ConfigPageProps) {
     modelStatus,
     downloadProgress,
     isDownloading,
+    isWarmingModel,
     isTestingApi,
     portalVersion,
     isSystemManagedShortcut,
@@ -112,6 +117,7 @@ export function ConfigPage(props: ConfigPageProps) {
     updateConfig,
     testApiKey,
     downloadModel,
+    warmUpModel,
     loadModels,
     loadMics,
     handleConfigureHotkey,
@@ -136,6 +142,9 @@ export function ConfigPage(props: ConfigPageProps) {
     padding: '10px 24px',
     fontWeight: 700,
   } as const;
+
+  const selectedModelStatusKey = `${config.local_engine}:${config.local_model_size}`;
+  const selectedModelReady = !!modelStatus[selectedModelStatusKey];
 
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="settings">
@@ -287,16 +296,58 @@ export function ConfigPage(props: ConfigPageProps) {
                 />
               </ConfigField>
 
-              <ConfigField
-                label="Turbo Mode (GPU)"
-                labelBadge="Experimental"
-                description="GPU acceleration can be faster on some systems, but performance varies by hardware and model."
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.spacing.sm, width: '100%' }}>
-                  <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
-                  <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} />
-                </div>
-              </ConfigField>
+              {config.local_engine === 'OpenVINO GenAI' ? (
+                <>
+                  <ConfigField
+                    label="Intel Acceleration"
+                    labelBadge="Experimental"
+                    description="Choose the OpenVINO target device for local transcription."
+                  >
+                    <div style={selectWrapperStyle}>
+                      <SelectField
+                        value={config.local_accelerator}
+                        options={[
+                          { value: 'NPU', label: 'NPU' },
+                          { value: 'GPU', label: 'GPU' },
+                          { value: 'CPU', label: 'CPU' },
+                          { value: 'AUTO', label: 'AUTO' },
+                        ]}
+                        onChange={(nextDevice) => updateConfig('local_accelerator', nextDevice)}
+                        ariaLabel="OpenVINO accelerator"
+                      />
+                    </div>
+                  </ConfigField>
+
+                  <ConfigField
+                    label="Model Warmup"
+                    description="Load the selected OpenVINO model now so the first real dictation does not pay the cold-start cost."
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.xs, width: '100%' }}>
+                      <Button
+                        variant="configAction"
+                        onClick={warmUpModel}
+                        disabled={!selectedModelReady || isWarmingModel}
+                      >
+                        {isWarmingModel ? 'Warming...' : 'Warm Model'}
+                      </Button>
+                      {!selectedModelReady && (
+                        <div style={helperTextStyle}>Download the selected OpenVINO model before warming it.</div>
+                      )}
+                    </div>
+                  </ConfigField>
+                </>
+              ) : (
+                <ConfigField
+                  label="Turbo Mode (GPU)"
+                  labelBadge="Experimental"
+                  description="GPU acceleration can be faster on some systems, but performance varies by hardware and model."
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.spacing.sm, width: '100%' }}>
+                    <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
+                    <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} />
+                  </div>
+                </ConfigField>
+              )}
 
             </>
           )}
@@ -338,6 +389,10 @@ export function ConfigPage(props: ConfigPageProps) {
 
           <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
             <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
+          </ConfigField>
+
+          <ConfigField label="Streaming Typewriter" labelBadge="Experimental" description="Types stable partial dictation while you are still speaking. OpenVINO Typewriter mode only.">
+            <Switch checked={config.streaming_typewriter} onChange={(checked) => updateConfig('streaming_typewriter', checked)} />
           </ConfigField>
 
         </CollapsibleSection>

@@ -9,7 +9,7 @@ macro_rules! log_info {
             let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
             let __message = format!($($arg)*);
             println!("[{}] {}", __timestamp, __message);
-            crate::append_session_log("INFO", &__timestamp, &__message);
+            $crate::append_session_log("INFO", &__timestamp, &__message);
         }
     };
 }
@@ -21,7 +21,7 @@ macro_rules! log_warn {
             let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
             let __message = format!($($arg)*);
             eprintln!("[{}] WARNING: {}", __timestamp, __message);
-            crate::append_session_log("WARN", &__timestamp, &__message);
+            $crate::append_session_log("WARN", &__timestamp, &__message);
         }
     };
 }
@@ -37,6 +37,7 @@ mod history;
 mod hotkey;
 mod local_whisper;
 mod model_manager;
+mod openvino_whisper;
 pub mod platform;
 mod transcription;
 mod typing;
@@ -138,6 +139,7 @@ fn main() {
             get_available_models,
             check_model_status,
             download_model,
+            warm_up_model,
             get_linux_setup_status,
             request_audio_permission,
             request_input_permission,

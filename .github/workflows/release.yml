@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "mtg-v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Fork-local release tag to build, for example mtg-v1.3.11"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_TARGET_DIR: ${{ runner.temp }}/voquill-target
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: Windows
+            os: windows-latest
+            artifact_name: voquill-windows
+          - name: Linux
+            os: ubuntu-24.04
+            artifact_name: voquill-linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+
+      - name: Validate fork-local release tag
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.release_tag }}"
+          fi
+          case "$TAG" in
+            mtg-v*) echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV" ;;
+            *) echo "Release tags must use the mtg-v* fork-local namespace, got '$TAG'" >&2; exit 1 ;;
+          esac
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            cmake \
+            curl \
+            desktop-file-utils \
+            file \
+            glslc \
+            libclang-dev \
+            libasound2-dev \
+            libayatana-appindicator3-dev \
+            libfuse2t64 \
+            libgtk-3-dev \
+            libgtk-layer-shell-dev \
+            libpulse-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libudev-dev \
+            libvulkan-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            patchelf \
+            pkg-config \
+            rpm \
+            squashfs-tools \
+            appstream \
+            wl-clipboard
+
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install llvm cmake vulkan-sdk -y --no-progress
+          "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "C:\Program Files\CMake\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $vulkanRoot = Get-ChildItem "C:\VulkanSDK" -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $vulkanRoot) {
+            throw "Vulkan SDK install did not create C:\VulkanSDK"
+          }
+          "VULKAN_SDK=$($vulkanRoot.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "$($vulkanRoot.FullName)\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> ${{ env.CARGO_TARGET_DIR }}
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri bundles
+        run: npm run tauri:build
+
+      - name: Upload Windows artifacts
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.artifact_name }}-${{ env.RELEASE_TAG }}
+          if-no-files-found: error
+          path: |
+            ${{ env.CARGO_TARGET_DIR }}/release/bundle/nsis/*.exe
+            ${{ env.CARGO_TARGET_DIR }}/release/bundle/msi/*.msi
+
+      - name: Upload Linux artifacts
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.artifact_name }}-${{ env.RELEASE_TAG }}
+          if-no-files-found: error
+          path: |
+            ${{ env.CARGO_TARGET_DIR }}/release/bundle/deb/*.deb
+            ${{ env.CARGO_TARGET_DIR }}/release/bundle/rpm/*.rpm
+            ${{ env.CARGO_TARGET_DIR }}/release/bundle/appimage/*.AppImage
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate fork-local release tag
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.release_tag }}"
+          fi
+          case "$TAG" in
+            mtg-v*) echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV" ;;
+            *) echo "Release tags must use the mtg-v* fork-local namespace, got '$TAG'" >&2; exit 1 ;;
+          esac
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Voquill MTG ${{ env.RELEASE_TAG }}
+          draft: true
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: release-artifacts/*
+          body: |
+            Fork-local Voquill release for the MTG-Thomas fork.
+
+            This release intentionally uses the `mtg-v*` tag namespace so it is not confused with upstream Voquill tags.
+
+            Windows artifacts are currently unsigned unless signing secrets are added later.

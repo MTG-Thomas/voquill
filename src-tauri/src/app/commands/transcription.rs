@@ -1,4 +1,5 @@
-use crate::{history, model_manager, transcription};
+use crate::transcription::TranscriptionService;
+use crate::{history, model_manager, openvino_whisper, transcription};
 use tauri::Emitter;
 
 #[tauri::command]
@@ -19,7 +20,10 @@ pub async fn get_available_models() -> Result<Vec<model_manager::ModelInfo>, Str
 }
 
 #[tauri::command]
-pub async fn check_model_status(model_size: String) -> Result<bool, String> {
+pub async fn check_model_status(
+    model_size: String,
+    _engine: Option<String>,
+) -> Result<bool, String> {
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
     Ok(manager.is_model_downloaded(&model_size))
 }
@@ -27,6 +31,7 @@ pub async fn check_model_status(model_size: String) -> Result<bool, String> {
 #[tauri::command]
 pub async fn download_model(
     model_size: String,
+    _engine: Option<String>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
@@ -36,6 +41,46 @@ pub async fn download_model(
             let _ = app_handle.emit("model-download-progress", progress);
         })
         .await?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn warm_up_model(
+    model_size: String,
+    engine: String,
+    accelerator: Option<String>,
+) -> Result<(), String> {
+    if engine != "OpenVINO GenAI" {
+        return Err(format!(
+            "Warmup is only available for OpenVINO GenAI, not {}",
+            engine
+        ));
+    }
+
+    crate::log_info!(
+        "🔥 OpenVINO warmup requested: model={}, accelerator={}",
+        model_size,
+        accelerator.as_deref().unwrap_or("NPU")
+    );
+
+    let service = openvino_whisper::OpenVinoWhisperService::new(
+        &model_size,
+        accelerator.as_deref().unwrap_or("NPU"),
+    )
+    .map_err(|error| error.to_string())?;
+
+    service
+        .transcribe(&create_silent_warmup_wav(), Some("en"), None)
+        .await
+        .map(|_| ())
+        .map_err(|error| error.to_string())?;
+
+    crate::log_info!(
+        "✅ OpenVINO warmup complete: model={}, accelerator={}",
+        model_size,
+        accelerator.as_deref().unwrap_or("NPU")
+    );
 
     Ok(())
 }
@@ -53,4 +98,36 @@ pub async fn get_history() -> Result<history::History, String> {
 #[tauri::command]
 pub async fn clear_history() -> Result<(), String> {
     history::clear_history().map_err(|error| error.to_string())
+}
+
+fn create_silent_warmup_wav() -> Vec<u8> {
+    let sample_rate = 16_000u32;
+    let channels = 1u16;
+    let bits_per_sample = 16u16;
+    let duration_samples = sample_rate / 2;
+
+    let mut wav_data = Vec::new();
+    wav_data.extend_from_slice(b"RIFF");
+    let file_size = 36 + duration_samples * channels as u32 * bits_per_sample as u32 / 8;
+    wav_data.extend_from_slice(&(file_size - 8).to_le_bytes());
+    wav_data.extend_from_slice(b"WAVE");
+    wav_data.extend_from_slice(b"fmt ");
+    wav_data.extend_from_slice(&16u32.to_le_bytes());
+    wav_data.extend_from_slice(&1u16.to_le_bytes());
+    wav_data.extend_from_slice(&channels.to_le_bytes());
+    wav_data.extend_from_slice(&sample_rate.to_le_bytes());
+    let byte_rate = sample_rate * channels as u32 * bits_per_sample as u32 / 8;
+    wav_data.extend_from_slice(&byte_rate.to_le_bytes());
+    let block_align = channels * bits_per_sample / 8;
+    wav_data.extend_from_slice(&block_align.to_le_bytes());
+    wav_data.extend_from_slice(&bits_per_sample.to_le_bytes());
+    wav_data.extend_from_slice(b"data");
+    let data_size = duration_samples * channels as u32 * bits_per_sample as u32 / 8;
+    wav_data.extend_from_slice(&data_size.to_le_bytes());
+
+    for _ in 0..duration_samples {
+        wav_data.extend_from_slice(&0i16.to_le_bytes());
+    }
+
+    wav_data
 }

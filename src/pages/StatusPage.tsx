@@ -4,11 +4,14 @@ import { useState } from 'preact/hooks';
 import StatusIcon from '../StatusIcon.tsx';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
+import { TurboWarmPhaseBar } from '../components/TurboWarmPhaseBar.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
 interface StatusPageProps {
   currentStatus: string;
+  isTurboWarmActive: boolean;
+  turboWarmStartedAt: number | null;
   appVersion: string;
   modelStatus: Record<string, boolean>;
   isSystemManagedShortcut: boolean;
@@ -16,6 +19,7 @@ interface StatusPageProps {
     transcription_mode: 'API' | 'Local';
     output_method: 'Typewriter' | 'Clipboard';
     local_model_size: string;
+    local_engine: string;
     hotkey: string;
   };
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
@@ -25,6 +29,8 @@ interface StatusPageProps {
 
 export function StatusPage({
   currentStatus,
+  isTurboWarmActive,
+  turboWarmStartedAt,
   appVersion,
   modelStatus,
   isSystemManagedShortcut,
@@ -37,7 +43,7 @@ export function StatusPage({
 
   const howToSteps = [
     config.transcription_mode === 'Local'
-      ? (modelStatus[config.local_model_size]
+      ? (modelStatus[`${config.local_engine}:${config.local_model_size}`]
         ? <>Local Whisper model is <strong style={{ color: tokens.colors.textPrimary }}>Ready</strong>.</>
         : <>Download a <strong style={{ color: tokens.colors.textPrimary }}>Whisper model</strong> in Settings.</>)
       : <>Enter your <strong style={{ color: tokens.colors.textPrimary }}>OpenAI API key</strong> in Settings.</>,
@@ -52,10 +58,15 @@ export function StatusPage({
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="status">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <StatusIcon status={currentStatus} large />
+          <StatusIcon status={currentStatus} large variant={isTurboWarmActive ? 'turboWarm' : 'default'} />
           <div style={{ fontSize: '20px', fontWeight: 700 }} key={`text-${currentStatus}`}>
-            {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
+            {isTurboWarmActive
+              ? 'Warming Turbo on NPU'
+              : currentStatus === 'Transcribing'
+                ? `Transcribing (${config.transcription_mode})`
+                : currentStatus}
           </div>
+          {isTurboWarmActive && <TurboWarmPhaseBar startedAt={turboWarmStartedAt} />}
           <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <ModeSwitcher
               value={config.output_method}

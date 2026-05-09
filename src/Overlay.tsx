@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { listen } from '@tauri-apps/api/event';
 import StatusIcon from './StatusIcon.tsx';
+import { TurboWarmPhaseBar } from './components/TurboWarmPhaseBar.tsx';
 import { tokens } from './design-tokens.ts';
 
 interface StatusUpdatePayload {
@@ -9,9 +10,15 @@ interface StatusUpdatePayload {
   status: string;
 }
 
+const TURBO_WARM_FALLBACK_TIMEOUT_MS = 190_000;
+
 function Overlay() {
   const [status, setStatus] = useState<string>('Ready');
+  const [isTurboWarmActive, setIsTurboWarmActive] = useState(false);
+  const [turboWarmStartedAt, setTurboWarmStartedAt] = useState<number | null>(null);
   const lastStatusSeqRef = useRef<number>(0);
+  const hasShownTurboWarmRef = useRef(false);
+  const turboWarmTimeoutRef = useRef<number | null>(null);
   const hasTauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in (window as Window & { __TAURI_INTERNALS__?: unknown });
   const isPreviewMode = !hasTauriRuntime;
 
@@ -39,6 +46,29 @@ function Overlay() {
 
           lastStatusSeqRef.current = nextSeq;
           setStatus(newStatus);
+
+          if (newStatus === 'Transcribing') {
+            const turboWarmEligible = window.localStorage.getItem('voquill-turbo-warm-eligible') === 'true';
+            if (turboWarmEligible && !hasShownTurboWarmRef.current) {
+              hasShownTurboWarmRef.current = true;
+              const storedStartedAt = Number(window.localStorage.getItem('voquill-turbo-warm-started-at'));
+              const startedAt = Number.isFinite(storedStartedAt) && storedStartedAt > 0
+                ? storedStartedAt
+                : Date.now();
+              setTurboWarmStartedAt(startedAt);
+              setIsTurboWarmActive(true);
+              if (turboWarmTimeoutRef.current !== null) {
+                window.clearTimeout(turboWarmTimeoutRef.current);
+              }
+              turboWarmTimeoutRef.current = window.setTimeout(() => {
+                setIsTurboWarmActive(false);
+                turboWarmTimeoutRef.current = null;
+              }, TURBO_WARM_FALLBACK_TIMEOUT_MS);
+            }
+          } else {
+            setIsTurboWarmActive(false);
+            setTurboWarmStartedAt(null);
+          }
         });
       } catch (error) {
         console.error('❌ Failed to setup overlay event listeners:', error);
@@ -50,6 +80,9 @@ function Overlay() {
     return () => {
       if (unlistenStatus) {
         unlistenStatus();
+      }
+      if (turboWarmTimeoutRef.current !== null) {
+        window.clearTimeout(turboWarmTimeoutRef.current);
       }
     };
   }, [isPreviewMode]);
@@ -95,14 +128,23 @@ function Overlay() {
               background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '999px',
-              padding: '6px 12px 6px 8px',
-              minWidth: '194px',
+              padding: isTurboWarmActive ? '6px 14px 6px 8px' : '6px 12px 6px 8px',
+              minWidth: isTurboWarmActive ? '242px' : '194px',
             }}
           >
-            <StatusIcon status={status} size={40} />
-            <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
-              {status}
-            </span>
+            <StatusIcon status={status} size={40} variant={isTurboWarmActive ? 'turboWarm' : 'default'} />
+            {isTurboWarmActive ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+                <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '16px', fontWeight: 700, lineHeight: 1.1, whiteSpace: 'nowrap', textShadow: 'none' }}>
+                  Warming Turbo
+                </span>
+                <TurboWarmPhaseBar compact startedAt={turboWarmStartedAt} />
+              </div>
+            ) : (
+              <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
+                {status}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -123,14 +165,23 @@ function Overlay() {
           background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
           border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '999px',
-          padding: '6px 12px 6px 8px',
-          minWidth: '194px',
+          padding: isTurboWarmActive ? '6px 14px 6px 8px' : '6px 12px 6px 8px',
+          minWidth: isTurboWarmActive ? '242px' : '194px',
         }}
       >
-        <StatusIcon status={status} size={40} />
-        <span key={`overlay-status-${status}`} style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
-          {status}
-        </span>
+        <StatusIcon status={status} size={40} variant={isTurboWarmActive ? 'turboWarm' : 'default'} />
+        {isTurboWarmActive ? (
+          <div key={`overlay-status-${status}`} style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+            <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '16px', fontWeight: 700, lineHeight: 1.1, whiteSpace: 'nowrap', textShadow: 'none' }}>
+              Warming Turbo
+            </span>
+            <TurboWarmPhaseBar compact startedAt={turboWarmStartedAt} />
+          </div>
+        ) : (
+          <span key={`overlay-status-${status}`} style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
+            {status}
+          </span>
+        )}
       </div>
     </div>
   );

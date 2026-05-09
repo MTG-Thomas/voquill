@@ -5,6 +5,7 @@ use ringbuf::traits::*;
 use ringbuf::{CachingCons, HeapRb};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
+use tokio::sync::mpsc::UnboundedSender;
 
 #[cfg(target_os = "linux")]
 use pulsectl::controllers::DeviceControl;
@@ -48,7 +49,7 @@ unsafe fn get_string_property(props: &IPropertyStore, key: *const PROPERTYKEY) -
                 None
             } else {
                 let s = pwstr.to_string().ok();
-                let _ = CoTaskMemFree(Some(pwstr.0 as *const _));
+                CoTaskMemFree(Some(pwstr.0 as *const _));
                 s
             }
         }
@@ -154,7 +155,7 @@ impl PersistentAudioEngine {
         let config = device
             .default_input_config()
             .map_err(|e| format!("Failed to get default input config: {}", e))?;
-        let sample_rate = u32::from(config.sample_rate());
+        let sample_rate = config.sample_rate();
         let channels = config.channels();
 
         crate::log_info!(
@@ -359,10 +360,10 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     let available_inputs = summarize_input_devices(&host);
 
     if let Some(name) = target {
-        if let Some(stripped) = name.strip_prefix("pulse:") {
+        if let Some(_stripped) = name.strip_prefix("pulse:") {
             #[cfg(target_os = "linux")]
             {
-                std::env::set_var("PULSE_SOURCE", stripped);
+                std::env::set_var("PULSE_SOURCE", _stripped);
             }
 
             host.default_input_device().ok_or_else(|| {
@@ -371,7 +372,7 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
                     let pulse_sources = summarize_pulse_sources();
                     return format!(
                         "Failed to resolve Pulse source '{}': no default input device available after setting PULSE_SOURCE. pulse_sources=[{}], input_devices=[{}]",
-                        stripped, pulse_sources, available_inputs
+                        _stripped, pulse_sources, available_inputs
                     );
                 }
 
@@ -417,9 +418,10 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     }
 }
 
-pub async fn record_audio_while_flag(
+pub async fn record_audio_while_flag_with_partials(
     is_recording: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
+    partial_tx: Option<UnboundedSender<Vec<u8>>>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     crate::log_info!("🎙️ record_audio_while_flag: enter");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
@@ -440,24 +442,25 @@ pub async fn record_audio_while_flag(
     let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
     std::thread::spawn(move || {
         let mut all = samples;
+        let mut last_partial_sample_count = 0usize;
+        let partial_interval_samples = sample_rate as usize * 3;
+        let minimum_partial_samples = sample_rate as usize * 2;
         while let Ok(s) = rx.recv() {
             all.push(s);
-        }
-        let mut out = Vec::new();
-        if let Ok(mut w) = WavWriter::new(
-            std::io::Cursor::new(&mut out),
-            WavSpec {
-                channels: 1,
-                sample_rate,
-                bits_per_sample: 16,
-                sample_format: hound::SampleFormat::Int,
-            },
-        ) {
-            for s in all {
-                let _ = w.write_sample(process_sample(s));
+
+            if let Some(partial_tx) = partial_tx.as_ref() {
+                let enough_audio = all.len() >= minimum_partial_samples;
+                let enough_new_audio =
+                    all.len().saturating_sub(last_partial_sample_count) >= partial_interval_samples;
+                if enough_audio && enough_new_audio {
+                    if let Ok(partial_wav) = samples_to_whisper_wav(&all, sample_rate) {
+                        let _ = partial_tx.send(partial_wav);
+                        last_partial_sample_count = all.len();
+                    }
+                }
             }
-            let _ = w.finalize();
         }
+        let out = samples_to_wav(&all, sample_rate).unwrap_or_default();
         let _ = data_tx.send(out);
     });
 
@@ -474,6 +477,37 @@ pub async fn record_audio_while_flag(
         final_wav.len()
     );
     convert_audio_for_whisper(&final_wav, sample_rate, 1)
+}
+
+fn samples_to_wav(
+    samples: &[f32],
+    sample_rate: u32,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut out = Vec::new();
+    {
+        let mut w = WavWriter::new(
+            std::io::Cursor::new(&mut out),
+            WavSpec {
+                channels: 1,
+                sample_rate,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        )?;
+        for sample in samples {
+            w.write_sample(process_sample(*sample))?;
+        }
+        w.finalize()?;
+    }
+    Ok(out)
+}
+
+fn samples_to_whisper_wav(
+    samples: &[f32],
+    sample_rate: u32,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let wav = samples_to_wav(samples, sample_rate)?;
+    convert_audio_for_whisper(&wav, sample_rate, 1)
 }
 
 pub async fn record_mic_test<F>(
@@ -687,7 +721,7 @@ pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
         return samples.to_vec();
     }
 
-    if from > to && from % to == 0 {
+    if from > to && from.is_multiple_of(to) {
         let ratio = (from / to) as usize;
         let mut out = Vec::with_capacity(samples.len() / ratio);
         for chunk in samples.chunks_exact(ratio) {

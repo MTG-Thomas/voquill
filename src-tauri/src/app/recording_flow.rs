@@ -1,7 +1,9 @@
 use crate::config::{self, Config, TranscriptionMode};
-use crate::{audio, history, local_whisper, transcription, typing};
+use crate::transcription::TranscriptionService;
+use crate::{audio, history, local_whisper, openvino_whisper, transcription, typing};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
+use tokio::sync::mpsc;
 
 fn validate_audio_duration(
     audio_data: &[u8],
@@ -52,6 +54,126 @@ fn validate_audio_duration(
     Ok(())
 }
 
+fn common_word_prefix(previous: &str, current: &str) -> String {
+    let previous_words: Vec<&str> = previous.split_whitespace().collect();
+    let current_words: Vec<&str> = current.split_whitespace().collect();
+    let mut stable_words = Vec::new();
+
+    for (previous_word, current_word) in previous_words.iter().zip(current_words.iter()) {
+        if previous_word.eq_ignore_ascii_case(current_word) {
+            stable_words.push(*current_word);
+        } else {
+            break;
+        }
+    }
+
+    stable_words.join(" ")
+}
+
+fn suffix_after_committed<'a>(text: &'a str, committed: &str) -> Option<&'a str> {
+    if committed.trim().is_empty() {
+        return Some(text);
+    }
+
+    text.strip_prefix(committed)
+}
+
+fn should_stream_typewriter(config: &Config) -> bool {
+    config.streaming_typewriter
+        && config.transcription_mode == TranscriptionMode::Local
+        && config.output_method == config::OutputMethod::Typewriter
+        && config.local_engine == "OpenVINO GenAI"
+}
+
+fn spawn_streaming_typewriter(
+    app_handle: AppHandle,
+    config: Arc<Mutex<Config>>,
+    mut partial_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+    committed_text: Arc<Mutex<String>>,
+    language: Option<String>,
+    prompt: Option<String>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut previous_partial = String::new();
+
+        while let Some(partial_audio) = partial_rx.recv().await {
+            let (model_size, accelerator, typing_speed, hold_duration) = {
+                let config_guard = config.lock().unwrap();
+                (
+                    config_guard.local_model_size.clone(),
+                    config_guard.local_accelerator.clone(),
+                    config_guard.typing_speed_interval,
+                    config_guard.key_press_duration_ms,
+                )
+            };
+
+            let service =
+                match openvino_whisper::OpenVinoWhisperService::new(&model_size, &accelerator) {
+                    Ok(service) => service,
+                    Err(error) => {
+                        crate::log_info!(
+                            "⚠️ Streaming typewriter skipped partial: failed to initialize OpenVINO service: {}",
+                            error
+                        );
+                        continue;
+                    }
+                };
+
+            let partial_text = match service
+                .transcribe(&partial_audio, language.as_deref(), prompt.as_deref())
+                .await
+            {
+                Ok(text) => text,
+                Err(error) => {
+                    crate::log_info!("⚠️ Streaming typewriter partial failed: {}", error);
+                    continue;
+                }
+            };
+
+            let stable_prefix = if previous_partial.is_empty() {
+                String::new()
+            } else {
+                common_word_prefix(&previous_partial, &partial_text)
+            };
+            previous_partial = partial_text;
+
+            if stable_prefix.is_empty() {
+                continue;
+            }
+
+            let new_text = {
+                let mut committed = committed_text.lock().unwrap();
+                let Some(suffix) = suffix_after_committed(&stable_prefix, &committed) else {
+                    crate::log_info!(
+                        "⚠️ Streaming typewriter skipped non-monotonic partial: committed='{}', stable='{}'",
+                        committed,
+                        stable_prefix
+                    );
+                    continue;
+                };
+
+                let suffix = suffix.trim_end().to_string();
+                if suffix.is_empty() {
+                    continue;
+                }
+
+                committed.push_str(&suffix);
+                suffix
+            };
+
+            crate::log_info!("⌨️ Streaming typewriter committing partial: '{}'", new_text);
+            let state = app_handle.state::<crate::AppState>();
+            if let Err(error) = state
+                .display_backend
+                .type_text_hardware(&app_handle, &new_text, typing_speed, hold_duration)
+                .await
+            {
+                crate::log_info!("❌ STREAMING TYPEWRITER ERROR: {}", error);
+            }
+        }
+    })
+}
+
 pub async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
     is_recording: Arc<Mutex<bool>>,
@@ -62,13 +184,63 @@ pub async fn record_and_transcribe(
         crate::app::status::emit_status_to_frontend("Ready").await;
     };
 
-    let audio_data = match audio::record_audio_while_flag(&is_recording, audio_engine).await {
+    let (
+        language_choice,
+        streaming_enabled,
+        streaming_output_method,
+    ) = {
+        let config_guard = config.lock().unwrap();
+        (
+            config_guard.language.clone(),
+            should_stream_typewriter(&config_guard),
+            config_guard.output_method.clone(),
+        )
+    };
+
+    let (lang_code, prompt_hint) = match language_choice.as_str() {
+        "auto" => (None, None),
+        "en-AU" => (Some("en"), Some("Australian spelling.")),
+        "en-GB" => (Some("en"), Some("British spelling.")),
+        "en-US" => (Some("en"), Some("American spelling.")),
+        code => (Some(code), None),
+    };
+
+    let committed_streaming_text = Arc::new(Mutex::new(String::new()));
+    let (partial_tx, streaming_task) = if streaming_enabled {
+        crate::log_info!("⌨️ Streaming typewriter enabled for this recording");
+        let (partial_tx, partial_rx) = mpsc::unbounded_channel();
+        let task = spawn_streaming_typewriter(
+            app_handle.clone(),
+            config.clone(),
+            partial_rx,
+            committed_streaming_text.clone(),
+            lang_code.map(ToString::to_string),
+            prompt_hint.map(ToString::to_string),
+        );
+        (Some(partial_tx), Some(task))
+    } else {
+        if streaming_output_method != config::OutputMethod::Typewriter {
+            crate::log_info!("⌨️ Streaming typewriter inactive: output method is not Typewriter");
+        }
+        (None, None)
+    };
+
+    let audio_data = match audio::record_audio_while_flag_with_partials(
+        &is_recording,
+        audio_engine,
+        partial_tx,
+    )
+    .await
+    {
         Ok(data) => data,
         Err(error) => {
             reset_status_on_exit().await;
             return Err(error);
         }
     };
+    if let Some(task) = streaming_task {
+        task.abort();
+    }
 
     if audio_data.is_empty() {
         reset_status_on_exit().await;
@@ -88,7 +260,6 @@ pub async fn record_and_transcribe(
         api_model,
         debug_mode,
         enable_recording_logs,
-        language_choice,
     ) = {
         let config_guard = config.lock().unwrap();
         (
@@ -98,16 +269,7 @@ pub async fn record_and_transcribe(
             config_guard.api_model.clone(),
             config_guard.debug_mode,
             config_guard.enable_recording_logs,
-            config_guard.language.clone(),
         )
-    };
-
-    let (lang_code, prompt_hint) = match language_choice.as_str() {
-        "auto" => (None, None),
-        "en-AU" => (Some("en"), Some("Australian spelling.")),
-        "en-GB" => (Some("en"), Some("British spelling.")),
-        "en-US" => (Some("en"), Some("American spelling.")),
-        code => (Some(code), None),
     };
 
     if debug_mode && enable_recording_logs {
@@ -138,19 +300,46 @@ pub async fn record_and_transcribe(
                 api_key,
                 api_url,
                 api_model,
-            }),
+            })
+                as Box<dyn transcription::TranscriptionService + Send + Sync>,
             TranscriptionMode::Local => {
-                let (model_size, use_gpu) = {
+                let (engine, model_size, accelerator, use_gpu) = {
                     let config_lock = config.lock().unwrap();
-                    (config_lock.local_model_size.clone(), config_lock.enable_gpu)
+                    (
+                        config_lock.local_engine.clone(),
+                        config_lock.local_model_size.clone(),
+                        config_lock.local_accelerator.clone(),
+                        config_lock.enable_gpu,
+                    )
                 };
-                match local_whisper::LocalWhisperService::new(&model_size, use_gpu) {
-                    Ok(service) => Box::new(service),
-                    Err(error) => {
-                        crate::log_info!("❌ Failed to initialize Local Whisper: {}", error);
-                        reset_status_on_exit().await;
-                        return Err(error.into());
+
+                match engine.as_str() {
+                    "OpenVINO GenAI" => {
+                        match openvino_whisper::OpenVinoWhisperService::new(
+                            &model_size,
+                            &accelerator,
+                        ) {
+                            Ok(service) => Box::new(service)
+                                as Box<dyn transcription::TranscriptionService + Send + Sync>,
+                            Err(error) => {
+                                crate::log_info!(
+                                    "❌ Failed to initialize OpenVINO Whisper: {}",
+                                    error
+                                );
+                                reset_status_on_exit().await;
+                                return Err(error.into());
+                            }
+                        }
                     }
+                    _ => match local_whisper::LocalWhisperService::new(&model_size, use_gpu) {
+                        Ok(service) => Box::new(service)
+                            as Box<dyn transcription::TranscriptionService + Send + Sync>,
+                        Err(error) => {
+                            crate::log_info!("❌ Failed to initialize Local Whisper: {}", error);
+                            reset_status_on_exit().await;
+                            return Err(error.into());
+                        }
+                    },
                 }
             }
         };
@@ -205,11 +394,34 @@ pub async fn record_and_transcribe(
                         crate::log_info!("❌ CLIPBOARD ERROR: {}", error);
                     }
                 }
+                let text_to_type = if streaming_enabled {
+                    let committed = committed_streaming_text.lock().unwrap().clone();
+                    match suffix_after_committed(&text, &committed) {
+                        Some(suffix) => suffix.to_string(),
+                        None => {
+                            crate::log_info!(
+                                "⚠️ Streaming typewriter final text was non-monotonic; skipping final type to avoid duplicate output. committed='{}', final='{}'",
+                                committed,
+                                text
+                            );
+                            String::new()
+                        }
+                    }
+                } else {
+                    text.clone()
+                };
+
+                if text_to_type.trim().is_empty() {
+                    crate::log_info!("⌨️  Final typewriter output already satisfied by streaming partials");
+                    reset_status_on_exit().await;
+                    return Ok(());
+                }
+
                 crate::log_info!("⌨️  Forwarding text to hardware typing engine...");
                 let state = app_handle.state::<crate::AppState>();
                 if let Err(error) = state
                     .display_backend
-                    .type_text_hardware(&app_handle, &text, typing_speed, hold_duration)
+                    .type_text_hardware(&app_handle, &text_to_type, typing_speed, hold_duration)
                     .await
                 {
                     crate::log_info!("❌ TYPING ENGINE ERROR: {}", error);

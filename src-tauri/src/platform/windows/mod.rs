@@ -19,6 +19,12 @@ impl WindowsBackend {
     }
 }
 
+impl Default for WindowsBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn initialize() -> Arc<dyn DisplayBackend> {
     Arc::new(WindowsBackend::new())
 }

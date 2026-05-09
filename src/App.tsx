@@ -40,6 +40,7 @@ interface Config {
   transcription_mode: 'API' | 'Local';
   local_model_size: string;
   local_engine: string;
+  local_accelerator: string;
   hotkey: string;
   typing_speed_interval: number;
   key_press_duration_ms: number;
@@ -50,6 +51,7 @@ interface Config {
   input_sensitivity: number;
   output_method: 'Typewriter' | 'Clipboard';
   copy_on_typewriter: boolean;
+  streaming_typewriter: boolean;
   language: string;
   enable_gpu: boolean;
   shortcuts_token?: string;
@@ -136,6 +138,8 @@ const hashHasExplicitRoute = (hash: string): boolean => {
   return normalized.length > 0;
 };
 
+const TURBO_WARM_FALLBACK_TIMEOUT_MS = 190_000;
+
 function App() {
   const [config, setConfig] = useState<Config>({
     openai_api_key: '',
@@ -144,6 +148,7 @@ function App() {
     transcription_mode: 'Local',
     local_model_size: 'base',
     local_engine: 'Whisper.cpp',
+    local_accelerator: 'NPU',
     hotkey: 'ctrl+shift+space',
     typing_speed_interval: 1,
     key_press_duration_ms: 2,
@@ -154,6 +159,7 @@ function App() {
     input_sensitivity: 1.0,
     output_method: 'Typewriter',
     copy_on_typewriter: false,
+    streaming_typewriter: false,
     language: 'auto',
     enable_gpu: false,
   });
@@ -173,6 +179,9 @@ function App() {
   const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isWarmingModel, setIsWarmingModel] = useState(false);
+  const [isTurboWarmActive, setIsTurboWarmActive] = useState(false);
+  const [turboWarmStartedAt, setTurboWarmStartedAt] = useState<number | null>(null);
   const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
   const [permissions, setPermissions] = useState<LinuxPermissions | null>(null);
   const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
@@ -203,6 +212,8 @@ function App() {
   const [hoveredTopTab, setHoveredTopTab] = useState<AppRoute | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
   const trayFallbackNotifiedRef = useRef(false);
+  const hasShownTurboWarmRef = useRef(false);
+  const turboWarmTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const syncRouteFromHash = () => {
@@ -546,7 +557,8 @@ function App() {
       
       const status: Record<string, boolean> = {};
       for (const model of (models || [])) {
-        status[model.size] = await invoke<boolean>('check_model_status', { modelSize: model.size });
+        const statusKey = `${model.engine}:${model.size}`;
+        status[statusKey] = await invoke<boolean>('check_model_status', { modelSize: model.size, engine: model.engine });
       }
       setModelStatus(status);
     } catch (error) {
@@ -558,11 +570,12 @@ function App() {
   };
 
   const downloadModel = async (size: string) => {
+    const selectedModel = availableModels.find((model) => model.size === size);
     setSetupTouched(true);
     setIsDownloading(true);
     setDownloadProgress(0);
     try {
-      await invoke('download_model', { modelSize: size });
+      await invoke('download_model', { modelSize: size, engine: selectedModel?.engine || config.local_engine });
       showToast(`${size} model downloaded successfully!`, 'success');
       loadModels();
     } catch (error) {
@@ -570,6 +583,64 @@ function App() {
     } finally {
       setIsDownloading(false);
       setDownloadProgress(0);
+    }
+  };
+
+  const isTurboWarmEligible =
+    config.transcription_mode === 'Local' &&
+    config.local_engine === 'OpenVINO GenAI' &&
+    config.local_model_size === 'openvino-whisper-large-v3-turbo-int8';
+
+  useEffect(() => {
+    window.localStorage.setItem('voquill-turbo-warm-eligible', isTurboWarmEligible ? 'true' : 'false');
+  }, [isTurboWarmEligible]);
+
+  useEffect(() => {
+    if (currentStatus === 'Transcribing' && isTurboWarmEligible && !hasShownTurboWarmRef.current) {
+      hasShownTurboWarmRef.current = true;
+      const startedAt = Date.now();
+      window.localStorage.setItem('voquill-turbo-warm-started-at', String(startedAt));
+      setTurboWarmStartedAt(startedAt);
+      setIsTurboWarmActive(true);
+      if (turboWarmTimeoutRef.current !== null) {
+        window.clearTimeout(turboWarmTimeoutRef.current);
+      }
+      turboWarmTimeoutRef.current = window.setTimeout(() => {
+        setIsTurboWarmActive(false);
+        turboWarmTimeoutRef.current = null;
+      }, TURBO_WARM_FALLBACK_TIMEOUT_MS);
+      return;
+    }
+
+    if (currentStatus !== 'Transcribing') {
+      setIsTurboWarmActive(false);
+      setTurboWarmStartedAt(null);
+      window.localStorage.removeItem('voquill-turbo-warm-started-at');
+    }
+  }, [currentStatus, isTurboWarmEligible]);
+
+  useEffect(() => () => {
+    if (turboWarmTimeoutRef.current !== null) {
+      window.clearTimeout(turboWarmTimeoutRef.current);
+    }
+  }, []);
+
+  const warmUpModel = async () => {
+    setIsWarmingModel(true);
+    const selectedModel = availableModels.find((model) => model.size === config.local_model_size);
+    const modelLabel = selectedModel?.label || config.local_model_size;
+    try {
+      showToast(`Warming ${modelLabel} on ${config.local_accelerator}...`, 'info');
+      await invoke('warm_up_model', {
+        modelSize: config.local_model_size,
+        engine: config.local_engine,
+        accelerator: config.local_accelerator,
+      });
+      showToast(`${modelLabel} is warm on ${config.local_accelerator}`, 'success');
+    } catch (error) {
+      showToast(`Failed to warm model: ${error}`, 'error');
+    } finally {
+      setIsWarmingModel(false);
     }
   };
 
@@ -689,7 +760,7 @@ function App() {
     }
   };
 
-  const isLocalModelReady = config.transcription_mode !== 'Local' || !!modelStatus[config.local_model_size];
+  const isLocalModelReady = config.transcription_mode !== 'Local' || !!modelStatus[`${config.local_engine}:${config.local_model_size}`];
   const isAudioDeviceReady = availableMics.length > 0 && !!config.audio_device;
   const isPortalSetupReady =
     !!permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
@@ -1179,6 +1250,8 @@ function App() {
             {activeRoute === 'status' && (
               <StatusPage
                 currentStatus={currentStatus}
+                isTurboWarmActive={isTurboWarmActive}
+                turboWarmStartedAt={turboWarmStartedAt}
                 appVersion={appVersion}
                 modelStatus={modelStatus}
                 config={config}
@@ -1199,6 +1272,7 @@ function App() {
                 modelStatus={modelStatus}
                 downloadProgress={downloadProgress}
                 isDownloading={isDownloading}
+                isWarmingModel={isWarmingModel}
                 isTestingApi={isTestingApi}
                 portalVersion={portalVersion}
                 isSystemManagedShortcut={isSystemManagedShortcut}
@@ -1211,6 +1285,7 @@ function App() {
                 updateConfig={updateConfig}
                 testApiKey={testApiKey}
                 downloadModel={downloadModel}
+                warmUpModel={() => void warmUpModel()}
                 loadModels={loadModels}
                 loadMics={loadMics}
                 handleConfigureHotkey={handleConfigureHotkey}

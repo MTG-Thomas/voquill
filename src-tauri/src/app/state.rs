@@ -31,23 +31,12 @@ pub struct AppState {
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct HotkeyBindingState {
     pub bound: bool,
     pub listening: bool,
     pub detail: Option<String>,
     pub active_trigger: Option<String>,
-}
-
-impl Default for HotkeyBindingState {
-    fn default() -> Self {
-        Self {
-            bound: false,
-            listening: false,
-            detail: None,
-            active_trigger: None,
-        }
-    }
 }
 
 impl Default for AppState {

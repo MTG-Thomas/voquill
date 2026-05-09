@@ -12,6 +12,7 @@ pub enum OutputMethod {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum TranscriptionMode {
     API,
     Local,
@@ -31,6 +32,8 @@ pub struct Config {
     pub local_model_size: String,
     #[serde(default = "default_local_engine")]
     pub local_engine: String,
+    #[serde(default = "default_local_accelerator")]
+    pub local_accelerator: String,
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
     #[serde(default = "default_typing_speed")]
@@ -51,6 +54,8 @@ pub struct Config {
     pub output_method: OutputMethod,
     #[serde(default = "default_copy_on_typewriter")]
     pub copy_on_typewriter: bool,
+    #[serde(default = "default_streaming_typewriter")]
+    pub streaming_typewriter: bool,
     #[serde(default = "default_language")]
     pub language: String,
     #[serde(default)]
@@ -87,6 +92,9 @@ fn default_local_model_size() -> String {
 fn default_local_engine() -> String {
     "Whisper.cpp".to_string()
 }
+fn default_local_accelerator() -> String {
+    "NPU".to_string()
+}
 fn default_hotkey() -> String {
     "ctrl+shift+space".to_string()
 }
@@ -115,6 +123,9 @@ fn default_output_method() -> OutputMethod {
     OutputMethod::Typewriter
 }
 fn default_copy_on_typewriter() -> bool {
+    false
+}
+fn default_streaming_typewriter() -> bool {
     false
 }
 fn default_language() -> String {
@@ -171,6 +182,7 @@ impl Default for Config {
             transcription_mode: default_transcription_mode(),
             local_model_size: default_local_model_size(),
             local_engine: default_local_engine(),
+            local_accelerator: default_local_accelerator(),
             hotkey: default_hotkey(),
             typing_speed_interval: default_typing_speed(),
             key_press_duration_ms: default_key_press_duration(),
@@ -181,6 +193,7 @@ impl Default for Config {
             input_sensitivity: default_input_sensitivity(),
             output_method: default_output_method(),
             copy_on_typewriter: default_copy_on_typewriter(),
+            streaming_typewriter: default_streaming_typewriter(),
             language: default_language(),
             shortcuts_token: None,
             input_token: None,
@@ -261,15 +274,17 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize_input_sensitivity();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, input_sensitivity={:.2}",
+        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, streaming_typewriter={}, input_sensitivity={:.2}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
+        normalized_config.local_accelerator,
         normalized_config.local_model_size,
         normalized_config.hotkey,
         normalized_config.audio_device,
         normalized_config.debug_mode,
         normalized_config.enable_recording_logs,
         normalized_config.enable_gpu,
+        normalized_config.streaming_typewriter,
         normalized_config.input_sensitivity
     );
 

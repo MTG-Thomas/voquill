@@ -37,6 +37,8 @@ export function ModelSelectionPanel({
     width: '100%',
   } as const;
 
+  const selectedStatusKey = `${localEngine}:${localModelSize}`;
+
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
@@ -63,7 +65,7 @@ export function ModelSelectionPanel({
                 <IconInfoCircle size={20} />
               </Button>
             </div>
-            {!modelStatus[localModelSize] && (
+            {!modelStatus[selectedStatusKey] && (
               <div style={actionButtonRowStyle}>
                 <Button variant="configAction" size={actionButtonSize} onClick={() => onDownloadModel(localModelSize)} disabled={isDownloading}>
                   {isDownloading ? '...' : 'Download'}

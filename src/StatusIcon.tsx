@@ -4,10 +4,17 @@ interface StatusIconProps {
   className?: string;
   large?: boolean;
   size?: number;
+  variant?: 'default' | 'turboWarm';
 }
 
-function StatusIcon({ status, className = '', large = false, size }: StatusIconProps) {
+function StatusIcon({ status, className = '', large = false, size, variant = 'default' }: StatusIconProps) {
+  const isTurboWarm = variant === 'turboWarm' && status === 'Transcribing';
+
   const getStatusIcon = (status: string) => {
+    if (isTurboWarm) {
+      return '⚡';
+    }
+
     switch (status) {
       case 'Ready':
         return '';
@@ -36,7 +43,7 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
   const animationName = status === 'Recording'
     ? 'voquill-status-bounce'
     : status === 'Transcribing'
-      ? 'voquill-status-spin'
+      ? (isTurboWarm ? 'voquill-turbo-core' : 'voquill-status-spin')
       : 'voquill-status-enter';
 
   const orbSize = size ?? (large ? 108 : 80);
@@ -53,6 +60,20 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
         @keyframes voquill-status-enter { from { opacity: 0.6; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         @keyframes voquill-ring-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes voquill-gradient-pulse { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+        @keyframes voquill-turbo-sweep {
+          0% { transform: translateX(-130%) rotate(-18deg); opacity: 0; }
+          18% { opacity: 0.9; }
+          52% { opacity: 0.95; }
+          100% { transform: translateX(130%) rotate(-18deg); opacity: 0; }
+        }
+        @keyframes voquill-turbo-core {
+          0%, 100% { transform: scale(1) rotate(-8deg); filter: brightness(1); }
+          45% { transform: scale(1.16) rotate(8deg); filter: brightness(1.25); }
+        }
+        @keyframes voquill-turbo-ring {
+          from { transform: rotate(0deg) scale(1.02); }
+          to { transform: rotate(360deg) scale(1.02); }
+        }
         @keyframes voquill-ready-dot-jump {
           0%, 40%, 100% { transform: translateY(0) scale(1, 1); }
           43% { transform: translateY(0) scale(1.25, 0.75); }
@@ -68,7 +89,9 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
           width: `${orbSize}px`,
           height: `${orbSize}px`,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, #5ab7d6 0%, rgba(90, 183, 214, 1) 20%, rgba(123, 120, 163, 1) 35%, rgba(156, 90, 136, 1) 50%, rgba(196, 57, 145, 1) 65%, #c43991 100%)',
+          background: isTurboWarm
+            ? 'radial-gradient(circle, #fff7c2 0%, #f8cf5a 24%, #f26d3d 48%, #c43991 72%, #522b78 100%)'
+            : 'radial-gradient(circle, #5ab7d6 0%, rgba(90, 183, 214, 1) 20%, rgba(123, 120, 163, 1) 35%, rgba(156, 90, 136, 1) 50%, rgba(196, 57, 145, 1) 65%, #c43991 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -93,12 +116,29 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
             position: 'absolute',
             inset: 0,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, #c43991 0%, rgba(196, 57, 145, 1) 20%, rgba(156, 90, 136, 1) 35%, rgba(123, 120, 163, 1) 50%, rgba(90, 183, 214, 1) 65%, #5ab7d6 100%)',
-            animation: 'voquill-gradient-pulse 4s ease-in-out infinite',
+            background: isTurboWarm
+              ? 'conic-gradient(from 0deg, rgba(255,255,255,0.02), rgba(255,246,177,0.86), rgba(242,109,61,0.22), rgba(255,255,255,0.02))'
+              : 'radial-gradient(circle, #c43991 0%, rgba(196, 57, 145, 1) 20%, rgba(156, 90, 136, 1) 35%, rgba(123, 120, 163, 1) 50%, rgba(90, 183, 214, 1) 65%, #5ab7d6 100%)',
+            animation: isTurboWarm
+              ? 'voquill-turbo-ring 0.95s linear infinite'
+              : 'voquill-gradient-pulse 4s ease-in-out infinite',
             pointerEvents: 'none',
             zIndex: 1,
           }}
         ></div>
+        {isTurboWarm && (
+          <div
+            style={{
+              position: 'absolute',
+              width: '42%',
+              height: '155%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.72), transparent)',
+              animation: 'voquill-turbo-sweep 1.25s ease-in-out infinite',
+              pointerEvents: 'none',
+              zIndex: 2,
+            }}
+          ></div>
+        )}
         {status === 'Ready' ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(calc(var(--jump-height) / -2))', ['--jump-height' as any]: jumpHeight, zIndex: 2 }}>
             <span
@@ -122,7 +162,7 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
               background: 'transparent',
               fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'EmojiOne Color', sans-serif",
               position: 'relative',
-              zIndex: 2,
+              zIndex: 3,
               filter: 'none',
               textShadow: 'none',
               backfaceVisibility: 'hidden',
@@ -130,7 +170,7 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
               animation: status === 'Recording'
                 ? `${animationName} 1.5s ease-in-out infinite`
                 : status === 'Transcribing'
-                  ? `${animationName} 2s linear infinite`
+                  ? `${animationName} ${isTurboWarm ? '0.9s ease-in-out' : '2s linear'} infinite`
                   : `${animationName} 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
             }}
           >

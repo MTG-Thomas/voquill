@@ -3,6 +3,7 @@ use reqwest::multipart;
 use serde_json::Value;
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum TranscriptionError {
     NetworkError(String),
     ModelError(String),

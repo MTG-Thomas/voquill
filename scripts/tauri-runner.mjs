@@ -3,7 +3,7 @@
 import { logError, run } from "@tauri-apps/cli/main.js";
 
 if (process.platform === "win32") {
-  process.env.CARGO_TARGET_DIR = "C:\\voquill-build";
+  process.env.CARGO_TARGET_DIR ||= "C:\\voquill-build";
 }
 
 try {
