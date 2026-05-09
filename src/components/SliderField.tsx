@@ -1,7 +1,7 @@
-import type { JSX } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
-import { tokens } from '../design-tokens.ts';
-import { inputBaseStyle } from '../theme/ui-primitives.ts';
+import type { JSX } from "preact";
+import { useEffect, useState } from "preact/hooks";
+import { tokens } from "../design-tokens.ts";
+import { inputBaseStyle } from "../theme/ui-primitives.ts";
 
 interface SliderFieldProps {
   value: number;
@@ -31,10 +31,11 @@ export function SliderField({
     setDraftPercent(String(currentPercent));
   }, [currentPercent]);
 
-  const clampPercent = (nextPercent: number) => Math.min(maxPercent, Math.max(minPercent, nextPercent));
+  const clampPercent = (nextPercent: number) =>
+    Math.min(maxPercent, Math.max(minPercent, nextPercent));
 
   const commitPercentValue = (rawValue: string) => {
-    if (rawValue.trim() === '') {
+    if (rawValue.trim() === "") {
       setDraftPercent(String(currentPercent));
       return;
     }
@@ -109,7 +110,15 @@ export function SliderField({
           margin: 0;
         }
       `}</style>
-      <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm, width: '100%', ...style }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: tokens.spacing.sm,
+          width: "100%",
+          ...style,
+        }}
+      >
         <input
           className="voquill-slider-field"
           type="range"
@@ -132,7 +141,9 @@ export function SliderField({
           aria-label={ariaLabel}
           style={{ flex: 1, minWidth: 0 }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.xs, flexShrink: 0 }}>
+        <div
+          style={{ display: "flex", alignItems: "center", gap: tokens.spacing.xs, flexShrink: 0 }}
+        >
           <input
             className="voquill-slider-percent"
             type="number"
@@ -147,15 +158,17 @@ export function SliderField({
               commitPercentValue((event.target as HTMLInputElement).value);
             }}
             onKeyDown={(event: KeyboardEvent) => {
-              if (event.key === 'Enter') {
+              if (event.key === "Enter") {
                 commitPercentValue((event.target as HTMLInputElement).value);
                 (event.target as HTMLInputElement).blur();
               }
             }}
-            aria-label={`${ariaLabel || 'Slider value'} percent`}
-            style={{ ...inputBaseStyle, width: '72px', textAlign: 'right' }}
+            aria-label={`${ariaLabel || "Slider value"} percent`}
+            style={{ ...inputBaseStyle, width: "72px", textAlign: "right" }}
           />
-          <span style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary }}>%</span>
+          <span style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary }}>
+            %
+          </span>
         </div>
       </div>
     </>

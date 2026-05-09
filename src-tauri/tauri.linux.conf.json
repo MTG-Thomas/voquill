@@ -3,20 +3,12 @@
   "bundle": {
     "linux": {
       "deb": {
-        "replaces": [
-          "voquill"
-        ],
-        "conflicts": [
-          "voquill"
-        ]
+        "replaces": ["voquill"],
+        "conflicts": ["voquill"]
       },
       "rpm": {
-        "obsoletes": [
-          "voquill"
-        ],
-        "conflicts": [
-          "voquill"
-        ]
+        "obsoletes": ["voquill"],
+        "conflicts": ["voquill"]
       }
     }
   }

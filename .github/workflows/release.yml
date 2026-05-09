@@ -182,7 +182,15 @@ jobs:
 
       - name: List release artifacts
         shell: bash
-        run: find release-artifacts -type f -maxdepth 5 -print
+        run: find release-artifacts -maxdepth 5 -type f -print
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          find release-artifacts -maxdepth 5 -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > release-artifacts/SHA256SUMS.txt
+          cat release-artifacts/SHA256SUMS.txt
 
       - name: Publish release
         uses: softprops/action-gh-release@v2

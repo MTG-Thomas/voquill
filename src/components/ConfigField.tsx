@@ -1,6 +1,5 @@
-
-import { ComponentChildren } from 'preact';
-import { SettingRow } from './SettingRow.tsx';
+import { ComponentChildren } from "preact";
+import { SettingRow } from "./SettingRow.tsx";
 
 interface ConfigFieldProps {
   label: string;
@@ -10,9 +9,20 @@ interface ConfigFieldProps {
   className?: string;
 }
 
-export const ConfigField = ({ label, labelBadge, description, children, className = '' }: ConfigFieldProps) => {
+export const ConfigField = ({
+  label,
+  labelBadge,
+  description,
+  children,
+  className = "",
+}: ConfigFieldProps) => {
   return (
-    <SettingRow title={label} titleBadge={labelBadge} description={description} className={`config-field ${className}`.trim()}>
+    <SettingRow
+      title={label}
+      titleBadge={labelBadge}
+      description={description}
+      className={`config-field ${className}`.trim()}
+    >
       {children}
     </SettingRow>
   );

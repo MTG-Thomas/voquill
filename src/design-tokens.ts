@@ -1,89 +1,92 @@
-
 export const tokens = {
   colors: {
     // Backgrounds
-    bgPrimary: '#2b2e34',
-    bgSecondary: '#2f3136',
-    bgTertiary: '#202225',
-    bgHover: '#40444b',
-    bgGradientWarm: '#3a2c3d',
-    bgGradientCool: '#243942',
-    
+    bgPrimary: "#2b2e34",
+    bgSecondary: "#2f3136",
+    bgTertiary: "#202225",
+    bgHover: "#40444b",
+    bgGradientWarm: "#3a2c3d",
+    bgGradientCool: "#243942",
+
     // Text
-    textPrimary: '#ffffff',
-    textSecondary: '#c5cbd3',
-    textMuted: '#a6adb8',
-    
+    textPrimary: "#ffffff",
+    textSecondary: "#c5cbd3",
+    textMuted: "#a6adb8",
+
     // Brand/Action
-    accentPrimary: '#5865f2',
-    accentHover: '#4752c4',
-    success: '#10b981',
-    error: '#ef4444',
-    glassBg: 'rgba(35, 37, 42, 0.72)',
-    glassBgHeavy: 'rgba(54, 57, 63, 0.95)',
-    glassBlur: '16px',
+    accentPrimary: "#5865f2",
+    accentHover: "#4752c4",
+    success: "#10b981",
+    error: "#ef4444",
+    glassBg: "rgba(35, 37, 42, 0.72)",
+    glassBgHeavy: "rgba(54, 57, 63, 0.95)",
+    glassBlur: "16px",
   },
-  
+
   spacing: {
-    xs: '4px',
-    sm: '8px',
-    md: '16px',
-    lg: '24px',
-    xl: '32px',
+    xs: "4px",
+    sm: "8px",
+    md: "16px",
+    lg: "24px",
+    xl: "32px",
   },
-  
+
   radii: {
-    input: '8px',
-    panel: '12px',
-    button: '8px',
+    input: "8px",
+    panel: "12px",
+    button: "8px",
   },
-  
+
   shadows: {
-    sm: '0 2px 8px rgba(0, 0, 0, 0.2)',
-    md: '0 6px 16px rgba(0, 0, 0, 0.3)',
-    lg: '0 12px 32px rgba(0, 0, 0, 0.4)',
-    accent: '0 4px 12px rgba(88, 101, 242, 0.4)',
+    sm: "0 2px 8px rgba(0, 0, 0, 0.2)",
+    md: "0 6px 16px rgba(0, 0, 0, 0.3)",
+    lg: "0 12px 32px rgba(0, 0, 0, 0.4)",
+    accent: "0 4px 12px rgba(88, 101, 242, 0.4)",
   },
-  
+
   transitions: {
-    fast: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-    normal: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    slow: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    fast: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    normal: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+    slow: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
   },
-  
+
   typography: {
     fontMain: "Inter, 'Segoe UI', system-ui, -apple-system, sans-serif",
     fontMono: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace",
-    sizeXs: '11px',
+    sizeXs: "11px",
 
-    sizeSm: '13px',
-    sizeMd: '14px',
-    sizeLg: '16px',
-    sizeXl: '18px',
-    sizeHuge: '32px',
-  }
+    sizeSm: "13px",
+    sizeMd: "14px",
+    sizeLg: "16px",
+    sizeXl: "18px",
+    sizeHuge: "32px",
+  },
 } as const;
 
 export type DesignTokens = typeof tokens;
 
+interface TokenTree {
+  [key: string]: string | number | TokenTree;
+}
+
 // Helper to convert camelCase to kebab-case for CSS variables
-export const tokensToCssVars = (obj: any, prefix = '--'): Record<string, string> => {
+export const tokensToCssVars = (obj: TokenTree, prefix = "--"): Record<string, string> => {
   const vars: Record<string, string> = {};
-  
-  const iterate = (current: any, currentPrefix: string) => {
+
+  const iterate = (current: TokenTree, currentPrefix: string) => {
     for (const key in current) {
       const value = current[key];
-      const kebabKey = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+      const kebabKey = key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
       const newPrefix = `${currentPrefix}${kebabKey}`;
-      
-      if (typeof value === 'object' && value !== null) {
+
+      if (typeof value === "object" && value !== null) {
         iterate(value, `${newPrefix}-`);
       } else {
-        vars[newPrefix] = value;
+        vars[newPrefix] = String(value);
       }
     }
   };
-  
+
   iterate(obj, prefix);
   return vars;
 };

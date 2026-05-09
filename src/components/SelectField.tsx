@@ -1,7 +1,7 @@
-import type { JSX } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { IconCheck, IconChevronDown } from '@tabler/icons-preact';
-import { tokens } from '../design-tokens.ts';
+import type { JSX } from "preact";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { IconCheck, IconChevronDown } from "@tabler/icons-preact";
+import { tokens } from "../design-tokens.ts";
 
 export interface SelectOption {
   value: string;
@@ -28,17 +28,17 @@ export function SelectField({
   value,
   options,
   onChange,
-  placeholder = 'Select an option',
+  placeholder = "Select an option",
   disabled = false,
   searchable = false,
-  searchPlaceholder = 'Search...',
-  emptyMessage = 'No options found',
-  className = '',
+  searchPlaceholder = "Search...",
+  emptyMessage = "No options found",
+  className = "",
   style,
   ariaLabel,
 }: SelectFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isTriggerHovered, setIsTriggerHovered] = useState(false);
   const [isTriggerFocused, setIsTriggerFocused] = useState(false);
@@ -61,7 +61,7 @@ export function SelectField({
     }
 
     return options.filter((option) => {
-      const searchPool = `${option.label} ${option.value} ${option.searchText || ''}`.toLowerCase();
+      const searchPool = `${option.label} ${option.value} ${option.searchText || ""}`.toLowerCase();
       return searchPool.includes(query);
     });
   }, [options, searchable, searchQuery]);
@@ -84,7 +84,7 @@ export function SelectField({
 
   const closeDropdown = (focusTrigger: boolean) => {
     setIsOpen(false);
-    setSearchQuery('');
+    setSearchQuery("");
     setHighlightedIndex(-1);
     if (focusTrigger) {
       triggerRef.current?.focus();
@@ -119,9 +119,9 @@ export function SelectField({
       }
     };
 
-    window.addEventListener('pointerdown', handleOutsidePointer);
+    window.addEventListener("pointerdown", handleOutsidePointer);
     return () => {
-      window.removeEventListener('pointerdown', handleOutsidePointer);
+      window.removeEventListener("pointerdown", handleOutsidePointer);
     };
   }, [isOpen]);
 
@@ -137,7 +137,9 @@ export function SelectField({
       return;
     }
 
-    const selectedIndex = filteredOptions.findIndex((option) => option.value === value && !option.disabled);
+    const selectedIndex = filteredOptions.findIndex(
+      (option) => option.value === value && !option.disabled,
+    );
     if (selectedIndex >= 0) {
       setHighlightedIndex(selectedIndex);
       return;
@@ -151,7 +153,9 @@ export function SelectField({
       return;
     }
 
-    const selectedIndex = filteredOptions.findIndex((option) => option.value === value && !option.disabled);
+    const selectedIndex = filteredOptions.findIndex(
+      (option) => option.value === value && !option.disabled,
+    );
     if (selectedIndex >= 0) {
       setHighlightedIndex(selectedIndex);
       return;
@@ -165,8 +169,10 @@ export function SelectField({
       return;
     }
 
-    const highlightedOption = containerRef.current?.querySelector<HTMLButtonElement>(`[data-option-index=\"${highlightedIndex}\"]`);
-    highlightedOption?.scrollIntoView({ block: 'nearest' });
+    const highlightedOption = containerRef.current?.querySelector<HTMLButtonElement>(
+      `[data-option-index="${highlightedIndex}"]`,
+    );
+    highlightedOption?.scrollIntoView({ block: "nearest" });
   }, [highlightedIndex, isOpen]);
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -175,49 +181,54 @@ export function SelectField({
     }
 
     if (!isOpen) {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
+      if (
+        event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === "Enter" ||
+        event.key === " "
+      ) {
         event.preventDefault();
         openDropdown();
       }
       return;
     }
 
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       event.preventDefault();
       closeDropdown(true);
       return;
     }
 
-    if (event.key === 'Tab') {
+    if (event.key === "Tab") {
       closeDropdown(false);
       return;
     }
 
-    if (event.key === 'ArrowDown') {
+    if (event.key === "ArrowDown") {
       event.preventDefault();
       setHighlightedIndex((index) => findNextEnabledIndex(index, 1));
       return;
     }
 
-    if (event.key === 'ArrowUp') {
+    if (event.key === "ArrowUp") {
       event.preventDefault();
       setHighlightedIndex((index) => findNextEnabledIndex(index, -1));
       return;
     }
 
-    if (event.key === 'Home') {
+    if (event.key === "Home") {
       event.preventDefault();
       setHighlightedIndex(findNextEnabledIndex(-1, 1));
       return;
     }
 
-    if (event.key === 'End') {
+    if (event.key === "End") {
       event.preventDefault();
       setHighlightedIndex(findNextEnabledIndex(0, -1));
       return;
     }
 
-    if (event.key === 'Enter') {
+    if (event.key === "Enter") {
       event.preventDefault();
       if (highlightedIndex < 0) {
         return;
@@ -230,61 +241,62 @@ export function SelectField({
   };
 
   const triggerStyle: JSX.CSSProperties = {
-    width: '100%',
-    background: isTriggerHovered && !disabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
+    width: "100%",
+    background:
+      isTriggerHovered && !disabled ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.05)",
     color: tokens.colors.textPrimary,
-    border: `1px solid ${(isOpen || isTriggerFocused) ? tokens.colors.accentPrimary : 'rgba(255, 255, 255, 0.1)'}`,
+    border: `1px solid ${isOpen || isTriggerFocused ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.1)"}`,
     borderRadius: tokens.radii.input,
-    padding: '10px 12px',
+    padding: "10px 12px",
     fontSize: tokens.typography.sizeSm,
-    textAlign: 'left',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    textAlign: "left",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: tokens.spacing.sm,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
+    cursor: disabled ? "not-allowed" : "pointer",
+    transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
     opacity: disabled ? 0.55 : 1,
-    boxShadow: isOpen || isTriggerFocused ? '0 0 0 2px rgba(88, 101, 242, 0.22)' : 'none',
+    boxShadow: isOpen || isTriggerFocused ? "0 0 0 2px rgba(88, 101, 242, 0.22)" : "none",
   };
 
   const menuStyle: JSX.CSSProperties = {
-    position: 'absolute',
-    top: 'calc(100% + 6px)',
+    position: "absolute",
+    top: "calc(100% + 6px)",
     left: 0,
-    width: '100%',
+    width: "100%",
     zIndex: 120,
-    border: '1px solid rgba(255, 255, 255, 0.12)',
-    borderRadius: '10px',
-    background: 'rgba(36, 39, 45, 0.98)',
-    boxShadow: '0 14px 26px rgba(0, 0, 0, 0.34)',
-    backdropFilter: 'blur(14px)',
-    WebkitBackdropFilter: 'blur(14px)',
-    overflow: 'hidden',
+    border: "1px solid rgba(255, 255, 255, 0.12)",
+    borderRadius: "10px",
+    background: "rgba(36, 39, 45, 0.98)",
+    boxShadow: "0 14px 26px rgba(0, 0, 0, 0.34)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+    overflow: "hidden",
   };
 
   const optionBaseStyle: JSX.CSSProperties = {
-    width: '100%',
-    border: '1px solid transparent',
-    borderRadius: '8px',
-    background: 'transparent',
+    width: "100%",
+    border: "1px solid transparent",
+    borderRadius: "8px",
+    background: "transparent",
     color: tokens.colors.textPrimary,
-    padding: '8px 10px',
+    padding: "8px 10px",
     fontSize: tokens.typography.sizeSm,
-    textAlign: 'left',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    textAlign: "left",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: tokens.spacing.sm,
-    cursor: 'pointer',
-    transition: 'background-color 0.14s ease, border-color 0.14s ease',
+    cursor: "pointer",
+    transition: "background-color 0.14s ease, border-color 0.14s ease",
   };
 
   return (
     <div
       ref={containerRef}
       className={className}
-      style={{ position: 'relative', width: '100%', minWidth: 0, flex: '1 1 auto', ...style }}
+      style={{ position: "relative", width: "100%", minWidth: 0, flex: "1 1 auto", ...style }}
       onKeyDown={handleKeyDown}
     >
       <button
@@ -311,12 +323,12 @@ export function SelectField({
       >
         <span
           style={{
-            display: 'block',
+            display: "block",
             flex: 1,
             minWidth: 0,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
             color: selectedOption ? tokens.colors.textPrimary : tokens.colors.textMuted,
           }}
         >
@@ -327,8 +339,8 @@ export function SelectField({
           style={{
             color: tokens.colors.textSecondary,
             flexShrink: 0,
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease',
+            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease",
           }}
         />
       </button>
@@ -336,7 +348,12 @@ export function SelectField({
       {isOpen && (
         <div role="listbox" id={listboxIdRef.current} style={menuStyle}>
           {searchable && (
-            <div style={{ padding: tokens.spacing.sm, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <div
+              style={{
+                padding: tokens.spacing.sm,
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              }}
+            >
               <input
                 ref={searchInputRef}
                 type="text"
@@ -344,27 +361,27 @@ export function SelectField({
                 onInput={(event) => setSearchQuery((event.target as HTMLInputElement).value)}
                 placeholder={searchPlaceholder}
                 style={{
-                  width: '100%',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  width: "100%",
+                  background: "rgba(255, 255, 255, 0.05)",
                   color: tokens.colors.textPrimary,
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '8px',
-                  padding: '8px 10px',
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  borderRadius: "8px",
+                  padding: "8px 10px",
                   fontSize: tokens.typography.sizeSm,
-                  outline: 'none',
+                  outline: "none",
                 }}
               />
             </div>
           )}
 
-          <div style={{ maxHeight: '260px', overflow: 'auto', padding: '6px' }}>
+          <div style={{ maxHeight: "260px", overflow: "auto", padding: "6px" }}>
             {filteredOptions.length === 0 ? (
               <div
                 style={{
                   color: tokens.colors.textSecondary,
                   fontSize: tokens.typography.sizeSm,
-                  textAlign: 'center',
-                  padding: '10px 8px',
+                  textAlign: "center",
+                  padding: "10px 8px",
                 }}
               >
                 {emptyMessage}
@@ -377,18 +394,18 @@ export function SelectField({
 
                 const optionStyle: JSX.CSSProperties = {
                   ...optionBaseStyle,
-                  cursor: isInteractive ? 'pointer' : 'not-allowed',
+                  cursor: isInteractive ? "pointer" : "not-allowed",
                   opacity: isInteractive ? 1 : 0.5,
                   background: isSelected
-                    ? 'rgba(88, 101, 242, 0.2)'
+                    ? "rgba(88, 101, 242, 0.2)"
                     : isHighlighted && isInteractive
-                      ? 'rgba(88, 101, 242, 0.14)'
-                      : 'transparent',
+                      ? "rgba(88, 101, 242, 0.14)"
+                      : "transparent",
                   borderColor: isSelected
-                    ? 'rgba(88, 101, 242, 0.52)'
+                    ? "rgba(88, 101, 242, 0.52)"
                     : isHighlighted && isInteractive
-                      ? 'rgba(88, 101, 242, 0.42)'
-                      : 'transparent',
+                      ? "rgba(88, 101, 242, 0.42)"
+                      : "transparent",
                 };
 
                 return (
@@ -410,9 +427,9 @@ export function SelectField({
                     <span
                       style={{
                         minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {option.label}

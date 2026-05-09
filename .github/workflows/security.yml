@@ -1,0 +1,136 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+      - "mtg/**"
+  schedule:
+    - cron: "24 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-supply-chain:
+    name: Rust Supply Chain
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Audit Rust advisories
+        run: cargo audit --file src-tauri/Cargo.lock
+
+      - name: Check Rust dependency policy
+        run: cargo deny --manifest-path src-tauri/Cargo.toml check licenses bans sources --config deny.toml
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - javascript-typescript
+          - rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Install Linux dependencies for Rust analysis
+        if: matrix.language == 'rust'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            cmake \
+            glslc \
+            libclang-dev \
+            libasound2-dev \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            libgtk-layer-shell-dev \
+            libpulse-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libudev-dev \
+            libvulkan-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config \
+            wl-clipboard
+
+      - name: Setup Rust
+        if: matrix.language == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set Rust target directory
+        if: matrix.language == 'rust'
+        run: echo "CARGO_TARGET_DIR=/tmp/voquill-codeql-target" >> "$GITHUB_ENV"
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Semgrep
+        run: python -m pip install --upgrade semgrep
+
+      - name: Scan
+        run: >-
+          semgrep scan
+          --config p/default
+          --config p/secrets
+          --config p/javascript
+          --config p/typescript
+          --config p/rust
+          --sarif
+          --output semgrep.sarif
+        continue-on-error: true
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif

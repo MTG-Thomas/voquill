@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'preact/hooks';
-import { inputBaseStyle } from '../theme/ui-primitives.ts';
+import { useEffect, useState } from "preact/hooks";
+import { inputBaseStyle } from "../theme/ui-primitives.ts";
 
 interface NumberFieldProps {
   value: number;
@@ -10,7 +10,14 @@ interface NumberFieldProps {
   disabled?: boolean;
 }
 
-export function NumberField({ value, onChange, min, max, step = 1, disabled = false }: NumberFieldProps) {
+export function NumberField({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  disabled = false,
+}: NumberFieldProps) {
   const [draftValue, setDraftValue] = useState(String(value));
   const [isFocused, setIsFocused] = useState(false);
 
@@ -21,7 +28,7 @@ export function NumberField({ value, onChange, min, max, step = 1, disabled = fa
   }, [value, isFocused]);
 
   const commitIfValid = (rawValue: string) => {
-    if (rawValue.trim() === '') {
+    if (rawValue.trim() === "") {
       return;
     }
     const nextValue = Number(rawValue);
@@ -45,7 +52,7 @@ export function NumberField({ value, onChange, min, max, step = 1, disabled = fa
       return;
     }
     setIsFocused(false);
-    if (draftValue.trim() === '' || Number.isNaN(Number(draftValue))) {
+    if (draftValue.trim() === "" || Number.isNaN(Number(draftValue))) {
       setDraftValue(String(value));
       return;
     }
@@ -73,7 +80,7 @@ export function NumberField({ value, onChange, min, max, step = 1, disabled = fa
         onFocus={() => setIsFocused(true)}
         onBlur={handleBlur}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') {
+          if (event.key === "Enter") {
             (event.target as HTMLInputElement).blur();
           }
         }}

@@ -1,11 +1,20 @@
-import { IconInfoCircle } from '@tabler/icons-preact';
-import { Button } from './Button.tsx';
-import { SelectField } from './SelectField.tsx';
-import { selectWrapperStyle } from '../theme/ui-primitives.ts';
-import { tokens } from '../design-tokens.ts';
+import { IconInfoCircle } from "@tabler/icons-preact";
+import { Button } from "./Button.tsx";
+import { SelectField } from "./SelectField.tsx";
+import { selectWrapperStyle } from "../theme/ui-primitives.ts";
+import { tokens } from "../design-tokens.ts";
+
+export interface LocalModel {
+  engine: string;
+  size: string;
+  label: string;
+  description?: string;
+  recommended?: boolean;
+  file_size: number;
+}
 
 interface ModelSelectionPanelProps {
-  availableModels: any[];
+  availableModels: LocalModel[];
   localEngine: string;
   localModelSize: string;
   modelStatus: Record<string, boolean>;
@@ -15,7 +24,7 @@ interface ModelSelectionPanelProps {
   onShowModelGuide: () => void;
   onDownloadModel: (size: string) => void;
   onRetryModels: () => void;
-  actionButtonSize?: 'sm' | 'md' | 'lg';
+  actionButtonSize?: "sm" | "md" | "lg";
 }
 
 export function ModelSelectionPanel({
@@ -29,19 +38,21 @@ export function ModelSelectionPanel({
   onShowModelGuide,
   onDownloadModel,
   onRetryModels,
-  actionButtonSize = 'md',
+  actionButtonSize = "md",
 }: ModelSelectionPanelProps) {
   const actionButtonRowStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    width: '100%',
+    display: "flex",
+    justifyContent: "center",
+    width: "100%",
   } as const;
 
   const selectedStatusKey = `${localEngine}:${localModelSize}`;
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+      <div
+        style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.xs, width: "100%" }}
+      >
         {availableModels.length > 0 ? (
           <>
             <div style={selectWrapperStyle}>
@@ -55,8 +66,8 @@ export function ModelSelectionPanel({
                     .filter((model) => model.engine === localEngine)
                     .map((model) => ({
                       value: model.size,
-                      label: `${model.label} ${model.recommended ? '(Recommended) ' : ''}(${Math.round(model.file_size / 1024 / 1024)}MB)`,
-                      searchText: `${model.size} ${model.description || ''} ${model.engine || ''}`,
+                      label: `${model.label} ${model.recommended ? "(Recommended) " : ""}(${Math.round(model.file_size / 1024 / 1024)}MB)`,
+                      searchText: `${model.size} ${model.description || ""} ${model.engine || ""}`,
                     }))}
                   style={{ minWidth: 0 }}
                 />
@@ -67,33 +78,70 @@ export function ModelSelectionPanel({
             </div>
             {!modelStatus[selectedStatusKey] && (
               <div style={actionButtonRowStyle}>
-                <Button variant="configAction" size={actionButtonSize} onClick={() => onDownloadModel(localModelSize)} disabled={isDownloading}>
-                  {isDownloading ? '...' : 'Download'}
+                <Button
+                  variant="configAction"
+                  size={actionButtonSize}
+                  onClick={() => onDownloadModel(localModelSize)}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? "..." : "Download"}
                 </Button>
               </div>
             )}
           </>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm, width: '100%' }}>
-              <div style={{ fontSize: '12px', color: '#d9dfe7', flex: 1, minWidth: 0 }}>Loading models...</div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: tokens.spacing.xs,
+              width: "100%",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: tokens.spacing.sm,
+                width: "100%",
+              }}
+            >
+              <div style={{ fontSize: "12px", color: "#d9dfe7", flex: 1, minWidth: 0 }}>
+                Loading models...
+              </div>
               <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
                 <IconInfoCircle size={20} />
               </Button>
             </div>
             <div style={actionButtonRowStyle}>
-              <Button variant="configAction" size={actionButtonSize} onClick={onRetryModels}>Retry</Button>
+              <Button variant="configAction" size={actionButtonSize} onClick={onRetryModels}>
+                Retry
+              </Button>
             </div>
           </div>
         )}
       </div>
 
       {isDownloading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
-          <div style={{ width: '100%', height: '4px', background: tokens.colors.bgTertiary, borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(downloadProgress, 100)}%`, height: '100%', background: tokens.colors.success }}></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "100%" }}>
+          <div
+            style={{
+              width: "100%",
+              height: "4px",
+              background: tokens.colors.bgTertiary,
+              borderRadius: "2px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.min(downloadProgress, 100)}%`,
+                height: "100%",
+                background: tokens.colors.success,
+              }}
+            ></div>
           </div>
-          <div style={{ fontSize: '10px', color: '#d9dfe7', textAlign: 'right' }}>
+          <div style={{ fontSize: "10px", color: "#d9dfe7", textAlign: "right" }}>
             Downloading model... {Math.round(downloadProgress)}%
           </div>
         </div>

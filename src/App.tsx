@@ -1,21 +1,25 @@
-
-import { useState, useEffect, useRef } from 'preact/hooks';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { getVersion } from '@tauri-apps/api/app';
-import { disable as disableAutostart, enable as enableAutostart, isEnabled as isAutostartEnabled } from '@tauri-apps/plugin-autostart';
-import { open } from '@tauri-apps/plugin-shell';
-import { IconMinus, IconSquare, IconX } from '@tabler/icons-preact';
-import { Button } from './components/Button.tsx';
-import { ActionFooter } from './components/ActionFooter.tsx';
-import { ModelInfoModal } from './components/ModelInfoModal.tsx';
-import { Modal } from './components/Modal.tsx';
-import { StatusPage } from './pages/StatusPage.tsx';
-import { ConfigPage } from './pages/ConfigPage.tsx';
-import { HistoryPage } from './pages/HistoryPage.tsx';
-import { InitialSetupPage } from './pages/InitialSetupPage.tsx';
-import { UiLabPage } from './pages/UiLabPage.tsx';
+import { useState, useEffect, useRef } from "preact/hooks";
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type Event, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getVersion } from "@tauri-apps/api/app";
+import {
+  disable as disableAutostart,
+  enable as enableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
+import { open } from "@tauri-apps/plugin-shell";
+import { IconMinus, IconSquare, IconX } from "@tabler/icons-preact";
+import { Button } from "./components/Button.tsx";
+import { ActionFooter } from "./components/ActionFooter.tsx";
+import { ModelInfoModal } from "./components/ModelInfoModal.tsx";
+import { Modal } from "./components/Modal.tsx";
+import type { LocalModel } from "./components/ModelSelectionPanel.tsx";
+import { StatusPage } from "./pages/StatusPage.tsx";
+import { ConfigPage } from "./pages/ConfigPage.tsx";
+import { HistoryPage } from "./pages/HistoryPage.tsx";
+import { InitialSetupPage } from "./pages/InitialSetupPage.tsx";
+import { UiLabPage } from "./pages/UiLabPage.tsx";
 import {
   appShellStyle,
   helperTextStyle,
@@ -30,14 +34,14 @@ import {
   toastContainerStyle,
   getToastMessageStyle,
   getToastStyle,
-} from './theme/ui-primitives.ts';
-import { tokens } from './design-tokens.ts';
+} from "./theme/ui-primitives.ts";
+import { tokens } from "./design-tokens.ts";
 
 interface Config {
   openai_api_key: string;
   api_url: string;
   api_model: string;
-  transcription_mode: 'API' | 'Local';
+  transcription_mode: "API" | "Local";
   local_model_size: string;
   local_engine: string;
   local_accelerator: string;
@@ -49,7 +53,7 @@ interface Config {
   debug_mode: boolean;
   enable_recording_logs: boolean;
   input_sensitivity: number;
-  output_method: 'Typewriter' | 'Clipboard';
+  output_method: "Typewriter" | "Clipboard";
   copy_on_typewriter: boolean;
   streaming_typewriter: boolean;
   language: string;
@@ -61,7 +65,7 @@ interface Config {
 interface Toast {
   id: number;
   message: string;
-  type: 'success' | 'error' | 'info' | 'saved';
+  type: "success" | "error" | "info" | "saved";
 }
 
 interface HistoryItem {
@@ -86,7 +90,7 @@ interface LinuxPermissions {
 }
 
 interface ConfigureHotkeyResult {
-  outcome: 'configured' | 'requires_in_app_capture' | 'system_managed';
+  outcome: "configured" | "requires_in_app_capture" | "system_managed";
   detail?: string;
 }
 
@@ -121,20 +125,32 @@ interface StatusUpdatePayload {
   status: string;
 }
 
-type AppRoute = 'setup' | 'status' | 'history' | 'settings' | 'ui-lab';
+interface HistoryResponse {
+  items?: HistoryItem[];
+}
 
-const DEFAULT_ROUTE: AppRoute = 'status';
+type ConfigValue = string | number | boolean | null;
+
+type AppRoute = "setup" | "status" | "history" | "settings" | "ui-lab";
+
+const DEFAULT_ROUTE: AppRoute = "status";
 
 const routeFromHash = (hash: string): AppRoute => {
-  const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-  if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
+  const normalized = hash.replace(/^#\/?/, "").split("/")[0].trim().toLowerCase();
+  if (
+    normalized === "setup" ||
+    normalized === "status" ||
+    normalized === "history" ||
+    normalized === "settings" ||
+    normalized === "ui-lab"
+  ) {
     return normalized;
   }
   return DEFAULT_ROUTE;
 };
 
 const hashHasExplicitRoute = (hash: string): boolean => {
-  const normalized = hash.replace(/^#\/?/, '').trim().toLowerCase();
+  const normalized = hash.replace(/^#\/?/, "").trim().toLowerCase();
   return normalized.length > 0;
 };
 
@@ -142,41 +158,43 @@ const TURBO_WARM_FALLBACK_TIMEOUT_MS = 190_000;
 
 function App() {
   const [config, setConfig] = useState<Config>({
-    openai_api_key: '',
-    api_url: 'https://api.openai.com/v1/audio/transcriptions',
-    api_model: 'whisper-1',
-    transcription_mode: 'Local',
-    local_model_size: 'base',
-    local_engine: 'Whisper.cpp',
-    local_accelerator: 'NPU',
-    hotkey: 'ctrl+shift+space',
+    openai_api_key: "",
+    api_url: "https://api.openai.com/v1/audio/transcriptions",
+    api_model: "whisper-1",
+    transcription_mode: "Local",
+    local_model_size: "base",
+    local_engine: "Whisper.cpp",
+    local_accelerator: "NPU",
+    hotkey: "ctrl+shift+space",
     typing_speed_interval: 1,
     key_press_duration_ms: 2,
     pixels_from_bottom: 100,
-    audio_device: 'default',
+    audio_device: "default",
     debug_mode: false,
     enable_recording_logs: false,
     input_sensitivity: 1.0,
-    output_method: 'Typewriter',
+    output_method: "Typewriter",
     copy_on_typewriter: false,
     streaming_typewriter: false,
-    language: 'auto',
+    language: "auto",
     enable_gpu: false,
   });
-  
+
   const [activeRoute, setActiveRoute] = useState<AppRoute>(routeFromHash(window.location.hash));
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [currentStatus, setCurrentStatus] = useState<string>('Ready');
+  const [currentStatus, setCurrentStatus] = useState<string>("Ready");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
-  const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
+  const [micTestStatus, setMicTestStatus] = useState<
+    "idle" | "recording" | "playing" | "processing"
+  >("idle");
   const [micVolume, setMicVolume] = useState<number>(0);
   const [micTestPassed, setMicTestPassed] = useState(false);
   const [activeConfigSection, setActiveConfigSection] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState<string>('');
+  const [appVersion, setAppVersion] = useState<string>("");
   const [availableEngines, setAvailableEngines] = useState<string[]>([]);
-  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [availableModels, setAvailableModels] = useState<LocalModel[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isWarmingModel, setIsWarmingModel] = useState(false);
@@ -189,11 +207,14 @@ function App() {
   const [showModelGuide, setShowModelGuide] = useState(false);
   const [portalVersion, setPortalVersion] = useState<number>(0);
   const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
-  const [systemShortcutContext, setSystemShortcutContext] = useState<SystemShortcutContext | null>(null);
-  const [overlayPositioningCapabilities, setOverlayPositioningCapabilities] = useState<OverlayPositioningCapabilities>({
-    manual_offset_supported: false,
-    detail: 'Manual overlay position adjustment is not available on your system.',
-  });
+  const [systemShortcutContext, setSystemShortcutContext] = useState<SystemShortcutContext | null>(
+    null,
+  );
+  const [overlayPositioningCapabilities, setOverlayPositioningCapabilities] =
+    useState<OverlayPositioningCapabilities>({
+      manual_offset_supported: false,
+      detail: "Manual overlay position adjustment is not available on your system.",
+    });
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
   const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
   const [showFactoryResetModal, setShowFactoryResetModal] = useState(false);
@@ -220,34 +241,34 @@ function App() {
       setActiveRoute(routeFromHash(window.location.hash));
     };
 
-    window.addEventListener('hashchange', syncRouteFromHash);
+    window.addEventListener("hashchange", syncRouteFromHash);
 
-    invoke<number>('get_wayland_portal_version')
+    invoke<number>("get_wayland_portal_version")
       .then(setPortalVersion)
-      .catch(e => console.log("Not running Wayland portal version check:", e));
+      .catch((e) => console.log("Not running Wayland portal version check:", e));
 
-    invoke<HotkeyBindingState>('get_hotkey_binding_state')
+    invoke<HotkeyBindingState>("get_hotkey_binding_state")
       .then(setHotkeyBindingState)
-      .catch(e => console.log('Hotkey binding state unavailable:', e));
+      .catch((e) => console.log("Hotkey binding state unavailable:", e));
 
-    invoke<SystemShortcutContext>('get_system_shortcut_context')
+    invoke<SystemShortcutContext>("get_system_shortcut_context")
       .then(setSystemShortcutContext)
-      .catch(e => console.log('System shortcut context unavailable:', e));
+      .catch((e) => console.log("System shortcut context unavailable:", e));
 
-    invoke<OverlayPositioningCapabilities>('get_overlay_positioning_capabilities')
+    invoke<OverlayPositioningCapabilities>("get_overlay_positioning_capabilities")
       .then(setOverlayPositioningCapabilities)
-      .catch(e => {
+      .catch((e) => {
         setOverlayPositioningCapabilities({
           manual_offset_supported: false,
-          detail: 'Manual overlay position adjustment is not available on your system.',
+          detail: "Manual overlay position adjustment is not available on your system.",
         });
-        console.log('Overlay positioning capabilities unavailable:', e);
+        console.log("Overlay positioning capabilities unavailable:", e);
       });
 
     syncRouteFromHash();
 
     return () => {
-      window.removeEventListener('hashchange', syncRouteFromHash);
+      window.removeEventListener("hashchange", syncRouteFromHash);
     };
   }, []);
 
@@ -259,7 +280,7 @@ function App() {
     }
 
     if (replace) {
-      window.history.replaceState(null, '', nextHash);
+      window.history.replaceState(null, "", nextHash);
       setActiveRoute(route);
       return;
     }
@@ -271,16 +292,16 @@ function App() {
     // Log key interaction traces always; drop other spam unless debug mode
     if (
       !config.debug_mode &&
-      !msg.includes('Button clicked') &&
-      !msg.includes('Toast') &&
-      !msg.includes('Setting changed') &&
-      !msg.includes('Switch toggled')
+      !msg.includes("Button clicked") &&
+      !msg.includes("Toast") &&
+      !msg.includes("Setting changed") &&
+      !msg.includes("Switch toggled")
     ) {
       return;
     }
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] ${msg}`);
-    invoke('log_ui_event', { message: msg }).catch((err) => {
+    invoke("log_ui_event", { message: msg }).catch((err) => {
       console.error(`Failed to send log to backend: ${err}`);
     });
   };
@@ -288,20 +309,20 @@ function App() {
   const lastCommittedConfigRef = useRef<Config | null>(null);
 
   const formatConfigValueForLog = (key: keyof Config, value: Config[keyof Config]) => {
-    if (key === 'openai_api_key') {
-      const length = typeof value === 'string' ? value.length : 0;
-      return length > 0 ? `[redacted:${length} chars]` : '[empty]';
+    if (key === "openai_api_key") {
+      const length = typeof value === "string" ? value.length : 0;
+      return length > 0 ? `[redacted:${length} chars]` : "[empty]";
     }
 
-    if (key === 'shortcuts_token' || key === 'input_token') {
-      return '[redacted-token]';
+    if (key === "shortcuts_token" || key === "input_token") {
+      return "[redacted-token]";
     }
 
     if (value === null || value === undefined) {
-      return 'null';
+      return "null";
     }
 
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       return value;
     }
 
@@ -315,87 +336,95 @@ function App() {
     loadHistory();
     loadModels();
     checkSetupStatus();
-    
-    getVersion().then(setAppVersion).catch(err => console.error("Failed to get version:", err));
+
+    getVersion()
+      .then(setAppVersion)
+      .catch((err) => console.error("Failed to get version:", err));
     void checkForUpdates(false);
     isAutostartEnabled()
       .then(setAutostartEnabled)
       .catch((error) => {
-        console.log('Autostart state unavailable:', error);
+        console.log("Autostart state unavailable:", error);
       });
 
-    const unlistenPressed = listen('hotkey-pressed', () => {
-      setCurrentStatus('Recording');
+    const unlistenPressed = listen("hotkey-pressed", () => {
+      setCurrentStatus("Recording");
     });
 
-    const unlistenReleased = listen('hotkey-released', () => {
-      setCurrentStatus('Transcribing');
+    const unlistenReleased = listen("hotkey-released", () => {
+      setCurrentStatus("Transcribing");
     });
 
-    const unlistenSetup = listen<string>('setup-status', (event) => {
-      if (event.payload === 'configuring-system') {
-        showToast('Configuring system permissions...', 'info');
-      } else if (event.payload === 'restart-required') {
-        showToast('Permissions updated! Please restart your session.', 'success');
-      } else if (event.payload === 'setup-failed') {
-        showToast('System configuration failed.', 'error');
+    const unlistenSetup = listen<string>("setup-status", (event) => {
+      if (event.payload === "configuring-system") {
+        showToast("Configuring system permissions...", "info");
+      } else if (event.payload === "restart-required") {
+        showToast("Permissions updated! Please restart your session.", "success");
+      } else if (event.payload === "setup-failed") {
+        showToast("System configuration failed.", "error");
       }
     });
 
-    const unlistenStatus = listen<string | StatusUpdatePayload>('status-update', (event) => {
+    const unlistenStatus = listen<string | StatusUpdatePayload>("status-update", (event) => {
       const payload = event.payload;
-      const nextStatus = typeof payload === 'string' ? payload : payload.status;
+      const nextStatus = typeof payload === "string" ? payload : payload.status;
       setCurrentStatus(nextStatus);
     });
 
-    const unlistenHistory = listen('history-updated', () => {
+    const unlistenHistory = listen("history-updated", () => {
       loadHistory();
     });
 
-    const unlistenConfigUpdated = listen('config-updated', () => {
+    const unlistenConfigUpdated = listen("config-updated", () => {
       loadConfig();
     });
 
-    const unlistenHotkeyBindingState = listen<HotkeyBindingState>('hotkey-binding-state', (event) => {
-      setHotkeyBindingState(event.payload);
-    });
-    
-    const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
-      setMicTestStatus('playing');
+    const unlistenHotkeyBindingState = listen<HotkeyBindingState>(
+      "hotkey-binding-state",
+      (event) => {
+        setHotkeyBindingState(event.payload);
+      },
+    );
+
+    const unlistenMicTestStarted = listen("mic-test-playback-started", () => {
+      setMicTestStatus("playing");
     });
 
-    const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
-      setMicTestStatus('idle');
+    const unlistenMicTestFinished = listen("mic-test-playback-finished", () => {
+      setMicTestStatus("idle");
       setMicVolume(0);
       setMicTestPassed(true);
     });
 
-    const unlistenMicVolume = listen<number>('mic-test-volume', (event: any) => {
-      setMicVolume(event.payload as number);
+    const unlistenMicVolume = listen<number>("mic-test-volume", (event: Event<number>) => {
+      setMicVolume(event.payload);
     });
 
-    const unlistenDownloadProgress = listen<number>('model-download-progress', (event: any) => {
-      setDownloadProgress(event.payload as number);
-    });
+    const unlistenDownloadProgress = listen<number>(
+      "model-download-progress",
+      (event: Event<number>) => {
+        setDownloadProgress(event.payload);
+      },
+    );
 
     const onFocus = () => {
       checkSetupStatus();
     };
-    window.addEventListener('focus', onFocus);
+    window.addEventListener("focus", onFocus);
 
     return () => {
-      window.removeEventListener('focus', onFocus);
-      unlistenPressed.then((fn: any) => fn());
-      unlistenReleased.then((fn: any) => fn());
-      unlistenSetup.then((fn: any) => fn());
-      unlistenStatus.then((fn: any) => fn());
-      unlistenHistory.then((fn: any) => fn());
-      unlistenConfigUpdated.then((fn: any) => fn());
-      unlistenHotkeyBindingState.then((fn: any) => fn());
-      unlistenMicTestStarted.then((fn: any) => fn());
-      unlistenMicTestFinished.then((fn: any) => fn());
-      unlistenMicVolume.then((fn: any) => fn());
-      unlistenDownloadProgress.then((fn: any) => fn());
+      window.removeEventListener("focus", onFocus);
+      unlistenPressed.then((fn: UnlistenFn) => fn());
+      unlistenReleased.then((fn: UnlistenFn) => fn());
+      unlistenSetup.then((fn: UnlistenFn) => fn());
+      unlistenStatus.then((fn: UnlistenFn) => fn());
+      unlistenHistory.then((fn: UnlistenFn) => fn());
+      unlistenConfigUpdated.then((fn: UnlistenFn) => fn());
+      unlistenHotkeyBindingState.then((fn: UnlistenFn) => fn());
+      unlistenMicTestStarted.then((fn: UnlistenFn) => fn());
+      unlistenMicTestFinished.then((fn: UnlistenFn) => fn());
+      unlistenMicVolume.then((fn: UnlistenFn) => fn());
+      unlistenDownloadProgress.then((fn: UnlistenFn) => fn());
     };
   }, []);
 
@@ -403,17 +432,17 @@ function App() {
   useEffect(() => {
     if (!isRecordingHotkey) return;
 
-    window.addEventListener('keydown', handleHotkeyKeyDown);
-    window.addEventListener('keyup', handleHotkeyKeyUp);
+    window.addEventListener("keydown", handleHotkeyKeyDown);
+    window.addEventListener("keyup", handleHotkeyKeyUp);
 
     return () => {
-      window.removeEventListener('keydown', handleHotkeyKeyDown);
-      window.removeEventListener('keyup', handleHotkeyKeyUp);
+      window.removeEventListener("keydown", handleHotkeyKeyDown);
+      window.removeEventListener("keyup", handleHotkeyKeyUp);
     };
   }, [isRecordingHotkey, recordedKeys]);
 
   useEffect(() => {
-    if (config.transcription_mode === 'Local' && availableModels.length === 0) {
+    if (config.transcription_mode === "Local" && availableModels.length === 0) {
       loadModels();
     }
   }, [config.transcription_mode]);
@@ -426,18 +455,18 @@ function App() {
 
   const checkSetupStatus = async () => {
     try {
-      const perms = await invoke<LinuxPermissions>('get_linux_setup_status');
+      const perms = await invoke<LinuxPermissions>("get_linux_setup_status");
       setPermissions(perms);
-      if (typeof perms.manual_overlay_offset_supported === 'boolean') {
+      if (typeof perms.manual_overlay_offset_supported === "boolean") {
         setOverlayPositioningCapabilities({
           manual_offset_supported: perms.manual_overlay_offset_supported,
           detail: perms.overlay_positioning_detail,
         });
       }
-      const bindingState = await invoke<HotkeyBindingState>('get_hotkey_binding_state');
+      const bindingState = await invoke<HotkeyBindingState>("get_hotkey_binding_state");
       setHotkeyBindingState(bindingState);
     } catch (error) {
-      console.error('Failed to check setup status:', error);
+      console.error("Failed to check setup status:", error);
     } finally {
       setHasLoadedSetupStatus(true);
     }
@@ -446,22 +475,22 @@ function App() {
   const handleAudioSetup = async () => {
     setSetupTouched(true);
     try {
-      await invoke('request_audio_permission');
-      showToast('Audio permission granted!', 'success');
+      await invoke("request_audio_permission");
+      showToast("Audio permission granted!", "success");
       await checkSetupStatus();
     } catch (error) {
-      showToast(`Failed to get audio permission: ${error}`, 'error');
+      showToast(`Failed to get audio permission: ${error}`, "error");
     }
   };
 
   const handleInputSetup = async () => {
     setSetupTouched(true);
     try {
-      await invoke('request_input_permission');
-      showToast('Input permission granted!', 'success');
+      await invoke("request_input_permission");
+      showToast("Input permission granted!", "success");
       await checkSetupStatus();
     } catch (error) {
-      showToast(`Failed to get input permission: ${error}`, 'error');
+      showToast(`Failed to get input permission: ${error}`, "error");
     }
   };
 
@@ -471,21 +500,21 @@ function App() {
 
     try {
       setIsApplyingHotkey(true);
-      const result = await invoke<ConfigureHotkeyResult>('configure_hotkey');
+      const result = await invoke<ConfigureHotkeyResult>("configure_hotkey");
 
-      if (result.outcome === 'requires_in_app_capture') {
+      if (result.outcome === "requires_in_app_capture") {
         setShowHotkeyCaptureModal(true);
         await setRecordingState(true);
         setRecordedKeys(new Set());
-        showToast('Press your desired key combination in the modal.', 'info');
-      } else if (result.outcome === 'system_managed') {
+        showToast("Press your desired key combination in the modal.", "info");
+      } else if (result.outcome === "system_managed") {
         setShowSystemShortcutModal(true);
       } else {
-        showToast(result.detail || 'Shortcut configured successfully!', 'success');
+        showToast(result.detail || "Shortcut configured successfully!", "success");
         await checkSetupStatus();
       }
     } catch (error) {
-      showToast(`Failed to configure shortcut: ${error}`, 'error');
+      showToast(`Failed to configure shortcut: ${error}`, "error");
     } finally {
       setIsApplyingHotkey(false);
     }
@@ -494,12 +523,12 @@ function App() {
   const applyCapturedHotkey = async (capturedHotkey: string) => {
     try {
       setIsApplyingHotkey(true);
-      updateConfig('hotkey', capturedHotkey);
-      await invoke<ConfigureHotkeyResult>('apply_captured_hotkey', { newHotkey: capturedHotkey });
-      showToast('Shortcut configured successfully!', 'success');
+      updateConfig("hotkey", capturedHotkey);
+      await invoke<ConfigureHotkeyResult>("apply_captured_hotkey", { newHotkey: capturedHotkey });
+      showToast("Shortcut configured successfully!", "success");
       await checkSetupStatus();
     } catch (error) {
-      showToast(`Failed to apply captured shortcut: ${error}`, 'error');
+      showToast(`Failed to apply captured shortcut: ${error}`, "error");
     } finally {
       await setRecordingState(false);
       setRecordedKeys(new Set());
@@ -510,13 +539,13 @@ function App() {
 
   const loadConfig = async () => {
     try {
-      const savedConfig = await invoke<Config>('get_config');
+      const savedConfig = await invoke<Config>("get_config");
       setConfig({
         ...savedConfig,
-        typing_speed_interval: Math.round(savedConfig.typing_speed_interval * 1000)
+        typing_speed_interval: Math.round(savedConfig.typing_speed_interval * 1000),
       });
     } catch (error) {
-      showToast(`Failed to load config: ${error}`, 'error');
+      showToast(`Failed to load config: ${error}`, "error");
     } finally {
       setHasLoadedConfig(true);
     }
@@ -524,10 +553,10 @@ function App() {
 
   const loadMics = async () => {
     try {
-      const devices = await invoke<AudioDevice[]>('get_audio_devices');
+      const devices = await invoke<AudioDevice[]>("get_audio_devices");
       setAvailableMics(devices);
     } catch (error) {
-      showToast(`Failed to load microphones: ${error}`, 'error');
+      showToast(`Failed to load microphones: ${error}`, "error");
     } finally {
       setHasLoadedMics(true);
     }
@@ -535,35 +564,38 @@ function App() {
 
   const loadHistory = async () => {
     try {
-      const savedHistory = await invoke<any>('get_history');
+      const savedHistory = await invoke<HistoryResponse>("get_history");
       setHistory(savedHistory.items || []);
     } catch (error) {
-      console.error('Failed to load history:', error);
+      console.error("Failed to load history:", error);
     }
   };
 
   const loadModels = async () => {
-    console.log('📡 Fetching available models...');
+    console.log("📡 Fetching available models...");
     try {
-      const engines = await invoke<string[]>('get_available_engines');
+      const engines = await invoke<string[]>("get_available_engines");
       setAvailableEngines(engines || []);
 
-      const models = await invoke<any[]>('get_available_models');
-      console.log('✅ Models received:', models);
+      const models = await invoke<LocalModel[]>("get_available_models");
+      console.log("✅ Models received:", models);
       if (!models || models.length === 0) {
-        console.warn('⚠️ No models returned from backend.');
+        console.warn("⚠️ No models returned from backend.");
       }
       setAvailableModels(models || []);
-      
+
       const status: Record<string, boolean> = {};
-      for (const model of (models || [])) {
+      for (const model of models || []) {
         const statusKey = `${model.engine}:${model.size}`;
-        status[statusKey] = await invoke<boolean>('check_model_status', { modelSize: model.size, engine: model.engine });
+        status[statusKey] = await invoke<boolean>("check_model_status", {
+          modelSize: model.size,
+          engine: model.engine,
+        });
       }
       setModelStatus(status);
     } catch (error) {
-      console.error('❌ Failed to load models:', error);
-      showToast(`Failed to load models: ${error}`, 'error');
+      console.error("❌ Failed to load models:", error);
+      showToast(`Failed to load models: ${error}`, "error");
     } finally {
       setHasLoadedModels(true);
     }
@@ -575,11 +607,14 @@ function App() {
     setIsDownloading(true);
     setDownloadProgress(0);
     try {
-      await invoke('download_model', { modelSize: size, engine: selectedModel?.engine || config.local_engine });
-      showToast(`${size} model downloaded successfully!`, 'success');
+      await invoke("download_model", {
+        modelSize: size,
+        engine: selectedModel?.engine || config.local_engine,
+      });
+      showToast(`${size} model downloaded successfully!`, "success");
       loadModels();
     } catch (error) {
-      showToast(`Failed to download model: ${error}`, 'error');
+      showToast(`Failed to download model: ${error}`, "error");
     } finally {
       setIsDownloading(false);
       setDownloadProgress(0);
@@ -587,19 +622,22 @@ function App() {
   };
 
   const isTurboWarmEligible =
-    config.transcription_mode === 'Local' &&
-    config.local_engine === 'OpenVINO GenAI' &&
-    config.local_model_size === 'openvino-whisper-large-v3-turbo-int8';
+    config.transcription_mode === "Local" &&
+    config.local_engine === "OpenVINO GenAI" &&
+    config.local_model_size === "openvino-whisper-large-v3-turbo-int8";
 
   useEffect(() => {
-    window.localStorage.setItem('voquill-turbo-warm-eligible', isTurboWarmEligible ? 'true' : 'false');
+    window.localStorage.setItem(
+      "voquill-turbo-warm-eligible",
+      isTurboWarmEligible ? "true" : "false",
+    );
   }, [isTurboWarmEligible]);
 
   useEffect(() => {
-    if (currentStatus === 'Transcribing' && isTurboWarmEligible && !hasShownTurboWarmRef.current) {
+    if (currentStatus === "Transcribing" && isTurboWarmEligible && !hasShownTurboWarmRef.current) {
       hasShownTurboWarmRef.current = true;
       const startedAt = Date.now();
-      window.localStorage.setItem('voquill-turbo-warm-started-at', String(startedAt));
+      window.localStorage.setItem("voquill-turbo-warm-started-at", String(startedAt));
       setTurboWarmStartedAt(startedAt);
       setIsTurboWarmActive(true);
       if (turboWarmTimeoutRef.current !== null) {
@@ -612,33 +650,36 @@ function App() {
       return;
     }
 
-    if (currentStatus !== 'Transcribing') {
+    if (currentStatus !== "Transcribing") {
       setIsTurboWarmActive(false);
       setTurboWarmStartedAt(null);
-      window.localStorage.removeItem('voquill-turbo-warm-started-at');
+      window.localStorage.removeItem("voquill-turbo-warm-started-at");
     }
   }, [currentStatus, isTurboWarmEligible]);
 
-  useEffect(() => () => {
-    if (turboWarmTimeoutRef.current !== null) {
-      window.clearTimeout(turboWarmTimeoutRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (turboWarmTimeoutRef.current !== null) {
+        window.clearTimeout(turboWarmTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   const warmUpModel = async () => {
     setIsWarmingModel(true);
     const selectedModel = availableModels.find((model) => model.size === config.local_model_size);
     const modelLabel = selectedModel?.label || config.local_model_size;
     try {
-      showToast(`Warming ${modelLabel} on ${config.local_accelerator}...`, 'info');
-      await invoke('warm_up_model', {
+      showToast(`Warming ${modelLabel} on ${config.local_accelerator}...`, "info");
+      await invoke("warm_up_model", {
         modelSize: config.local_model_size,
         engine: config.local_engine,
         accelerator: config.local_accelerator,
       });
-      showToast(`${modelLabel} is warm on ${config.local_accelerator}`, 'success');
+      showToast(`${modelLabel} is warm on ${config.local_accelerator}`, "success");
     } catch (error) {
-      showToast(`Failed to warm model: ${error}`, 'error');
+      showToast(`Failed to warm model: ${error}`, "error");
     } finally {
       setIsWarmingModel(false);
     }
@@ -646,20 +687,20 @@ function App() {
 
   const clearHistory = async () => {
     try {
-      await invoke('clear_history');
+      await invoke("clear_history");
       setHistory([]);
-      showToast('History cleared', 'success');
-    } catch (error) {
-      showToast('Failed to clear history', 'error');
+      showToast("History cleared", "success");
+    } catch (_error) {
+      showToast("Failed to clear history", "error");
     }
   };
 
   const copyToClipboard = async (text: string) => {
     try {
-      await invoke('plugin:clipboard-manager|write_text', { text });
-      showToast('Copied to clipboard', 'success');
-    } catch (error) {
-      showToast('Failed to copy', 'error');
+      await invoke("plugin:clipboard-manager|write_text", { text });
+      showToast("Copied to clipboard", "success");
+    } catch (_error) {
+      showToast("Failed to copy", "error");
     }
   };
 
@@ -668,15 +709,15 @@ function App() {
       const configToSave = {
         ...configToPersist,
         typing_speed_interval: configToPersist.typing_speed_interval / 1000,
-        openai_api_key: configToPersist.openai_api_key || 'your_api_key_here',
+        openai_api_key: configToPersist.openai_api_key || "your_api_key_here",
       };
-      await invoke('save_config', { newConfig: configToSave });
+      await invoke("save_config", { newConfig: configToSave });
       if (showSavedConfirmation) {
-        showToast('✓ Saved', 'saved');
+        showToast("✓ Saved", "saved");
       }
     } catch (error) {
-      console.error('Failed to auto-save configuration:', error);
-      showToast(`Failed to save: ${error}`, 'error');
+      console.error("Failed to auto-save configuration:", error);
+      showToast(`Failed to save: ${error}`, "error");
     }
   };
 
@@ -702,65 +743,68 @@ function App() {
 
   useEffect(() => {
     if (availableModels.length > 0) {
-      const modelsForEngine = availableModels.filter(m => m.engine === config.local_engine);
-      const isCurrentModelValid = modelsForEngine.some(m => m.size === config.local_model_size);
-      
+      const modelsForEngine = availableModels.filter((m) => m.engine === config.local_engine);
+      const isCurrentModelValid = modelsForEngine.some((m) => m.size === config.local_model_size);
+
       if (!isCurrentModelValid && modelsForEngine.length > 0) {
         // Find recommended or first model for this engine
-        const recommended = modelsForEngine.find(m => m.recommended) || modelsForEngine[0];
-        updateConfig('local_model_size', recommended.size);
+        const recommended = modelsForEngine.find((m) => m.recommended) || modelsForEngine[0];
+        updateConfig("local_model_size", recommended.size);
       }
     }
   }, [config.local_engine, availableModels]);
 
-  const updateConfig = (key: string, value: any) => {
-    const normalizedValue = key === 'input_sensitivity'
-      ? (() => {
-          const parsedValue = Number(value);
-          if (!Number.isFinite(parsedValue)) {
-            return 1.0;
-          }
-          return Math.min(2.0, Math.max(0.1, parsedValue));
-        })()
-      : value;
-    setConfig(prev => ({ ...prev, [key]: normalizedValue } as Config));
+  const updateConfig = (key: string, value: ConfigValue) => {
+    const normalizedValue =
+      key === "input_sensitivity"
+        ? (() => {
+            const parsedValue = Number(value);
+            if (!Number.isFinite(parsedValue)) {
+              return 1.0;
+            }
+            return Math.min(2.0, Math.max(0.1, parsedValue));
+          })()
+        : value;
+    setConfig((prev) => ({ ...prev, [key]: normalizedValue }) as Config);
   };
 
-  const toggleOutputMethod = (method: 'Typewriter' | 'Clipboard') => {
+  const toggleOutputMethod = (method: "Typewriter" | "Clipboard") => {
     logUI(`🖱️ Output Method changed to: ${method}`);
-    updateConfig('output_method', method);
+    updateConfig("output_method", method);
   };
 
   const startMicTest = async () => {
     try {
-      setMicTestStatus('recording');
-      await invoke('start_mic_test');
+      setMicTestStatus("recording");
+      await invoke("start_mic_test");
     } catch (error) {
-      setMicTestStatus('idle');
-      showToast(`Failed to start mic test: ${error}`, 'error');
+      setMicTestStatus("idle");
+      showToast(`Failed to start mic test: ${error}`, "error");
     }
   };
 
   const stopMicTest = async () => {
-    setMicTestStatus('processing');
+    setMicTestStatus("processing");
     try {
-      await invoke('stop_mic_test');
+      await invoke("stop_mic_test");
     } catch (error) {
-      setMicTestStatus('idle');
-      showToast(`Failed to stop mic test: ${error}`, 'error');
+      setMicTestStatus("idle");
+      showToast(`Failed to stop mic test: ${error}`, "error");
     }
   };
 
   const stopMicPlayback = async () => {
     try {
-      await invoke('stop_mic_playback');
-      setMicTestStatus('idle');
+      await invoke("stop_mic_playback");
+      setMicTestStatus("idle");
     } catch (error) {
-      showToast(`Failed to stop playback: ${error}`, 'error');
+      showToast(`Failed to stop playback: ${error}`, "error");
     }
   };
 
-  const isLocalModelReady = config.transcription_mode !== 'Local' || !!modelStatus[`${config.local_engine}:${config.local_model_size}`];
+  const isLocalModelReady =
+    config.transcription_mode !== "Local" ||
+    !!modelStatus[`${config.local_engine}:${config.local_model_size}`];
   const isAudioDeviceReady = availableMics.length > 0 && !!config.audio_device;
   const isPortalSetupReady =
     !!permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
@@ -768,18 +812,19 @@ function App() {
 
   const openDebugFolder = async () => {
     try {
-      await invoke('open_debug_folder');
-    } catch (error) {
-      showToast('Failed to open debug folder', 'error');
+      await invoke("open_debug_folder");
+    } catch (_error) {
+      showToast("Failed to open debug folder", "error");
     }
   };
 
   const openLatestReleasePage = async () => {
-    const releaseUrl = updateResult?.releaseUrl || 'https://github.com/jackbrumley/voquill/releases/latest';
+    const releaseUrl =
+      updateResult?.releaseUrl || "https://github.com/jackbrumley/voquill/releases/latest";
     try {
       await open(releaseUrl);
     } catch (error) {
-      showToast(`Failed to open release page: ${error}`, 'error');
+      showToast(`Failed to open release page: ${error}`, "error");
     }
   };
 
@@ -790,20 +835,20 @@ function App() {
 
     setCheckingUpdates(true);
     try {
-      const result = await invoke<UpdateCheckResult>('check_for_updates');
+      const result = await invoke<UpdateCheckResult>("check_for_updates");
       setUpdateResult(result);
       setLastCheckedAt(Date.now());
       if (result.updateAvailable || showUpToDateModal) {
         setShowUpdateModal(true);
       }
       if (!result.updateAvailable && showUpToDateModal) {
-        showToast('You are already on the latest version.', 'info');
+        showToast("You are already on the latest version.", "info");
       }
     } catch (error) {
       if (showUpToDateModal) {
-        showToast(`Failed to check for updates: ${error}`, 'error');
+        showToast(`Failed to check for updates: ${error}`, "error");
       } else {
-        console.log('Background update check failed:', error);
+        console.log("Background update check failed:", error);
       }
     } finally {
       setCheckingUpdates(false);
@@ -818,20 +863,20 @@ function App() {
         await disableAutostart();
       }
       setAutostartEnabled(enabled);
-      showToast(`Auto-start ${enabled ? 'enabled' : 'disabled'}`, 'success');
+      showToast(`Auto-start ${enabled ? "enabled" : "disabled"}`, "success");
     } catch (error) {
-      showToast(`Failed to toggle auto-start: ${error}`, 'error');
+      showToast(`Failed to toggle auto-start: ${error}`, "error");
     }
   };
 
   const getLastCheckedLabel = () => {
     if (!lastCheckedAt) {
-      return 'Not checked yet';
+      return "Not checked yet";
     }
 
     const elapsedMs = Date.now() - lastCheckedAt;
     if (elapsedMs < 60_000) {
-      return 'Just now';
+      return "Just now";
     }
 
     const elapsedMinutes = Math.floor(elapsedMs / 60_000);
@@ -845,86 +890,87 @@ function App() {
     }
 
     const elapsedDays = Math.floor(elapsedHours / 24);
-    return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
+    return `${elapsedDays} day${elapsedDays === 1 ? "" : "s"} ago`;
   };
 
   const testApiKey = async () => {
     setIsTestingApi(true);
     try {
-      const isValid = await invoke<boolean>('test_api_key', { 
+      const isValid = await invoke<boolean>("test_api_key", {
         apiKey: config.openai_api_key,
-        apiUrl: config.api_url 
+        apiUrl: config.api_url,
       });
       if (isValid) {
-        showToast('API Key is valid!', 'success');
+        showToast("API Key is valid!", "success");
       } else {
-        showToast('API Key is invalid or rate limited.', 'error');
+        showToast("API Key is invalid or rate limited.", "error");
       }
     } catch (error) {
-      showToast(`API Test Failed: ${error}`, 'error');
+      showToast(`API Test Failed: ${error}`, "error");
     } finally {
       setIsTestingApi(false);
     }
   };
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'saved' = 'info') => {
+  const showToast = (message: string, type: "success" | "error" | "info" | "saved" = "info") => {
     // Log to console/backend
-    const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'saved' ? '💾' : 'ℹ️';
+    const emoji =
+      type === "success" ? "✅" : type === "error" ? "❌" : type === "saved" ? "💾" : "ℹ️";
     logUI(`${emoji} Toast: ${message}`);
 
     const id = Date.now();
-    setToasts(prev => {
-      if (type === 'saved') {
-        return [...prev.filter(toast => toast.type !== 'saved'), { id, message, type }];
+    setToasts((prev) => {
+      if (type === "saved") {
+        return [...prev.filter((toast) => toast.type !== "saved"), { id, message, type }];
       }
       return [...prev, { id, message, type }];
     });
-    
+
     // Errors stay longer (10s), saved confirmations are brief, others 3s
-    const duration = type === 'error' ? 10000 : type === 'saved' ? 900 : 3000;
-    
+    const duration = type === "error" ? 10000 : type === "saved" ? 900 : 3000;
+
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
+      setToasts((prev) => prev.filter((t) => t.id !== id));
     }, duration);
   };
 
   const handleToastClick = async (toast: Toast) => {
-    if (toast.type === 'saved') {
-      setToasts(prev => prev.filter(t => t.id !== toast.id));
+    if (toast.type === "saved") {
+      setToasts((prev) => prev.filter((t) => t.id !== toast.id));
       return;
     }
 
     try {
-      await invoke('plugin:clipboard-manager|write_text', { text: toast.message });
+      await invoke("plugin:clipboard-manager|write_text", { text: toast.message });
     } catch (error) {
-      console.error('Failed to copy toast message:', error);
+      console.error("Failed to copy toast message:", error);
     } finally {
-      setToasts(prev => prev.filter(t => t.id !== toast.id));
+      setToasts((prev) => prev.filter((t) => t.id !== toast.id));
     }
   };
 
   const copySessionLogs = async () => {
     try {
-      await invoke('copy_session_log_to_clipboard');
-      showToast('Log copied to clipboard.', 'success');
+      await invoke("copy_session_log_to_clipboard");
+      showToast("Log copied to clipboard.", "success");
     } catch (error) {
-      showToast(`Failed to copy log: ${error}`, 'error');
+      showToast(`Failed to copy log: ${error}`, "error");
     }
   };
 
   const openSessionLog = async () => {
     try {
-      await invoke('open_session_log');
+      await invoke("open_session_log");
     } catch (error) {
-      showToast(`Failed to open log file: ${error}`, 'error');
+      showToast(`Failed to open log file: ${error}`, "error");
     }
   };
 
   const handleFactoryReset = async () => {
     try {
-      await invoke('reset_application_to_defaults');
+      await invoke("reset_application_to_defaults");
       setShowFactoryResetModal(false);
-      showToast('Factory reset completed.', 'success');
+      showToast("Factory reset completed.", "success");
 
       await Promise.all([
         loadConfig(),
@@ -936,15 +982,15 @@ function App() {
 
       setSetupTouched(false);
       setInitialRouteChecked(false);
-      navigate('setup', true);
+      navigate("setup", true);
     } catch (error) {
-      showToast(`Factory reset failed: ${error}`, 'error');
+      showToast(`Factory reset failed: ${error}`, "error");
     }
   };
 
   const handleClose = async () => {
     try {
-      await invoke('quit_application');
+      await invoke("quit_application");
     } catch {
       await getCurrentWindow().close();
     }
@@ -952,10 +998,13 @@ function App() {
 
   const handleMinimize = async () => {
     try {
-      const target = await invoke<string>('minimize_to_tray_or_taskbar');
-      if (target === 'taskbar' && !trayFallbackNotifiedRef.current) {
+      const target = await invoke<string>("minimize_to_tray_or_taskbar");
+      if (target === "taskbar" && !trayFallbackNotifiedRef.current) {
         trayFallbackNotifiedRef.current = true;
-        showToast('System tray is unavailable on this desktop. Minimized to taskbar instead.', 'info');
+        showToast(
+          "System tray is unavailable on this desktop. Minimized to taskbar instead.",
+          "info",
+        );
       }
     } catch {
       await getCurrentWindow().minimize();
@@ -964,34 +1013,44 @@ function App() {
 
   const normalizeHotkey = (keys: Set<string>): string => {
     const modifiers: string[] = [];
-    let primaryKey = '';
+    let primaryKey = "";
 
-    keys.forEach(key => {
+    keys.forEach((key) => {
       const lower = key.toLowerCase();
-      if (lower === 'control' || lower === 'controlleft' || lower === 'controlright') modifiers.push('Ctrl');
-      else if (lower === 'shift' || lower === 'shiftleft' || lower === 'shiftright') modifiers.push('Shift');
-      else if (lower === 'alt' || lower === 'altleft' || lower === 'altright') modifiers.push('Alt');
-      else if (lower === 'meta' || lower === 'metaleft' || lower === 'metaright' || lower === 'osleft' || lower === 'osright') modifiers.push('Super');
-      else if (key.startsWith('Key')) {
+      if (lower === "control" || lower === "controlleft" || lower === "controlright")
+        modifiers.push("Ctrl");
+      else if (lower === "shift" || lower === "shiftleft" || lower === "shiftright")
+        modifiers.push("Shift");
+      else if (lower === "alt" || lower === "altleft" || lower === "altright")
+        modifiers.push("Alt");
+      else if (
+        lower === "meta" ||
+        lower === "metaleft" ||
+        lower === "metaright" ||
+        lower === "osleft" ||
+        lower === "osright"
+      )
+        modifiers.push("Super");
+      else if (key.startsWith("Key")) {
         // Handle KeyA, KeyB, etc.
         primaryKey = key.slice(3); // "KeyA" -> "A"
-      } else if (key === 'Space') {
-        primaryKey = 'Space';
+      } else if (key === "Space") {
+        primaryKey = "Space";
       } else {
         // Other keys like F1, Escape, etc.
         primaryKey = key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
       }
     });
 
-    return [...modifiers.sort(), primaryKey].filter(Boolean).join('+');
+    return [...modifiers.sort(), primaryKey].filter(Boolean).join("+");
   };
 
   const setRecordingState = async (isRecording: boolean) => {
     setIsRecordingHotkey(isRecording);
     try {
-      await invoke('set_configuring_hotkey', { isConfiguring: isRecording });
+      await invoke("set_configuring_hotkey", { isConfiguring: isRecording });
     } catch (e) {
-      console.error('Failed to sync configuring hotkey state', e);
+      console.error("Failed to sync configuring hotkey state", e);
     }
   };
 
@@ -999,7 +1058,7 @@ function App() {
     await setRecordingState(false);
     setRecordedKeys(new Set());
     setShowHotkeyCaptureModal(false);
-    showToast('Hotkey configuration cancelled.', 'info');
+    showToast("Hotkey configuration cancelled.", "info");
   };
 
   const handleHotkeyKeyDown = (e: KeyboardEvent) => {
@@ -1010,36 +1069,36 @@ function App() {
 
     if (e.repeat) return;
 
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       void cancelHotkeyCapture();
       return;
     }
 
     const newKeys = new Set(recordedKeys);
-    if (e.ctrlKey) newKeys.add('Control');
-    if (e.shiftKey) newKeys.add('Shift');
-    if (e.altKey) newKeys.add('Alt');
-    if (e.metaKey) newKeys.add('Meta');
-    
+    if (e.ctrlKey) newKeys.add("Control");
+    if (e.shiftKey) newKeys.add("Shift");
+    if (e.altKey) newKeys.add("Alt");
+    if (e.metaKey) newKeys.add("Meta");
+
     const code = e.code;
     const modifierCodes = [
-      'ControlLeft',
-      'ControlRight',
-      'ShiftLeft',
-      'ShiftRight',
-      'AltLeft',
-      'AltRight',
-      'MetaLeft',
-      'MetaRight',
-      'OSLeft',
-      'OSRight',
+      "ControlLeft",
+      "ControlRight",
+      "ShiftLeft",
+      "ShiftRight",
+      "AltLeft",
+      "AltRight",
+      "MetaLeft",
+      "MetaRight",
+      "OSLeft",
+      "OSRight",
     ];
 
     if (!modifierCodes.includes(code)) {
       newKeys.add(code);
       const normalized = normalizeHotkey(newKeys).toLowerCase();
-      if (!normalized || ['ctrl', 'shift', 'alt', 'super'].includes(normalized)) {
-        showToast('Please include a non-modifier key in the shortcut.', 'error');
+      if (!normalized || ["ctrl", "shift", "alt", "super"].includes(normalized)) {
+        showToast("Please include a non-modifier key in the shortcut.", "error");
         setRecordedKeys(newKeys);
         return;
       }
@@ -1056,7 +1115,8 @@ function App() {
   };
 
   const isAllReady = isPortalSetupReady && isAudioDeviceReady && isLocalModelReady;
-  const startupChecksLoaded = hasLoadedConfig && hasLoadedSetupStatus && hasLoadedMics && hasLoadedModels;
+  const startupChecksLoaded =
+    hasLoadedConfig && hasLoadedSetupStatus && hasLoadedMics && hasLoadedModels;
 
   useEffect(() => {
     if (initialRouteChecked || !startupChecksLoaded) {
@@ -1066,17 +1126,17 @@ function App() {
     const hasExplicitRoute = hashHasExplicitRoute(window.location.hash);
     const currentHashRoute = routeFromHash(window.location.hash);
 
-    if (currentHashRoute === 'ui-lab') {
+    if (currentHashRoute === "ui-lab") {
       setInitialRouteChecked(true);
       return;
     }
 
     if (isAllReady) {
-      if (!hasExplicitRoute || currentHashRoute === 'setup') {
-        navigate('status', true);
+      if (!hasExplicitRoute || currentHashRoute === "setup") {
+        navigate("status", true);
       }
-    } else if (!hasExplicitRoute || currentHashRoute !== 'setup') {
-      navigate('setup', true);
+    } else if (!hasExplicitRoute || currentHashRoute !== "setup") {
+      navigate("setup", true);
     }
 
     setInitialRouteChecked(true);
@@ -1089,7 +1149,7 @@ function App() {
       return;
     }
 
-    if (event.buttons === 1 && !target?.closest('button')) {
+    if (event.buttons === 1 && !target?.closest("button")) {
       event.preventDefault();
       await getCurrentWindow().startDragging();
     }
@@ -1097,7 +1157,7 @@ function App() {
 
   const handleTitleBarDoubleClick = async (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('button')) {
+    if (target?.closest("button")) {
       return;
     }
 
@@ -1127,19 +1187,19 @@ function App() {
   };
 
   const topTabBaseStyle = {
-    border: 'none',
+    border: "none",
     borderRadius: `${tokens.radii.input} ${tokens.radii.input} 0 0`,
-    background: 'transparent',
+    background: "transparent",
     color: tokens.colors.textSecondary,
-    fontSize: '12px',
+    fontSize: "12px",
     fontWeight: 600,
-    letterSpacing: '0.005em',
+    letterSpacing: "0.005em",
     padding: `12px ${tokens.spacing.sm}`,
-    cursor: 'pointer',
+    cursor: "pointer",
     transition: tokens.transitions.normal,
     flex: 1,
-    textAlign: 'center',
-    position: 'relative',
+    textAlign: "center",
+    position: "relative",
     zIndex: 1,
     marginBottom: 0,
   } as const;
@@ -1150,29 +1210,39 @@ function App() {
     return {
       ...topTabBaseStyle,
       background: isActive
-        ? 'rgba(54, 57, 63, 0.5)'
+        ? "rgba(54, 57, 63, 0.5)"
         : isHovered
-          ? 'rgba(255, 255, 255, 0.05)'
-          : 'transparent',
+          ? "rgba(255, 255, 255, 0.05)"
+          : "transparent",
       color: isActive ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-      backdropFilter: isActive ? 'blur(5px)' : undefined,
-      WebkitBackdropFilter: isActive ? 'blur(5px)' : undefined,
-      boxShadow: isActive ? `inset 0 -1px 0 ${tokens.colors.bgPrimary}` : 'none',
+      backdropFilter: isActive ? "blur(5px)" : undefined,
+      WebkitBackdropFilter: isActive ? "blur(5px)" : undefined,
+      boxShadow: isActive ? `inset 0 -1px 0 ${tokens.colors.bgPrimary}` : "none",
     } as const;
   };
 
   return (
     <div style={appShellStyle}>
-      <div style={titleBarStyle} onMouseDown={handleTitleBarMouseDown} onDblClick={handleTitleBarDoubleClick}>
+      <div
+        style={titleBarStyle}
+        onMouseDown={handleTitleBarMouseDown}
+        onDblClick={handleTitleBarDoubleClick}
+      >
         <div style={titleBarTitleStyle}>Voquill</div>
         <div style={titleBarControlsStyle}>
-          <Button variant="titlebarIcon" onClick={handleMinimize}><IconMinus size={14} stroke={2.2} /></Button>
-          <Button variant="titlebarIcon" onClick={() => void toggleWindowMaximize()}><IconSquare size={12} stroke={2.2} /></Button>
-          <Button variant="titlebarClose" onClick={handleClose}><IconX size={14} stroke={2.2} /></Button>
+          <Button variant="titlebarIcon" onClick={handleMinimize}>
+            <IconMinus size={14} stroke={2.2} />
+          </Button>
+          <Button variant="titlebarIcon" onClick={() => void toggleWindowMaximize()}>
+            <IconSquare size={12} stroke={2.2} />
+          </Button>
+          <Button variant="titlebarClose" onClick={handleClose}>
+            <IconX size={14} stroke={2.2} />
+          </Button>
         </div>
       </div>
 
-      {activeRoute === 'setup' ? (
+      {activeRoute === "setup" ? (
         <InitialSetupPage
           permissions={permissions}
           config={config}
@@ -1209,45 +1279,54 @@ function App() {
           onStopMicTest={() => void stopMicTest()}
           onStopMicPlayback={() => void stopMicPlayback()}
           onRefreshStatus={() => void checkSetupStatus()}
-          onFinishSetup={() => navigate('status')}
+          onFinishSetup={() => navigate("status")}
         />
       ) : (
         <>
           <div style={tabNavStyle}>
             <button
               type="button"
-              style={getTopTabStyle('status')}
-              onClick={() => { logUI('🖱️ Button clicked: Status Tab'); navigate('status'); }}
-              onMouseEnter={() => setHoveredTopTab('status')}
+              style={getTopTabStyle("status")}
+              onClick={() => {
+                logUI("🖱️ Button clicked: Status Tab");
+                navigate("status");
+              }}
+              onMouseEnter={() => setHoveredTopTab("status")}
               onMouseLeave={() => setHoveredTopTab(null)}
-              aria-current={activeRoute === 'status' ? 'page' : undefined}
+              aria-current={activeRoute === "status" ? "page" : undefined}
             >
               Status
             </button>
             <button
               type="button"
-              style={getTopTabStyle('history')}
-              onClick={() => { logUI('🖱️ Button clicked: History Tab'); navigate('history'); }}
-              onMouseEnter={() => setHoveredTopTab('history')}
+              style={getTopTabStyle("history")}
+              onClick={() => {
+                logUI("🖱️ Button clicked: History Tab");
+                navigate("history");
+              }}
+              onMouseEnter={() => setHoveredTopTab("history")}
               onMouseLeave={() => setHoveredTopTab(null)}
-              aria-current={activeRoute === 'history' ? 'page' : undefined}
+              aria-current={activeRoute === "history" ? "page" : undefined}
             >
               History
             </button>
             <button
               type="button"
-              style={getTopTabStyle('settings')}
-              onClick={() => { logUI('🖱️ Button clicked: Settings Tab'); navigate('settings'); }}
-              onMouseEnter={() => setHoveredTopTab('settings')}
+              style={getTopTabStyle("settings")}
+              onClick={() => {
+                logUI("🖱️ Button clicked: Settings Tab");
+                navigate("settings");
+              }}
+              onMouseEnter={() => setHoveredTopTab("settings")}
               onMouseLeave={() => setHoveredTopTab(null)}
-              aria-current={activeRoute === 'settings' ? 'page' : undefined}
+              aria-current={activeRoute === "settings" ? "page" : undefined}
             >
               Settings
             </button>
           </div>
 
           <div style={tabContentStyle} ref={tabContentRef}>
-            {activeRoute === 'status' && (
+            {activeRoute === "status" && (
               <StatusPage
                 currentStatus={currentStatus}
                 isTurboWarmActive={isTurboWarmActive}
@@ -1262,7 +1341,7 @@ function App() {
               />
             )}
 
-            {activeRoute === 'settings' && (
+            {activeRoute === "settings" && (
               <ConfigPage
                 config={config}
                 activeConfigSection={activeConfigSection}
@@ -1297,45 +1376,47 @@ function App() {
                 openSessionLog={() => void openSessionLog()}
                 onReopenInitialSetup={() => {
                   setSetupTouched(true);
-                  navigate('setup');
+                  navigate("setup");
                 }}
                 onCopySessionLogs={() => void copySessionLogs()}
                 onFactoryReset={() => setShowFactoryResetModal(true)}
                 checkingUpdates={checkingUpdates}
                 onCheckForUpdates={() => void checkForUpdates(true)}
-                onOpenUiLab={() => navigate('ui-lab')}
+                onOpenUiLab={() => navigate("ui-lab")}
                 autostartEnabled={autostartEnabled}
                 onToggleAutostart={(enabled) => void toggleAutostart(enabled)}
               />
             )}
 
-            {activeRoute === 'history' && (
+            {activeRoute === "history" && (
               <HistoryPage history={history} onCopyToClipboard={copyToClipboard} />
             )}
 
-            {activeRoute === 'ui-lab' && (
+            {activeRoute === "ui-lab" && (
               <UiLabPage
                 appVersion={appVersion}
-                onBackToSettings={() => navigate('settings')}
+                onBackToSettings={() => navigate("settings")}
                 onOpenUpdateModal={() => setShowUpdateModal(true)}
               />
             )}
           </div>
 
-          {activeRoute === 'history' && (
+          {activeRoute === "history" && (
             <ActionFooter>
-              <Button variant="danger" pill floating onClick={clearHistory}>Clear History</Button>
+              <Button variant="danger" pill floating onClick={clearHistory}>
+                Clear History
+              </Button>
             </ActionFooter>
           )}
         </>
       )}
 
       <div style={toastContainerStyle}>
-        {toasts.map(toast => (
+        {toasts.map((toast) => (
           <div
             key={toast.id}
             style={getToastStyle(toast.type)}
-            title={toast.type === 'saved' ? undefined : 'Click to copy'}
+            title={toast.type === "saved" ? undefined : "Click to copy"}
             onClick={() => void handleToastClick(toast)}
           >
             <span style={getToastMessageStyle(toast.type)}>{toast.message}</span>
@@ -1363,8 +1444,16 @@ function App() {
           <p style={helperTextStyle}>
             Press your desired key combination, or press Escape to cancel.
           </p>
-          <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 12px', textAlign: 'center', fontWeight: 700 }}>
-            {isRecordingHotkey ? 'Listening for keys...' : config.hotkey}
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "8px",
+              padding: "10px 12px",
+              textAlign: "center",
+              fontWeight: 700,
+            }}
+          >
+            {isRecordingHotkey ? "Listening for keys..." : config.hotkey}
           </div>
         </Modal>
       )}
@@ -1398,13 +1487,14 @@ function App() {
         >
           <p style={{ ...modalTextIntroStyle, fontSize: tokens.typography.sizeMd }}>
             {systemShortcutContext?.desktop
-              ? `Your ${systemShortcutContext.desktop} desktop manages this shortcut${systemShortcutContext?.distro ? ` on ${systemShortcutContext.distro}` : ''}. To change it, open:`
+              ? `Your ${systemShortcutContext.desktop} desktop manages this shortcut${systemShortcutContext?.distro ? ` on ${systemShortcutContext.distro}` : ""}. To change it, open:`
               : systemShortcutContext?.distro
                 ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open:`
-                : 'Your system manages this shortcut. To change it, open:'}
+                : "Your system manages this shortcut. To change it, open:"}
           </p>
           <p style={modalShortcutPathStyle}>
-            {systemShortcutContext?.settings_path || 'Settings -> Apps -> Voquill -> Global Shortcuts'}
+            {systemShortcutContext?.settings_path ||
+              "Settings -> Apps -> Voquill -> Global Shortcuts"}
           </p>
           {hotkeyBindingState?.active_trigger && (
             <p style={modalShortcutNoteStyle}>
@@ -1412,7 +1502,8 @@ function App() {
             </p>
           )}
           <p style={modalShortcutNoteStyle}>
-            If you can&apos;t find it, you may need to search through your system settings for &quot;Voquill&quot; or &quot;shortcuts&quot;.
+            If you can&apos;t find it, you may need to search through your system settings for
+            &quot;Voquill&quot; or &quot;shortcuts&quot;.
           </p>
         </Modal>
       )}
@@ -1435,7 +1526,8 @@ function App() {
           }
         >
           <p style={modalTextIntroStyle}>
-            This will reset Voquill to defaults and permanently clear downloaded models, logs, and history.
+            This will reset Voquill to defaults and permanently clear downloaded models, logs, and
+            history.
           </p>
           <p style={modalShortcutNoteStyle}>This action cannot be undone.</p>
         </Modal>
@@ -1443,7 +1535,7 @@ function App() {
 
       {showUpdateModal && (
         <Modal
-          title={updateResult?.updateAvailable ? 'Update Available' : 'Voquill is Up to Date'}
+          title={updateResult?.updateAvailable ? "Update Available" : "Voquill is Up to Date"}
           onClose={() => setShowUpdateModal(false)}
           maxWidth="560px"
           footerAlign="center"

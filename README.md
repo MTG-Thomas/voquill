@@ -70,6 +70,7 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 FOSS Voquill was created with a simple premise: **voice dictation should be a basic utility, not a subscription service.**
 
 In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and freedom first:
+
 - **No Backend**: No servers, no cloud, no data collection.
 - **No Accounts**: No logins, no tracking, no onboarding.
 - **Truly Free**: No subscriptions, no paid tiers. Free to use and build on.
@@ -139,7 +140,8 @@ This project is licensed under the GNU Affero General Public License v3.0 - see 
 ---
 
 ### Project Provenance
-*FOSS Voquill is the original project, first published in July 2025. Built to give back to the open-source community. Truly free and Open Source*
+
+_FOSS Voquill is the original project, first published in July 2025. Built to give back to the open-source community. Truly free and Open Source_
 
 <div align="center">
 

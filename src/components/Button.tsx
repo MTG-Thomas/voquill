@@ -1,18 +1,25 @@
-
-import { ComponentChildren, VNode } from 'preact';
-import { useState } from 'preact/hooks';
-import { invoke } from '@tauri-apps/api/core';
-import { tokens } from '../design-tokens.ts';
+import { ComponentChildren, VNode } from "preact";
+import { useState } from "preact/hooks";
+import { invoke } from "@tauri-apps/api/core";
+import { tokens } from "../design-tokens.ts";
 
 interface ButtonProps {
   children: ComponentChildren;
   onClick?: (e: MouseEvent) => void;
-  variant?: 'primary' | 'secondary' | 'configAction' | 'danger' | 'ghost' | 'icon' | 'titlebarIcon' | 'titlebarClose';
-  size?: 'sm' | 'md' | 'lg';
+  variant?:
+    | "primary"
+    | "secondary"
+    | "configAction"
+    | "danger"
+    | "ghost"
+    | "icon"
+    | "titlebarIcon"
+    | "titlebarClose";
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
   className?: string;
   title?: string;
-  type?: 'button' | 'submit' | 'reset';
+  type?: "button" | "submit" | "reset";
   style?: Record<string, string | number>;
   logLabel?: string;
   disableClickLog?: boolean;
@@ -21,7 +28,7 @@ interface ButtonProps {
 }
 
 function extractText(children: ComponentChildren): string {
-  if (typeof children === 'string' || typeof children === 'number') {
+  if (typeof children === "string" || typeof children === "number") {
     return String(children).trim();
   }
 
@@ -29,27 +36,27 @@ function extractText(children: ComponentChildren): string {
     return children
       .map((child) => extractText(child))
       .filter(Boolean)
-      .join(' ')
+      .join(" ")
       .trim();
   }
 
-  if (children && typeof children === 'object') {
-    const vnode = children as VNode<any>;
+  if (children && typeof children === "object") {
+    const vnode = children as VNode<{ children?: ComponentChildren }>;
     return extractText(vnode.props?.children);
   }
 
-  return '';
+  return "";
 }
 
 export const Button = ({
-  children, 
-  onClick, 
-  variant = 'secondary', 
-  size = 'md',
+  children,
+  onClick,
+  variant = "secondary",
+  size = "md",
   disabled = false,
-  className = '',
+  className = "",
   title,
-  type = 'button',
+  type = "button",
   style,
   logLabel,
   disableClickLog = false,
@@ -63,58 +70,58 @@ export const Button = ({
     primary: {
       color: tokens.colors.textPrimary,
       background: tokens.colors.success,
-      border: 'none',
+      border: "none",
     },
     secondary: {
       color: tokens.colors.textPrimary,
       background: tokens.colors.accentPrimary,
-      border: 'none',
+      border: "none",
     },
     configAction: {
       color: tokens.colors.textPrimary,
       background: tokens.colors.accentPrimary,
-      border: '1px solid rgba(255, 255, 255, 0.08)',
-      borderRadius: '40px',
-      padding: '10px 24px',
+      border: "1px solid rgba(255, 255, 255, 0.08)",
+      borderRadius: "40px",
+      padding: "10px 24px",
       fontWeight: 700,
-      boxShadow: 'none',
+      boxShadow: "none",
     },
     danger: {
       color: tokens.colors.textPrimary,
       background: tokens.colors.error,
-      border: 'none',
+      border: "none",
     },
     ghost: {
-      border: '1px solid transparent',
-      background: 'rgba(255, 255, 255, 0.08)',
-      color: '#d9dfe7',
+      border: "1px solid transparent",
+      background: "rgba(255, 255, 255, 0.08)",
+      color: "#d9dfe7",
     },
     icon: {
-      border: '1px solid transparent',
-      background: 'rgba(255, 255, 255, 0.08)',
+      border: "1px solid transparent",
+      background: "rgba(255, 255, 255, 0.08)",
       color: tokens.colors.textPrimary,
-      width: '38px',
-      height: '38px',
+      width: "38px",
+      height: "38px",
       padding: tokens.spacing.sm,
-      borderRadius: '999px',
+      borderRadius: "999px",
     },
     titlebarIcon: {
-      border: '1px solid transparent',
-      background: 'rgba(255, 255, 255, 0.1)',
+      border: "1px solid transparent",
+      background: "rgba(255, 255, 255, 0.1)",
       color: tokens.colors.textPrimary,
-      width: '30px',
-      height: '30px',
+      width: "30px",
+      height: "30px",
       padding: 0,
-      borderRadius: '999px',
+      borderRadius: "999px",
     },
     titlebarClose: {
-      border: '1px solid transparent',
-      background: 'rgba(239, 68, 68, 0.28)',
+      border: "1px solid transparent",
+      background: "rgba(239, 68, 68, 0.28)",
       color: tokens.colors.textPrimary,
-      width: '30px',
-      height: '30px',
+      width: "30px",
+      height: "30px",
       padding: 0,
-      borderRadius: '999px',
+      borderRadius: "999px",
     },
   };
 
@@ -125,30 +132,30 @@ export const Button = ({
   };
 
   const hoverStyles: Record<string, Record<string, string | number>> = {
-    primary: { background: '#0ea371', transform: 'translateY(-2px)' },
-    secondary: { background: tokens.colors.accentHover, transform: 'translateY(-2px)' },
-    configAction: { background: tokens.colors.accentHover, filter: 'brightness(1.04)' },
-    danger: { background: '#ff5f5f', transform: 'translateY(-2px)' },
-    ghost: { background: 'rgba(255, 255, 255, 0.14)', transform: 'translateY(-1px)' },
-    icon: { background: 'rgba(255, 255, 255, 0.14)', transform: 'translateY(-1px)' },
+    primary: { background: "#0ea371", transform: "translateY(-2px)" },
+    secondary: { background: tokens.colors.accentHover, transform: "translateY(-2px)" },
+    configAction: { background: tokens.colors.accentHover, filter: "brightness(1.04)" },
+    danger: { background: "#ff5f5f", transform: "translateY(-2px)" },
+    ghost: { background: "rgba(255, 255, 255, 0.14)", transform: "translateY(-1px)" },
+    icon: { background: "rgba(255, 255, 255, 0.14)", transform: "translateY(-1px)" },
     titlebarIcon: {
-      background: 'rgba(255, 255, 255, 0.3)',
+      background: "rgba(255, 255, 255, 0.3)",
     },
     titlebarClose: {
-      background: 'rgba(239, 68, 68, 0.58)',
+      background: "rgba(239, 68, 68, 0.58)",
     },
   };
 
   const baseStyle: Record<string, string | number> = {
-    background: 'transparent',
-    border: '2px solid transparent',
+    background: "transparent",
+    border: "2px solid transparent",
     borderRadius: tokens.radii.button,
-    cursor: disabled ? 'not-allowed' : 'pointer',
+    cursor: disabled ? "not-allowed" : "pointer",
     fontWeight: 600,
     transition: tokens.transitions.normal,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
     gap: tokens.spacing.sm,
     opacity: disabled ? 0.5 : 1,
     color: disabled ? tokens.colors.textMuted : tokens.colors.textPrimary,
@@ -159,26 +166,26 @@ export const Button = ({
     ...sizeStyles[size],
     ...variantStyles[variant],
     ...(hovered && !disabled ? hoverStyles[variant] : {}),
-    ...(pressed && !disabled && !['titlebarIcon', 'titlebarClose'].includes(variant)
-      ? { transform: 'translateY(0)', filter: 'brightness(0.9)' }
+    ...(pressed && !disabled && !["titlebarIcon", "titlebarClose"].includes(variant)
+      ? { transform: "translateY(0)", filter: "brightness(0.9)" }
       : {}),
-    ...(pill ? { borderRadius: '40px' } : {}),
+    ...(pill ? { borderRadius: "40px" } : {}),
     ...(floating
       ? {
-          pointerEvents: 'auto',
-          padding: '12px 32px',
-          borderRadius: '40px',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          pointerEvents: "auto",
+          padding: "12px 32px",
+          borderRadius: "40px",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
           boxShadow: `${tokens.shadows.lg}, 0 8px 30px rgba(0, 0, 0, 0.5)`,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: "1px solid rgba(255, 255, 255, 0.1)",
         }
       : {}),
     ...(floating && hovered && !disabled
       ? {
-          transform: 'translateY(-4px)',
+          transform: "translateY(-4px)",
           boxShadow: `${tokens.shadows.lg}, 0 12px 40px rgba(0, 0, 0, 0.6)`,
-          filter: 'brightness(1.1)',
+          filter: "brightness(1.1)",
         }
       : {}),
     ...style,
@@ -186,8 +193,8 @@ export const Button = ({
 
   const handleClick = (e: MouseEvent) => {
     if (!disableClickLog) {
-      const label = logLabel || title || extractText(children) || 'Unnamed Button';
-      invoke('log_ui_event', { message: `🖱️ Button clicked: ${label}` }).catch(() => {});
+      const label = logLabel || title || extractText(children) || "Unnamed Button";
+      invoke("log_ui_event", { message: `🖱️ Button clicked: ${label}` }).catch(() => {});
     }
     onClick?.(e);
   };

@@ -1,24 +1,32 @@
-import { IconRefresh, IconRocket } from '@tabler/icons-preact';
-import { ConfigField } from '../components/ConfigField.tsx';
-import { Switch } from '../components/Switch.tsx';
-import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
-import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
-import { Button } from '../components/Button.tsx';
-import { NumberField } from '../components/NumberField.tsx';
-import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
-import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
-import { SelectField } from '../components/SelectField.tsx';
-import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
-import { tokens } from '../design-tokens.ts';
+import { IconRefresh, IconRocket } from "@tabler/icons-preact";
+import { ConfigField } from "../components/ConfigField.tsx";
+import { Switch } from "../components/Switch.tsx";
+import { CollapsibleSection } from "../components/CollapsibleSection.tsx";
+import { ModeSwitcher } from "../components/ModeSwitcher.tsx";
+import { Button } from "../components/Button.tsx";
+import { NumberField } from "../components/NumberField.tsx";
+import { MicSetupPanel } from "../components/MicSetupPanel.tsx";
+import { ModelSelectionPanel, type LocalModel } from "../components/ModelSelectionPanel.tsx";
+import { SelectField } from "../components/SelectField.tsx";
+import {
+  helperTextStyle,
+  inputBaseStyle,
+  selectWrapperStyle,
+  tabPanelContentStyle,
+  tabPanelStyle,
+} from "../theme/ui-primitives.ts";
+import { tokens } from "../design-tokens.ts";
 
 interface AudioDevice {
   id: string;
   label: string;
 }
 
+type ConfigValue = string | number | boolean | null;
+
 interface ConfigPageProps {
   config: {
-    transcription_mode: 'API' | 'Local';
+    transcription_mode: "API" | "Local";
     local_model_size: string;
     local_engine: string;
     local_accelerator: string;
@@ -29,7 +37,7 @@ interface ConfigPageProps {
     api_model: string;
     copy_on_typewriter: boolean;
     streaming_typewriter: boolean;
-    output_method: 'Typewriter' | 'Clipboard';
+    output_method: "Typewriter" | "Clipboard";
     audio_device: string | null;
     input_sensitivity: number;
     typing_speed_interval: number;
@@ -42,7 +50,7 @@ interface ConfigPageProps {
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
   availableEngines: string[];
-  availableModels: any[];
+  availableModels: LocalModel[];
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
   isDownloading: boolean;
@@ -53,10 +61,10 @@ interface ConfigPageProps {
   hotkeyBindingState: { bound: boolean; active_trigger?: string } | null;
   isApplyingHotkey: boolean;
   availableMics: AudioDevice[];
-  micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
+  micTestStatus: "idle" | "recording" | "playing" | "processing";
   micVolume: number;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
-  updateConfig: (key: string, value: any) => void;
+  updateConfig: (key: string, value: ConfigValue) => void;
   testApiKey: () => void;
   downloadModel: (size: string) => void;
   warmUpModel: () => void;
@@ -80,18 +88,18 @@ interface ConfigPageProps {
 }
 
 const languageOptions = [
-  { value: 'auto', label: 'Automatic Detection' },
-  { value: 'en-AU', label: 'English (Australia)' },
-  { value: 'en-GB', label: 'English (United Kingdom)' },
-  { value: 'en-US', label: 'English (United States)' },
-  { value: 'fr', label: 'French' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'de', label: 'German' },
-  { value: 'it', label: 'Italian' },
-  { value: 'pt', label: 'Portuguese' },
-  { value: 'nl', label: 'Dutch' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'zh', label: 'Chinese' },
+  { value: "auto", label: "Automatic Detection" },
+  { value: "en-AU", label: "English (Australia)" },
+  { value: "en-GB", label: "English (United Kingdom)" },
+  { value: "en-US", label: "English (United States)" },
+  { value: "fr", label: "French" },
+  { value: "es", label: "Spanish" },
+  { value: "de", label: "German" },
+  { value: "it", label: "Italian" },
+  { value: "pt", label: "Portuguese" },
+  { value: "nl", label: "Dutch" },
+  { value: "ja", label: "Japanese" },
+  { value: "zh", label: "Chinese" },
 ];
 
 export function ConfigPage(props: ConfigPageProps) {
@@ -138,8 +146,8 @@ export function ConfigPage(props: ConfigPageProps) {
   } = props;
 
   const configGhostPillStyle = {
-    borderRadius: '40px',
-    padding: '10px 24px',
+    borderRadius: "40px",
+    padding: "10px 24px",
     fontWeight: 700,
   } as const;
 
@@ -147,70 +155,144 @@ export function ConfigPage(props: ConfigPageProps) {
   const selectedModelReady = !!modelStatus[selectedModelStatusKey];
 
   return (
-    <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="settings">
-      <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0 }}>
-        <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
-          <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
+    <div style={{ ...tabPanelStyle, overflow: "auto", padding: 0 }} key="settings">
+      <div style={{ ...tabPanelContentStyle, maxWidth: "100%", margin: 0 }}>
+        <CollapsibleSection
+          title="General"
+          isOpen={activeConfigSection === "general"}
+          onToggle={() =>
+            setActiveConfigSection(activeConfigSection === "general" ? null : "general")
+          }
+        >
+          <ConfigField
+            label="Output Method"
+            description="Choose how transcriptions are inserted when dictation finishes."
+          >
             <ModeSwitcher
               value={config.output_method}
-              onToggle={(value) => updateConfig('output_method', value)}
+              onToggle={(value) => updateConfig("output_method", value)}
               options={[
-                { value: 'Typewriter', label: 'Typewriter', title: 'Type directly into your active cursor' },
-                { value: 'Clipboard', label: 'Clipboard', title: 'Copy transcription results to your clipboard' },
+                {
+                  value: "Typewriter",
+                  label: "Typewriter",
+                  title: "Type directly into your active cursor",
+                },
+                {
+                  value: "Clipboard",
+                  label: "Clipboard",
+                  title: "Copy transcription results to your clipboard",
+                },
               ]}
             />
           </ConfigField>
 
-          <ConfigField label="Always Copy to Clipboard" description="Also copy transcriptions to clipboard even while using Typewriter output.">
-            <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
+          <ConfigField
+            label="Always Copy to Clipboard"
+            description="Also copy transcriptions to clipboard even while using Typewriter output."
+          >
+            <Switch
+              checked={config.copy_on_typewriter}
+              onChange={(checked) => updateConfig("copy_on_typewriter", checked)}
+            />
           </ConfigField>
 
           <ConfigField label="Updates" description="Check for newer Voquill releases.">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
-              <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
-                {checkingUpdates ? 'Checking...' : 'Check for Updates'}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: tokens.spacing.sm,
+                flexWrap: "wrap",
+                width: "100%",
+              }}
+            >
+              <Button
+                variant="ghost"
+                pill
+                style={configGhostPillStyle}
+                onClick={onCheckForUpdates}
+                disabled={checkingUpdates}
+              >
+                {checkingUpdates ? "Checking..." : "Check for Updates"}
               </Button>
             </div>
           </ConfigField>
 
-          <ConfigField label="Launch on System Startup" description="Automatically starts Voquill when you log in.">
+          <ConfigField
+            label="Launch on System Startup"
+            description="Automatically starts Voquill when you log in."
+          >
             <Switch checked={autostartEnabled} onChange={onToggleAutostart} />
           </ConfigField>
 
-          <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+          <ConfigField
+            label="Status Overlay Position (px)"
+            description="Vertical offset for the status overlay from the bottom of the screen."
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: tokens.spacing.xs,
+                width: "100%",
+              }}
+            >
               <NumberField
                 value={config.pixels_from_bottom}
-                onChange={(value) => updateConfig('pixels_from_bottom', value)}
+                onChange={(value) => updateConfig("pixels_from_bottom", value)}
                 min={0}
                 disabled={!overlayPositioningCapabilities.manual_offset_supported}
               />
               {!overlayPositioningCapabilities.manual_offset_supported && (
                 <div style={helperTextStyle}>
-                  {overlayPositioningCapabilities.detail || 'Manual overlay position adjustment is not available on your system.'}
+                  {overlayPositioningCapabilities.detail ||
+                    "Manual overlay position adjustment is not available on your system."}
                 </div>
               )}
             </div>
           </ConfigField>
 
-          <ConfigField label="Language Hint" labelBadge="Experimental" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
+          <ConfigField
+            label="Language Hint"
+            labelBadge="Experimental"
+            description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently."
+          >
             <div style={selectWrapperStyle}>
               <SelectField
                 value={config.language}
                 options={languageOptions}
-                onChange={(nextLanguage) => updateConfig('language', nextLanguage)}
+                onChange={(nextLanguage) => updateConfig("language", nextLanguage)}
                 ariaLabel="Language hint"
               />
             </div>
           </ConfigField>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
+        <CollapsibleSection
+          title="Transcription"
+          isOpen={activeConfigSection === "transcription"}
+          onToggle={() =>
+            setActiveConfigSection(activeConfigSection === "transcription" ? null : "transcription")
+          }
+        >
           <ConfigField
             label="Global Hotkey"
-            description={isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.'}
+            description={
+              isSystemManagedShortcut
+                ? "Use your system shortcut to record and release to transcribe."
+                : "Hold these keys to record, release to transcribe."
+            }
           >
-            <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+            <div
+              style={{
+                display: "flex",
+                gap: tokens.spacing.sm,
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+              }}
+            >
               {!isSystemManagedShortcut && (
                 <input
                   type="text"
@@ -218,8 +300,16 @@ export function ConfigPage(props: ConfigPageProps) {
                   readOnly
                   onClick={() => {}}
                   placeholder="Configure using button"
-                  style={{ ...inputBaseStyle, opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
-                  title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
+                  style={{
+                    ...inputBaseStyle,
+                    opacity: portalVersion >= 1 ? 0.9 : 1,
+                    cursor: "default",
+                  }}
+                  title={
+                    portalVersion >= 1
+                      ? "Use Configure Hotkey to request binding through the system portal."
+                      : ""
+                  }
                 />
               )}
               <Button
@@ -234,54 +324,98 @@ export function ConfigPage(props: ConfigPageProps) {
             {!isSystemManagedShortcut && portalVersion >= 1 && (
               <div style={helperTextStyle}>
                 Shortcut registration uses the Wayland GlobalShortcuts portal.
-                {hotkeyBindingState?.active_trigger ? ` Active shortcut: ${hotkeyBindingState.active_trigger}.` : ''}
-                {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
+                {hotkeyBindingState?.active_trigger
+                  ? ` Active shortcut: ${hotkeyBindingState.active_trigger}.`
+                  : ""}
+                {hotkeyBindingState?.bound ? " Listener is active." : ""}
               </div>
             )}
           </ConfigField>
 
-          <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
+          <ConfigField
+            label="Transcription Method"
+            description="Choose between cloud-based API or fully local processing."
+          >
             <ModeSwitcher
               value={config.transcription_mode}
-              onToggle={(val) => updateConfig('transcription_mode', val)}
+              onToggle={(val) => updateConfig("transcription_mode", val)}
               options={[
-                { value: 'Local', label: 'Local', title: 'Run Whisper locally' },
-                { value: 'API', label: 'Cloud API', title: 'Use OpenAI API' },
+                { value: "Local", label: "Local", title: "Run Whisper locally" },
+                { value: "API", label: "Cloud API", title: "Use OpenAI API" },
               ]}
             />
           </ConfigField>
 
-          {config.transcription_mode === 'API' ? (
+          {config.transcription_mode === "API" ? (
             <>
-              <ConfigField label="API Key" description="Used to authenticate with the transcription service (OpenAI).">
+              <ConfigField
+                label="API Key"
+                description="Used to authenticate with the transcription service (OpenAI)."
+              >
                 <div style={{ ...selectWrapperStyle }}>
-                  <input style={inputBaseStyle} type="text" value={config.openai_api_key} onChange={(e: Event) => updateConfig('openai_api_key', (e.target as HTMLInputElement).value)} placeholder="sk-..." />
-                  <Button variant="configAction" onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
+                  <input
+                    style={inputBaseStyle}
+                    type="text"
+                    value={config.openai_api_key}
+                    onChange={(e: Event) =>
+                      updateConfig("openai_api_key", (e.target as HTMLInputElement).value)
+                    }
+                    placeholder="sk-..."
+                  />
+                  <Button variant="configAction" onClick={testApiKey} disabled={isTestingApi}>
+                    {isTestingApi ? "..." : "Test"}
+                  </Button>
                 </div>
               </ConfigField>
 
-              <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
-                <input style={inputBaseStyle} type="url" value={config.api_url} onChange={(e: Event) => updateConfig('api_url', (e.target as HTMLInputElement).value)} />
+              <ConfigField
+                label="API URL"
+                description="The endpoint that processes audio (OpenAI or Local Whisper)."
+              >
+                <input
+                  style={inputBaseStyle}
+                  type="url"
+                  value={config.api_url}
+                  onChange={(e: Event) =>
+                    updateConfig("api_url", (e.target as HTMLInputElement).value)
+                  }
+                />
               </ConfigField>
 
-              <ConfigField label="API Model" description="The model name to use with the API provider.">
-                <input style={inputBaseStyle} type="text" value={config.api_model} onChange={(e: Event) => updateConfig('api_model', (e.target as HTMLInputElement).value)} />
+              <ConfigField
+                label="API Model"
+                description="The model name to use with the API provider."
+              >
+                <input
+                  style={inputBaseStyle}
+                  type="text"
+                  value={config.api_model}
+                  onChange={(e: Event) =>
+                    updateConfig("api_model", (e.target as HTMLInputElement).value)
+                  }
+                />
               </ConfigField>
             </>
           ) : (
             <>
-              <ConfigField label="Local Engine" description="The core technology used to process your voice locally.">
+              <ConfigField
+                label="Local Engine"
+                description="The core technology used to process your voice locally."
+              >
                 <div style={selectWrapperStyle}>
                   <SelectField
                     value={config.local_engine}
                     options={availableEngines.map((engine) => ({ value: engine, label: engine }))}
-                    onChange={(nextEngine) => updateConfig('local_engine', nextEngine)}
+                    onChange={(nextEngine) => updateConfig("local_engine", nextEngine)}
                     ariaLabel="Local engine"
                   />
                 </div>
               </ConfigField>
 
-              <ConfigField label="Local Model" description="Choose the Whisper model size. Distil-Small is recommended for most users.">
+              <ConfigField
+                label="Local Model"
+                description="Choose the Whisper model size. Distil-Small is recommended for most users."
+              >
                 <ModelSelectionPanel
                   availableModels={availableModels}
                   localEngine={config.local_engine}
@@ -289,14 +423,14 @@ export function ConfigPage(props: ConfigPageProps) {
                   modelStatus={modelStatus}
                   isDownloading={isDownloading}
                   downloadProgress={downloadProgress}
-                  onChangeModel={(size) => updateConfig('local_model_size', size)}
+                  onChangeModel={(size) => updateConfig("local_model_size", size)}
                   onShowModelGuide={() => setShowModelGuide(true)}
                   onDownloadModel={downloadModel}
                   onRetryModels={loadModels}
                 />
               </ConfigField>
 
-              {config.local_engine === 'OpenVINO GenAI' ? (
+              {config.local_engine === "OpenVINO GenAI" ? (
                 <>
                   <ConfigField
                     label="Intel Acceleration"
@@ -307,12 +441,12 @@ export function ConfigPage(props: ConfigPageProps) {
                       <SelectField
                         value={config.local_accelerator}
                         options={[
-                          { value: 'NPU', label: 'NPU' },
-                          { value: 'GPU', label: 'GPU' },
-                          { value: 'CPU', label: 'CPU' },
-                          { value: 'AUTO', label: 'AUTO' },
+                          { value: "NPU", label: "NPU" },
+                          { value: "GPU", label: "GPU" },
+                          { value: "CPU", label: "CPU" },
+                          { value: "AUTO", label: "AUTO" },
                         ]}
-                        onChange={(nextDevice) => updateConfig('local_accelerator', nextDevice)}
+                        onChange={(nextDevice) => updateConfig("local_accelerator", nextDevice)}
                         ariaLabel="OpenVINO accelerator"
                       />
                     </div>
@@ -322,16 +456,26 @@ export function ConfigPage(props: ConfigPageProps) {
                     label="Model Warmup"
                     description="Load the selected OpenVINO model now so the first real dictation does not pay the cold-start cost."
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.xs, width: '100%' }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: tokens.spacing.xs,
+                        width: "100%",
+                      }}
+                    >
                       <Button
                         variant="configAction"
                         onClick={warmUpModel}
                         disabled={!selectedModelReady || isWarmingModel}
                       >
-                        {isWarmingModel ? 'Warming...' : 'Warm Model'}
+                        {isWarmingModel ? "Warming..." : "Warm Model"}
                       </Button>
                       {!selectedModelReady && (
-                        <div style={helperTextStyle}>Download the selected OpenVINO model before warming it.</div>
+                        <div style={helperTextStyle}>
+                          Download the selected OpenVINO model before warming it.
+                        </div>
                       )}
                     </div>
                   </ConfigField>
@@ -342,25 +486,44 @@ export function ConfigPage(props: ConfigPageProps) {
                   labelBadge="Experimental"
                   description="GPU acceleration can be faster on some systems, but performance varies by hardware and model."
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.spacing.sm, width: '100%' }}>
-                    <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
-                    <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} />
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      gap: tokens.spacing.sm,
+                      width: "100%",
+                    }}
+                  >
+                    <IconRocket
+                      size={20}
+                      color={config.enable_gpu ? "#f1c40f" : tokens.colors.textMuted}
+                    />
+                    <Switch
+                      checked={config.enable_gpu}
+                      onChange={(checked) => updateConfig("enable_gpu", checked)}
+                    />
                   </div>
                 </ConfigField>
               )}
-
             </>
           )}
-
         </CollapsibleSection>
 
-        <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
-          <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
+        <CollapsibleSection
+          title="Audio"
+          isOpen={activeConfigSection === "audio"}
+          onToggle={() => setActiveConfigSection(activeConfigSection === "audio" ? null : "audio")}
+        >
+          <ConfigField
+            label="Microphone"
+            description="Choose the input device for recording your voice."
+          >
             <div style={selectWrapperStyle}>
               <SelectField
-                value={config.audio_device || 'default'}
+                value={config.audio_device || "default"}
                 options={availableMics.map((mic) => ({ value: mic.id, label: mic.label }))}
-                onChange={(nextMicId) => updateConfig('audio_device', nextMicId)}
+                onChange={(nextMicId) => updateConfig("audio_device", nextMicId)}
                 ariaLabel="Microphone"
               />
               <Button variant="icon" onClick={loadMics} title="Refresh Devices">
@@ -369,10 +532,13 @@ export function ConfigPage(props: ConfigPageProps) {
             </div>
           </ConfigField>
 
-          <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain and verify your microphone playback.">
+          <ConfigField
+            label="Mic Test & Sensitivity"
+            description="Adjust capture gain and verify your microphone playback."
+          >
             <MicSetupPanel
               inputSensitivity={config.input_sensitivity}
-              onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
+              onInputSensitivityChange={(value) => updateConfig("input_sensitivity", value)}
               micTestStatus={micTestStatus}
               micVolume={micVolume}
               onStartMicTest={startMicTest}
@@ -382,50 +548,127 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
-          <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
-            <NumberField value={config.typing_speed_interval} onChange={(value) => updateConfig('typing_speed_interval', value)} min={1} />
+        <CollapsibleSection
+          title="Typing"
+          isOpen={activeConfigSection === "typing"}
+          onToggle={() =>
+            setActiveConfigSection(activeConfigSection === "typing" ? null : "typing")
+          }
+        >
+          <ConfigField
+            label="Typing Speed (ms)"
+            description="Delay between characters. Lower values are faster (1ms recommended)."
+          >
+            <NumberField
+              value={config.typing_speed_interval}
+              onChange={(value) => updateConfig("typing_speed_interval", value)}
+              min={1}
+            />
           </ConfigField>
 
-          <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
-            <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
+          <ConfigField
+            label="Key Press Duration (ms)"
+            description="How long each key is held. Increase if characters are skipped."
+          >
+            <NumberField
+              value={config.key_press_duration_ms}
+              onChange={(value) => updateConfig("key_press_duration_ms", value)}
+              min={1}
+            />
           </ConfigField>
 
-          <ConfigField label="Streaming Typewriter" labelBadge="Experimental" description="Types stable partial dictation while you are still speaking. OpenVINO Typewriter mode only.">
-            <Switch checked={config.streaming_typewriter} onChange={(checked) => updateConfig('streaming_typewriter', checked)} />
+          <ConfigField
+            label="Streaming Typewriter"
+            labelBadge="Experimental"
+            description="Types stable partial dictation while you are still speaking. OpenVINO Typewriter mode only."
+          >
+            <Switch
+              checked={config.streaming_typewriter}
+              onChange={(checked) => updateConfig("streaming_typewriter", checked)}
+            />
           </ConfigField>
-
         </CollapsibleSection>
 
-        <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
-          <ConfigField label="Logs" description="Copy or open logs for troubleshooting and support.">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
-              <Button variant="configAction" onClick={onCopySessionLogs}>Copy Logs</Button>
-              <Button variant="ghost" pill style={configGhostPillStyle} onClick={openSessionLog}>Open Log File</Button>
+        <CollapsibleSection
+          title="Debug"
+          isOpen={activeConfigSection === "debug"}
+          onToggle={() => setActiveConfigSection(activeConfigSection === "debug" ? null : "debug")}
+        >
+          <ConfigField
+            label="Logs"
+            description="Copy or open logs for troubleshooting and support."
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: tokens.spacing.sm,
+                flexWrap: "wrap",
+                width: "100%",
+              }}
+            >
+              <Button variant="configAction" onClick={onCopySessionLogs}>
+                Copy Logs
+              </Button>
+              <Button variant="ghost" pill style={configGhostPillStyle} onClick={openSessionLog}>
+                Open Log File
+              </Button>
             </div>
           </ConfigField>
 
-          <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: tokens.spacing.sm, width: '100%' }}>
-              <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
+          <ConfigField
+            label="Recording Logs"
+            description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues."
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                gap: tokens.spacing.sm,
+                width: "100%",
+              }}
+            >
+              <Switch
+                checked={config.enable_recording_logs}
+                onChange={(checked) => updateConfig("enable_recording_logs", checked)}
+              />
+              <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+                <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>
+                  Open Folder
+                </Button>
               </div>
             </div>
           </ConfigField>
 
-          <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
-            <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
+          <ConfigField
+            label="Initial Setup"
+            description="Re-open onboarding checks for permissions, model, and hotkey setup."
+          >
+            <Button variant="configAction" onClick={onReopenInitialSetup}>
+              Re-run Initial Setup
+            </Button>
           </ConfigField>
 
-          <ConfigField label="Factory Reset" description="Reset Voquill to defaults and clear models, logs, and history.">
-            <Button variant="danger" pill onClick={onFactoryReset}>Reset App to Defaults</Button>
+          <ConfigField
+            label="Factory Reset"
+            description="Reset Voquill to defaults and clear models, logs, and history."
+          >
+            <Button variant="danger" pill onClick={onFactoryReset}>
+              Reset App to Defaults
+            </Button>
           </ConfigField>
 
-          <ConfigField label="UI Lab" labelBadge="Experimental" description="Open the internal visual QA page for component and state previews.">
-            <Button variant="ghost" pill style={configGhostPillStyle} onClick={onOpenUiLab}>Open UI Lab</Button>
+          <ConfigField
+            label="UI Lab"
+            labelBadge="Experimental"
+            description="Open the internal visual QA page for component and state previews."
+          >
+            <Button variant="ghost" pill style={configGhostPillStyle} onClick={onOpenUiLab}>
+              Open UI Lab
+            </Button>
           </ConfigField>
-
         </CollapsibleSection>
       </div>
     </div>

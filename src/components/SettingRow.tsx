@@ -1,4 +1,4 @@
-import { ComponentChildren } from 'preact';
+import { ComponentChildren } from "preact";
 import {
   getSettingRowStyle,
   settingRowContentStyle,
@@ -8,7 +8,7 @@ import {
   settingRowLabelBadgeStyle,
   settingRowLabelStyle,
   settingRowStatusStyle,
-} from '../theme/component-styles.ts';
+} from "../theme/component-styles.ts";
 
 interface SettingRowProps {
   title: string;
@@ -25,9 +25,9 @@ export const SettingRow = ({
   description,
   status,
   children,
-  className = '',
+  className = "",
 }: SettingRowProps) => {
-  const isReady = className.split(/\s+/).includes('ready');
+  const isReady = className.split(/\s+/).includes("ready");
 
   return (
     <div
@@ -35,16 +35,30 @@ export const SettingRow = ({
       style={getSettingRowStyle({ ready: isReady })}
     >
       <div className="setting-row-header" style={settingRowHeaderStyle}>
-        <div className="field-label" style={settingRowLabelStyle}>{title}</div>
-        {(titleBadge || status) ? (
+        <div className="field-label" style={settingRowLabelStyle}>
+          {title}
+        </div>
+        {titleBadge || status ? (
           <div className="setting-row-right" style={settingRowHeaderRightStyle}>
             {titleBadge ? <span style={settingRowLabelBadgeStyle}>{titleBadge}</span> : null}
-            {status ? <div className="setting-row-status" style={settingRowStatusStyle}>{status}</div> : null}
+            {status ? (
+              <div className="setting-row-status" style={settingRowStatusStyle}>
+                {status}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
-      {description ? <p className="field-description" style={settingRowDescriptionStyle}>{description}</p> : null}
-      {children != null ? <div className="field-content" style={settingRowContentStyle}>{children}</div> : null}
+      {description ? (
+        <p className="field-description" style={settingRowDescriptionStyle}>
+          {description}
+        </p>
+      ) : null}
+      {children != null ? (
+        <div className="field-content" style={settingRowContentStyle}>
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 };

@@ -7,6 +7,10 @@
     "deps:check": "node scripts/check-deps.mjs",
     "predev": "npm run deps:check",
     "dev": "vite",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "harden:check": "node scripts/check-tauri-hardening.mjs",
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run deps:check",
     "build": "npm run typecheck && vite build",
@@ -17,18 +21,22 @@
     "tauri:build": "node scripts/tauri-runner.mjs build"
   },
   "dependencies": {
+    "@tabler/icons-preact": "^3.36.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-shell": "^2",
-    "preact": "^10.28.2",
-    "@tabler/icons-preact": "^3.36.1",
-    "@tauri-apps/plugin-clipboard-manager": "^2.3.2"
+    "preact": "^10.28.2"
   },
   "devDependencies": {
-    "@types/node": "^22.15.3",
+    "@eslint/js": "^10.0.1",
     "@preact/preset-vite": "^2.10.2",
     "@tauri-apps/cli": "^2.9.6",
+    "@types/node": "^22.15.3",
+    "eslint": "^10.3.0",
+    "prettier": "^3.8.3",
     "typescript": "~5.9.3",
+    "typescript-eslint": "^8.59.2",
     "vite": "^6.4.1"
   }
 }

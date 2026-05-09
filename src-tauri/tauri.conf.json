@@ -45,7 +45,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://localhost:1420 ws://localhost:1421 https://api.openai.com https://huggingface.co https://api.github.com; img-src 'self' asset: http://asset.localhost http://localhost:1420 data:; script-src 'self'; style-src 'self' 'unsafe-inline'"
     }
   },
 
@@ -76,23 +76,14 @@
     "linux": {
       "deb": {
         "desktopTemplate": "packaging/org.voquill.foss.desktop.hbs",
-        "depends": [
-          "libgtk-layer-shell0",
-          "libpulse0",
-          "libappindicator3-1"
-        ],
+        "depends": ["libgtk-layer-shell0", "libpulse0", "libappindicator3-1"],
         "files": {
           "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml"
         }
       },
       "rpm": {
         "desktopTemplate": "packaging/org.voquill.foss.desktop.hbs",
-        "depends": [
-          "gtk-layer-shell",
-          "webkit2gtk4.1",
-          "pulseaudio-libs",
-          "libappindicator-gtk3"
-        ],
+        "depends": ["gtk-layer-shell", "webkit2gtk4.1", "pulseaudio-libs", "libappindicator-gtk3"],
         "files": {
           "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml"
         }

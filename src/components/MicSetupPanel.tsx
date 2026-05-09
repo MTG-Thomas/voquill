@@ -1,17 +1,17 @@
-import { Button } from './Button.tsx';
-import { SliderField } from './SliderField.tsx';
-import { tokens } from '../design-tokens.ts';
+import { Button } from "./Button.tsx";
+import { SliderField } from "./SliderField.tsx";
+import { tokens } from "../design-tokens.ts";
 
 interface MicSetupPanelProps {
   inputSensitivity: number;
   onInputSensitivityChange: (value: number) => void;
-  micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
+  micTestStatus: "idle" | "recording" | "playing" | "processing";
   micVolume: number;
   onStartMicTest: () => void;
   onStopMicTest: () => void;
   onStopMicPlayback: () => void;
   compact?: boolean;
-  actionButtonSize?: 'sm' | 'md' | 'lg';
+  actionButtonSize?: "sm" | "md" | "lg";
 }
 
 export function MicSetupPanel({
@@ -23,14 +23,21 @@ export function MicSetupPanel({
   onStopMicTest,
   onStopMicPlayback,
   compact = false,
-  actionButtonSize = 'md',
+  actionButtonSize = "md",
 }: MicSetupPanelProps) {
-  const showVolumeMeter = micTestStatus === 'recording';
-  const showPlaybackText = micTestStatus === 'playing';
+  const showVolumeMeter = micTestStatus === "recording";
+  const showPlaybackText = micTestStatus === "playing";
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, marginBottom: '4px', textAlign: 'left' }}>
+    <div style={{ width: "100%" }}>
+      <div
+        style={{
+          fontSize: tokens.typography.sizeXs,
+          color: tokens.colors.textMuted,
+          marginBottom: "4px",
+          textAlign: "left",
+        }}
+      >
         Mic Sensitivity ({Math.round(inputSensitivity * 100)}%)
       </div>
       <SliderField
@@ -46,55 +53,78 @@ export function MicSetupPanel({
       <div
         style={{
           marginTop: compact ? tokens.spacing.sm : tokens.spacing.md,
-          display: 'flex',
-          flexDirection: 'column',
+          display: "flex",
+          flexDirection: "column",
           gap: tokens.spacing.sm,
-          alignItems: 'center',
+          alignItems: "center",
         }}
       >
-        <div style={{ width: '100%', minHeight: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{
+            width: "100%",
+            minHeight: "18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           {showVolumeMeter && (
-            <div style={{ width: '100%', height: '4px', background: tokens.colors.bgTertiary, borderRadius: '2px', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: "100%",
+                height: "4px",
+                background: tokens.colors.bgTertiary,
+                borderRadius: "2px",
+                overflow: "hidden",
+              }}
+            >
               <div
                 style={{
                   width: `${Math.min(micVolume * 100, 100)}%`,
-                  height: '100%',
-                  background: micVolume > 0.9 ? '#e74c3c' : micVolume > 0.7 ? '#f1c40f' : tokens.colors.success,
-                  transition: 'width 0.1s ease-out',
-                  boxShadow: micVolume > 0.9 ? '0 0 5px #e74c3c' : 'none',
+                  height: "100%",
+                  background:
+                    micVolume > 0.9
+                      ? "#e74c3c"
+                      : micVolume > 0.7
+                        ? "#f1c40f"
+                        : tokens.colors.success,
+                  transition: "width 0.1s ease-out",
+                  boxShadow: micVolume > 0.9 ? "0 0 5px #e74c3c" : "none",
                 }}
               ></div>
             </div>
           )}
 
           {showPlaybackText && (
-            <span style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>
+            <span
+              style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}
+            >
               Playing back recording
             </span>
           )}
         </div>
 
         <Button
-          disabled={micTestStatus === 'processing'}
+          disabled={micTestStatus === "processing"}
           variant="configAction"
           size={actionButtonSize}
           onClick={() => {
-            if (micTestStatus === 'idle') {
+            if (micTestStatus === "idle") {
               onStartMicTest();
-            } else if (micTestStatus === 'recording') {
+            } else if (micTestStatus === "recording") {
               onStopMicTest();
-            } else if (micTestStatus === 'playing') {
+            } else if (micTestStatus === "playing") {
               onStopMicPlayback();
             }
           }}
         >
-          {micTestStatus === 'idle'
-            ? 'Test Microphone'
-            : micTestStatus === 'recording'
-              ? 'Stop & Play Back'
-              : micTestStatus === 'playing'
-                ? 'Stop Playback'
-                : 'Processing...'}
+          {micTestStatus === "idle"
+            ? "Test Microphone"
+            : micTestStatus === "recording"
+              ? "Stop & Play Back"
+              : micTestStatus === "playing"
+                ? "Stop Playback"
+                : "Processing..."}
         </Button>
       </div>
     </div>
