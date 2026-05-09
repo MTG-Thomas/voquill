@@ -5751,6 +5751,7 @@ dependencies = [
  "dirs 6.0.0",
  "env_logger",
  "evdev",
+ "futures-util",
  "gdk",
  "gtk",
  "gtk-layer-shell",

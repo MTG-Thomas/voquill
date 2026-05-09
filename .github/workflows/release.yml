@@ -16,7 +16,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_TARGET_DIR: target
 
 jobs:
   build:
@@ -105,6 +104,15 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Set short Cargo target directory
+        shell: pwsh
+        run: |
+          if ($env:RUNNER_OS -eq "Windows") {
+            "CARGO_TARGET_DIR=C:\t" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } else {
+            "CARGO_TARGET_DIR=/tmp/voquill-target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
