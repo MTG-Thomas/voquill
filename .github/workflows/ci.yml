@@ -14,7 +14,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_TARGET_DIR: ${{ runner.temp }}/voquill-target
+  CARGO_TARGET_DIR: target
 
 jobs:
   verify:
