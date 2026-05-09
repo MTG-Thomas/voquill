@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -95,10 +99,17 @@ jobs:
             "CARGO_TARGET_DIR=/tmp/voquill-target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           }
 
-      - name: Cache Cargo
+      - name: Cache Cargo (Windows)
+        if: runner.os == 'Windows'
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> ${{ env.CARGO_TARGET_DIR }}
+          workspaces: src-tauri -> C:\t
+
+      - name: Cache Cargo (Linux)
+        if: runner.os == 'Linux'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> /tmp/voquill-target
 
       - name: Install frontend dependencies
         run: npm ci
@@ -107,10 +118,7 @@ jobs:
         run: npm run typecheck
 
       - name: Build frontend
-        run: npm run build
-
-      - name: Check Rust
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        run: npx vite build
 
       - name: Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

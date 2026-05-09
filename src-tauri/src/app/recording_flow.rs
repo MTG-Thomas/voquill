@@ -107,17 +107,19 @@ fn spawn_streaming_typewriter(
                 )
             };
 
-            let service =
-                match openvino_whisper::OpenVinoWhisperService::new(&model_size, &accelerator) {
-                    Ok(service) => service,
-                    Err(error) => {
-                        crate::log_info!(
+            let service = match openvino_whisper::OpenVinoWhisperService::new(
+                &model_size,
+                &accelerator,
+            ) {
+                Ok(service) => service,
+                Err(error) => {
+                    crate::log_info!(
                             "⚠️ Streaming typewriter skipped partial: failed to initialize OpenVINO service: {}",
                             error
                         );
-                        continue;
-                    }
-                };
+                    continue;
+                }
+            };
 
             let partial_text = match service
                 .transcribe(&partial_audio, language.as_deref(), prompt.as_deref())
@@ -184,11 +186,7 @@ pub async fn record_and_transcribe(
         crate::app::status::emit_status_to_frontend("Ready").await;
     };
 
-    let (
-        language_choice,
-        streaming_enabled,
-        streaming_output_method,
-    ) = {
+    let (language_choice, streaming_enabled, streaming_output_method) = {
         let config_guard = config.lock().unwrap();
         (
             config_guard.language.clone(),
@@ -225,19 +223,16 @@ pub async fn record_and_transcribe(
         (None, None)
     };
 
-    let audio_data = match audio::record_audio_while_flag_with_partials(
-        &is_recording,
-        audio_engine,
-        partial_tx,
-    )
-    .await
-    {
-        Ok(data) => data,
-        Err(error) => {
-            reset_status_on_exit().await;
-            return Err(error);
-        }
-    };
+    let audio_data =
+        match audio::record_audio_while_flag_with_partials(&is_recording, audio_engine, partial_tx)
+            .await
+        {
+            Ok(data) => data,
+            Err(error) => {
+                reset_status_on_exit().await;
+                return Err(error);
+            }
+        };
     if let Some(task) = streaming_task {
         task.abort();
     }
@@ -253,14 +248,7 @@ pub async fn record_and_transcribe(
     }
 
     crate::app::status::emit_status_to_frontend("Transcribing").await;
-    let (
-        transcription_mode,
-        api_key,
-        api_url,
-        api_model,
-        debug_mode,
-        enable_recording_logs,
-    ) = {
+    let (transcription_mode, api_key, api_url, api_model, debug_mode, enable_recording_logs) = {
         let config_guard = config.lock().unwrap();
         (
             config_guard.transcription_mode.clone(),
@@ -412,7 +400,9 @@ pub async fn record_and_transcribe(
                 };
 
                 if text_to_type.trim().is_empty() {
-                    crate::log_info!("⌨️  Final typewriter output already satisfied by streaming partials");
+                    crate::log_info!(
+                        "⌨️  Final typewriter output already satisfied by streaming partials"
+                    );
                     reset_status_on_exit().await;
                     return Ok(());
                 }

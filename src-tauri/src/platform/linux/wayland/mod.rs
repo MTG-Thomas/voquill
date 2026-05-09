@@ -20,6 +20,12 @@ impl WaylandBackend {
     }
 }
 
+impl Default for WaylandBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl InputSimulation for WaylandBackend {
     async fn type_text_hardware(

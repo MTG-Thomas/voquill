@@ -18,6 +18,12 @@ impl X11Backend {
     }
 }
 
+impl Default for X11Backend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl InputSimulation for X11Backend {
     async fn type_text_hardware(

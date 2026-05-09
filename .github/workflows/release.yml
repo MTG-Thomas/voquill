@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -114,10 +118,17 @@ jobs:
             "CARGO_TARGET_DIR=/tmp/voquill-target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           }
 
-      - name: Cache Cargo
+      - name: Cache Cargo (Windows)
+        if: runner.os == 'Windows'
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> ${{ env.CARGO_TARGET_DIR }}
+          workspaces: src-tauri -> C:\t
+
+      - name: Cache Cargo (Linux)
+        if: runner.os == 'Linux'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> /tmp/voquill-target
 
       - name: Install frontend dependencies
         run: npm ci
@@ -169,6 +180,10 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
+      - name: List release artifacts
+        shell: bash
+        run: find release-artifacts -type f -maxdepth 5 -print
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -177,7 +192,7 @@ jobs:
           draft: true
           prerelease: false
           fail_on_unmatched_files: true
-          files: release-artifacts/*
+          files: release-artifacts/**/*
           body: |
             Fork-local Voquill release for the MTG-Thomas fork.
 

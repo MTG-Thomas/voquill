@@ -370,10 +370,10 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
                 #[cfg(target_os = "linux")]
                 {
                     let pulse_sources = summarize_pulse_sources();
-                    return format!(
+                    format!(
                         "Failed to resolve Pulse source '{}': no default input device available after setting PULSE_SOURCE. pulse_sources=[{}], input_devices=[{}]",
                         _stripped, pulse_sources, available_inputs
-                    );
+                    )
                 }
 
                 #[cfg(not(target_os = "linux"))]
