@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub is_recording: Arc<Mutex<bool>>,
+    pub is_transcribing: Arc<Mutex<bool>>,
     pub is_mic_test_active: Arc<Mutex<bool>>,
     pub is_configuring_hotkey: Arc<Mutex<bool>>,
     pub hotkey_error: Arc<Mutex<Option<String>>>,
@@ -44,6 +45,7 @@ impl Default for AppState {
         Self {
             config: Arc::new(Mutex::new(Config::default())),
             is_recording: Arc::new(Mutex::new(false)),
+            is_transcribing: Arc::new(Mutex::new(false)),
             is_mic_test_active: Arc::new(Mutex::new(false)),
             is_configuring_hotkey: Arc::new(Mutex::new(false)),
             hotkey_error: Arc::new(Mutex::new(None)),

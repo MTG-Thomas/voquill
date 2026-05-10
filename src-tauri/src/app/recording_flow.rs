@@ -183,6 +183,11 @@ pub async fn record_and_transcribe(
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let reset_status_on_exit = || async {
+        if let Some(state) = app_handle.try_state::<crate::AppState>() {
+            if let Ok(mut is_transcribing) = state.is_transcribing.lock() {
+                *is_transcribing = false;
+            }
+        }
         crate::app::status::emit_status_to_frontend("Ready").await;
     };
 
@@ -243,6 +248,22 @@ pub async fn record_and_transcribe(
     }
     if let Err(error) = validate_audio_duration(&audio_data) {
         crate::log_info!("⚠️ Audio validation failed: {}", error);
+        reset_status_on_exit().await;
+        return Ok(());
+    }
+
+    let transcription_already_active = {
+        let state = app_handle.state::<crate::AppState>();
+        let mut is_transcribing = state.is_transcribing.lock().unwrap();
+        if *is_transcribing {
+            crate::log_info!("⚠️ Skipping transcription because another transcription is active");
+            true
+        } else {
+            *is_transcribing = true;
+            false
+        }
+    };
+    if transcription_already_active {
         reset_status_on_exit().await;
         return Ok(());
     }

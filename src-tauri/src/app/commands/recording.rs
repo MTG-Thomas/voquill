@@ -18,6 +18,11 @@ pub async fn start_recording(
         return Err("Currently configuring hotkey".to_string());
     }
 
+    if *state.is_transcribing.lock().unwrap() {
+        crate::log_info!("⚠️ Ignoring start_recording because transcription is already active");
+        return Err("Already transcribing".to_string());
+    }
+
     let mut recording_flag = state.is_recording.lock().unwrap();
     if *recording_flag {
         return Err("Already recording".to_string());
