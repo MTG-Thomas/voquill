@@ -12,6 +12,12 @@ use std::sync::{
 };
 use std::time::Duration;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 const WORKER_RESPONSE_TIMEOUT: Duration = Duration::from_secs(240);
 
 pub struct OpenVinoWhisperService {
@@ -163,6 +169,7 @@ fn send_worker_request(
 fn start_worker(model_path: &Path, device: &str) -> Result<OpenVinoWorker, TranscriptionError> {
     let python = resolve_python_runtime();
     let mut command = Command::new(&python.executable);
+    hide_console_window(&mut command);
     for argument in &python.arguments {
         command.arg(argument);
     }
@@ -234,7 +241,9 @@ fn pipe_worker_stderr(
 fn terminate_process_tree(process_id: u32) {
     #[cfg(target_os = "windows")]
     {
-        let _ = Command::new("taskkill")
+        let mut command = Command::new("taskkill");
+        hide_console_window(&mut command);
+        let _ = command
             .args(["/PID", &process_id.to_string(), "/T", "/F"])
             .status();
     }
@@ -246,6 +255,14 @@ fn terminate_process_tree(process_id: u32) {
             .status();
     }
 }
+
+#[cfg(target_os = "windows")]
+fn hide_console_window(command: &mut Command) {
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn hide_console_window(_command: &mut Command) {}
 
 impl OpenVinoWorker {
     fn transcribe(
