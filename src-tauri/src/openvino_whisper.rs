@@ -6,7 +6,13 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock,
+};
+use std::time::Duration;
+
+const WORKER_RESPONSE_TIMEOUT: Duration = Duration::from_secs(240);
 
 pub struct OpenVinoWhisperService {
     model_path: PathBuf,
@@ -225,6 +231,22 @@ fn pipe_worker_stderr(
     });
 }
 
+fn terminate_process_tree(process_id: u32) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &process_id.to_string(), "/T", "/F"])
+            .status();
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = Command::new("kill")
+            .args(["-TERM", &process_id.to_string()])
+            .status();
+    }
+}
+
 impl OpenVinoWorker {
     fn transcribe(
         &mut self,
@@ -244,9 +266,26 @@ impl OpenVinoWorker {
             .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
 
         let mut response_json = String::new();
-        self.stdout
-            .read_line(&mut response_json)
-            .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+        let worker_process_id = self.child.id();
+        let request_completed = Arc::new(AtomicBool::new(false));
+        let watchdog_completed = Arc::clone(&request_completed);
+        std::thread::spawn(move || {
+            std::thread::sleep(WORKER_RESPONSE_TIMEOUT);
+            if watchdog_completed.load(Ordering::SeqCst) {
+                return;
+            }
+
+            crate::log_warn!(
+                "OpenVINO worker request exceeded {}s; terminating worker process tree pid={}",
+                WORKER_RESPONSE_TIMEOUT.as_secs(),
+                worker_process_id
+            );
+            terminate_process_tree(worker_process_id);
+        });
+
+        let read_result = self.stdout.read_line(&mut response_json);
+        request_completed.store(true, Ordering::SeqCst);
+        read_result.map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
 
         if response_json.trim().is_empty() {
             let stderr = self.read_stderr();
