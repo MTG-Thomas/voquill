@@ -1,6 +1,8 @@
 use crate::config::{self, Config, TranscriptionMode};
 use crate::transcription::TranscriptionService;
-use crate::{audio, history, local_whisper, openvino_whisper, transcription, typing};
+use crate::{
+    audio, domain_vocabulary, history, local_whisper, openvino_whisper, transcription, typing,
+};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::mpsc;
@@ -125,7 +127,7 @@ fn spawn_streaming_typewriter(
                 .transcribe(&partial_audio, language.as_deref(), prompt.as_deref())
                 .await
             {
-                Ok(text) => text,
+                Ok(text) => domain_vocabulary::correct_transcription(&text),
                 Err(error) => {
                     crate::log_info!("⚠️ Streaming typewriter partial failed: {}", error);
                     continue;
@@ -200,13 +202,14 @@ pub async fn record_and_transcribe(
         )
     };
 
-    let (lang_code, prompt_hint) = match language_choice.as_str() {
+    let (lang_code, language_prompt_hint) = match language_choice.as_str() {
         "auto" => (None, None),
         "en-AU" => (Some("en"), Some("Australian spelling.")),
         "en-GB" => (Some("en"), Some("British spelling.")),
         "en-US" => (Some("en"), Some("American spelling.")),
         code => (Some(code), None),
     };
+    let prompt_hint = domain_vocabulary::build_transcription_prompt(language_prompt_hint);
 
     let committed_streaming_text = Arc::new(Mutex::new(String::new()));
     let (partial_tx, streaming_task) = if streaming_enabled {
@@ -218,7 +221,7 @@ pub async fn record_and_transcribe(
             partial_rx,
             committed_streaming_text.clone(),
             lang_code.map(ToString::to_string),
-            prompt_hint.map(ToString::to_string),
+            Some(prompt_hint.clone()),
         );
         (Some(partial_tx), Some(task))
     } else {
@@ -301,7 +304,7 @@ pub async fn record_and_transcribe(
     }
 
     crate::log_info!("📡 Transcription Mode: {:?}", transcription_mode);
-    crate::log_info!("🌐 Language: {:?}, Hint: {:?}", lang_code, prompt_hint);
+    crate::log_info!("🌐 Language: {:?}, Hint: {}", lang_code, prompt_hint);
 
     let service: Box<dyn transcription::TranscriptionService + Send + Sync> =
         match transcription_mode {
@@ -354,16 +357,24 @@ pub async fn record_and_transcribe(
         };
 
     let text = match service
-        .transcribe(&audio_data, lang_code, prompt_hint)
+        .transcribe(&audio_data, lang_code, Some(&prompt_hint))
         .await
     {
         Ok(text) => {
+            let corrected_text = domain_vocabulary::correct_transcription(&text);
+            if corrected_text != text {
+                crate::log_info!(
+                    "🧭 Domain vocabulary corrected transcription: \"{}\" -> \"{}\"",
+                    text,
+                    corrected_text
+                );
+            }
             crate::log_info!(
                 "📝 Transcription received ({}): \"{}\"",
                 service.service_name(),
-                text
+                corrected_text
             );
-            text
+            corrected_text
         }
 
         Err(error) => {
