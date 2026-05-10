@@ -64,6 +64,8 @@ pub struct Config {
     pub input_token: Option<String>,
     #[serde(default = "default_enable_gpu")]
     pub enable_gpu: bool,
+    #[serde(default = "default_warm_model_on_startup")]
+    pub warm_model_on_startup: bool,
 }
 
 impl Config {
@@ -134,6 +136,9 @@ fn default_language() -> String {
 fn default_enable_gpu() -> bool {
     false
 }
+fn default_warm_model_on_startup() -> bool {
+    true
+}
 
 fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {
     let trimmed = hotkey.trim();
@@ -198,6 +203,7 @@ impl Default for Config {
             shortcuts_token: None,
             input_token: None,
             enable_gpu: default_enable_gpu(),
+            warm_model_on_startup: default_warm_model_on_startup(),
         }
     }
 }
@@ -274,7 +280,7 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize_input_sensitivity();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, streaming_typewriter={}, input_sensitivity={:.2}",
+        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, streaming_typewriter={}, warm_on_startup={}, input_sensitivity={:.2}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
         normalized_config.local_accelerator,
@@ -285,6 +291,7 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         normalized_config.enable_recording_logs,
         normalized_config.enable_gpu,
         normalized_config.streaming_typewriter,
+        normalized_config.warm_model_on_startup,
         normalized_config.input_sensitivity
     );
 

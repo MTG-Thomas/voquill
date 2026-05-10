@@ -1,6 +1,7 @@
 use crate::app::commands::hotkey::re_register_hotkey;
 #[cfg(target_os = "linux")]
 use crate::app::commands::platform::is_status_notifier_watcher_available;
+use crate::app::commands::transcription::warm_up_openvino_model;
 use crate::app::state::AppState;
 use crate::config::Config;
 use crate::{audio, hotkey};
@@ -215,6 +216,24 @@ pub fn run_setup(
             *hotkey_error = Some(error);
         }
     });
+
+    if initial_config.warm_model_on_startup
+        && initial_config.transcription_mode == crate::config::TranscriptionMode::Local
+        && initial_config.local_engine == "OpenVINO GenAI"
+    {
+        let model_size = initial_config.local_model_size.clone();
+        let accelerator = initial_config.local_accelerator.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::log_info!(
+                "🔥 Startup model warm scheduled: model={}, accelerator={}",
+                model_size,
+                accelerator
+            );
+            if let Err(error) = warm_up_openvino_model(&model_size, Some(&accelerator)).await {
+                crate::log_warn!("Startup model warm failed: {}", error);
+            }
+        });
+    }
 
     #[cfg(target_os = "linux")]
     {

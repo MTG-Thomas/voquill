@@ -58,17 +58,22 @@ pub async fn warm_up_model(
         ));
     }
 
+    warm_up_openvino_model(&model_size, accelerator.as_deref()).await
+}
+
+pub(crate) async fn warm_up_openvino_model(
+    model_size: &str,
+    accelerator: Option<&str>,
+) -> Result<(), String> {
+    let accelerator = accelerator.unwrap_or("NPU");
     crate::log_info!(
         "🔥 OpenVINO warmup requested: model={}, accelerator={}",
         model_size,
-        accelerator.as_deref().unwrap_or("NPU")
+        accelerator
     );
 
-    let service = openvino_whisper::OpenVinoWhisperService::new(
-        &model_size,
-        accelerator.as_deref().unwrap_or("NPU"),
-    )
-    .map_err(|error| error.to_string())?;
+    let service = openvino_whisper::OpenVinoWhisperService::new(model_size, accelerator)
+        .map_err(|error| error.to_string())?;
 
     service
         .transcribe(&create_silent_warmup_wav(), Some("en"), None)
@@ -79,7 +84,7 @@ pub async fn warm_up_model(
     crate::log_info!(
         "✅ OpenVINO warmup complete: model={}, accelerator={}",
         model_size,
-        accelerator.as_deref().unwrap_or("NPU")
+        accelerator
     );
 
     Ok(())

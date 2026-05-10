@@ -1,7 +1,8 @@
 use crate::config::{self, Config, TranscriptionMode};
 use crate::transcription::TranscriptionService;
 use crate::{
-    audio, domain_vocabulary, history, local_whisper, openvino_whisper, transcription, typing,
+    audio, audio_quality, domain_vocabulary, history, local_whisper, openvino_whisper,
+    transcription, typing,
 };
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
@@ -253,6 +254,13 @@ pub async fn record_and_transcribe(
         crate::log_info!("⚠️ Audio validation failed: {}", error);
         reset_status_on_exit().await;
         return Ok(());
+    }
+    let readiness_warnings = audio_quality::analyze_wav(&audio_data);
+    if !readiness_warnings.is_empty() {
+        for warning in &readiness_warnings {
+            crate::log_info!("🎙️ {}", warning.message);
+        }
+        let _ = app_handle.emit("mic-readiness-warnings", readiness_warnings);
     }
 
     let transcription_already_active = {

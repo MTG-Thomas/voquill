@@ -58,6 +58,7 @@ interface Config {
   streaming_typewriter: boolean;
   language: string;
   enable_gpu: boolean;
+  warm_model_on_startup: boolean;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -178,6 +179,7 @@ function App() {
     streaming_typewriter: false,
     language: "auto",
     enable_gpu: false,
+    warm_model_on_startup: true,
   });
 
   const [activeRoute, setActiveRoute] = useState<AppRoute>(routeFromHash(window.location.hash));
@@ -400,6 +402,13 @@ function App() {
       setMicVolume(event.payload);
     });
 
+    const unlistenMicReadiness = listen<{ message: string }[]>(
+      "mic-readiness-warnings",
+      (event) => {
+        event.payload.forEach((warning) => showToast(warning.message, "info"));
+      },
+    );
+
     const unlistenDownloadProgress = listen<number>(
       "model-download-progress",
       (event: Event<number>) => {
@@ -424,6 +433,7 @@ function App() {
       unlistenMicTestStarted.then((fn: UnlistenFn) => fn());
       unlistenMicTestFinished.then((fn: UnlistenFn) => fn());
       unlistenMicVolume.then((fn: UnlistenFn) => fn());
+      unlistenMicReadiness.then((fn: UnlistenFn) => fn());
       unlistenDownloadProgress.then((fn: UnlistenFn) => fn());
     };
   }, []);

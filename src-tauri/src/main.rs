@@ -32,6 +32,7 @@ use tauri::Manager;
 
 mod app;
 mod audio;
+mod audio_quality;
 mod config;
 mod domain_vocabulary;
 mod history;

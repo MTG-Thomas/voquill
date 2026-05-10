@@ -45,6 +45,7 @@ interface ConfigPageProps {
     pixels_from_bottom: number;
     debug_mode: boolean;
     enable_gpu: boolean;
+    warm_model_on_startup: boolean;
     enable_recording_logs: boolean;
   };
   activeConfigSection: string | null;
@@ -478,6 +479,16 @@ export function ConfigPage(props: ConfigPageProps) {
                         </div>
                       )}
                     </div>
+                  </ConfigField>
+
+                  <ConfigField
+                    label="Warm at Startup"
+                    description="Automatically warm the selected OpenVINO model when Voquill starts."
+                  >
+                    <Switch
+                      checked={config.warm_model_on_startup}
+                      onChange={(checked) => updateConfig("warm_model_on_startup", checked)}
+                    />
                   </ConfigField>
                 </>
               ) : (
