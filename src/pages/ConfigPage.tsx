@@ -586,9 +586,7 @@ export function ConfigPage(props: ConfigPageProps) {
           >
             <textarea
               value={config.custom_vocabulary}
-              onInput={(event) =>
-                updateConfig("custom_vocabulary", event.currentTarget.value)
-              }
+              onInput={(event) => updateConfig("custom_vocabulary", event.currentTarget.value)}
               rows={6}
               style={{
                 ...inputBaseStyle,
@@ -606,9 +604,7 @@ export function ConfigPage(props: ConfigPageProps) {
           >
             <textarea
               value={config.custom_corrections}
-              onInput={(event) =>
-                updateConfig("custom_corrections", event.currentTarget.value)
-              }
+              onInput={(event) => updateConfig("custom_corrections", event.currentTarget.value)}
               rows={6}
               style={{
                 ...inputBaseStyle,

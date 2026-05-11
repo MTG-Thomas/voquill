@@ -31,6 +31,7 @@ commands.allow = [
     "get_available_models",
     "check_model_status",
     "download_model",
+    "warm_up_model",
     "get_linux_setup_status",
     "request_audio_permission",
     "request_input_permission",
@@ -38,5 +39,6 @@ commands.allow = [
     "get_wayland_portal_version",
     "get_portal_diagnostics",
     "get_system_shortcut_context",
+    "get_overlay_positioning_capabilities",
     "check_for_updates"
 ]
