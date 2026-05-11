@@ -38,8 +38,6 @@ pub async fn save_config(
     };
 
     let mut prepared_device: Option<cpal::Device> = None;
-    let mut prepared_engine: Option<audio::PersistentAudioEngine> = None;
-
     if restart_engine {
         if is_mic_test_active {
             let selected_device = merged_config
@@ -67,32 +65,14 @@ pub async fn save_config(
         })?;
 
         crate::log_info!(
-            "🔧 Audio config changed, validating persistent engine restart (requested_device='{}', sensitivity={:.2})",
+            "🔧 Audio config changed, resolved input device without opening microphone stream (requested_device='{}', sensitivity={:.2})",
             merged_config
                 .audio_device
                 .clone()
                 .unwrap_or_else(|| "default".to_string()),
             merged_config.input_sensitivity
         );
-
-        let new_engine = audio::PersistentAudioEngine::new(
-            &resolved_device,
-            merged_config.input_sensitivity,
-        )
-        .map_err(|error| {
-            format!(
-                "Failed to initialize persistent audio engine for device '{}' (sensitivity {:.2}): {}",
-                merged_config
-                    .audio_device
-                    .clone()
-                    .unwrap_or_else(|| "default".to_string()),
-                merged_config.input_sensitivity,
-                error
-            )
-        })?;
-
         prepared_device = Some(resolved_device);
-        prepared_engine = Some(new_engine);
     }
 
     {
@@ -107,9 +87,9 @@ pub async fn save_config(
         }
         {
             let mut engine_guard = state.audio_engine.lock().unwrap();
-            *engine_guard = prepared_engine;
+            *engine_guard = None;
         }
-        crate::log_info!("✅ Persistent engine restarted");
+        crate::log_info!("✅ Audio device cache updated; microphone stream remains idle");
     } else {
         let cached = match audio::lookup_device(merged_config.audio_device.clone()) {
             Ok(device) => Some(device),

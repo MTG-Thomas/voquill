@@ -63,25 +63,8 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
         };
         *cached_device = device.clone();
 
-        if let Some(device) = device {
-            match audio::PersistentAudioEngine::new(&device, initial_config.input_sensitivity) {
-                Ok(engine) => {
-                    let mut engine_guard = app_state.audio_engine.lock().unwrap();
-                    *engine_guard = Some(engine);
-                    crate::log_info!("✅ Persistent audio engine initialized");
-                }
-                Err(error) => {
-                    crate::log_warn!(
-                        "❌ Initial persistent audio engine initialization failed (requested_device='{}', sensitivity={:.2}): {}",
-                        initial_config
-                            .audio_device
-                            .clone()
-                            .unwrap_or_else(|| "default".to_string()),
-                        initial_config.input_sensitivity,
-                        error
-                    );
-                }
-            }
+        if device.is_some() {
+            crate::log_info!("✅ Initial audio device resolved; microphone stream remains idle");
         }
         crate::log_info!("🔧 Initial pre-warm of audio device cache complete");
     }

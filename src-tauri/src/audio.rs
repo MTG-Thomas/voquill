@@ -472,6 +472,11 @@ pub async fn record_audio_while_flag_with_partials(
         *eng.recording_tx.lock().unwrap() = None;
     }
     let final_wav = data_rx.recv()?;
+    {
+        let mut guard = engine.lock().unwrap();
+        *guard = None;
+    }
+    crate::log_info!("🎙️ Audio engine released after recording capture");
     crate::log_info!(
         "🎙️ record_audio_while_flag: captured {} bytes of wav before whisper conversion",
         final_wav.len()
@@ -556,6 +561,11 @@ where
         *eng.recording_tx.lock().unwrap() = None;
     }
     let final_samples = data_rx.recv()?;
+    {
+        let mut guard = engine.lock().unwrap();
+        *guard = None;
+    }
+    crate::log_info!("🎤 Audio engine released after mic test capture");
 
     crate::log_info!(
         "✅ Mic test: Finished with {} samples at {}Hz",
