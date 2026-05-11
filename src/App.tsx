@@ -954,7 +954,8 @@ function App() {
     });
 
     // Errors stay longer (10s), saved confirmations are brief, others 3s
-    const duration = options.durationMs ?? (type === "error" ? 10000 : type === "saved" ? 900 : 3000);
+    const duration =
+      options.durationMs ?? (type === "error" ? 10000 : type === "saved" ? 900 : 3000);
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));

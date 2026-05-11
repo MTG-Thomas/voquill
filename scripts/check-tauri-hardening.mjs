@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const readJson = (path) => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
+const readText = (path) => readFileSync(join(repoRoot, path), "utf8");
 
 const failures = [];
 const warnings = [];
@@ -11,6 +12,8 @@ const warnings = [];
 const tauriConfig = readJson("src-tauri/tauri.conf.json");
 const mainCapability = readJson("src-tauri/capabilities/main.json");
 const overlayCapability = readJson("src-tauri/capabilities/overlay.json");
+const appPermissions = readText("src-tauri/permissions/app.toml");
+const appSource = readText("src/App.tsx");
 
 if (!tauriConfig.app?.security?.csp) {
   failures.push("src-tauri/tauri.conf.json must set app.security.csp.");
@@ -31,6 +34,23 @@ for (const deniedPermission of ["shell:allow-execute", "shell:allow-spawn", "she
 
 if (overlayPermissions.has("shell:allow-open") || overlayPermissions.has("allow-app-commands")) {
   failures.push("overlay capability should not receive shell or custom app command permissions.");
+}
+
+const appCommandAllowListMatch = appPermissions.match(/commands\.allow\s*=\s*\[([\s\S]*?)\]/m);
+const allowedAppCommands = new Set(
+  Array.from(appCommandAllowListMatch?.[1].matchAll(/"([^"]+)"/g) ?? [], (match) => match[1]),
+);
+
+const frontendInvokedAppCommands = new Set(
+  Array.from(appSource.matchAll(/invoke(?:<[^>]+>)?\(\s*["`]([^"`]+)["`]/g), (match) => match[1])
+    .filter((command) => !command.includes(":"))
+    .filter((command) => !command.includes("|")),
+);
+
+for (const command of frontendInvokedAppCommands) {
+  if (!allowedAppCommands.has(command)) {
+    failures.push(`Tauri app command is invoked by the main UI but missing from ACL: ${command}`);
+  }
 }
 
 if (tauriConfig.bundle?.windows?.certificateThumbprint === null) {
