@@ -67,6 +67,7 @@ interface Toast {
   id: number;
   message: string;
   type: "success" | "error" | "info" | "saved";
+  group?: string;
 }
 
 interface HistoryItem {
@@ -405,7 +406,9 @@ function App() {
     const unlistenMicReadiness = listen<{ message: string }[]>(
       "mic-readiness-warnings",
       (event) => {
-        event.payload.forEach((warning) => showToast(warning.message, "info"));
+        event.payload.forEach((warning) =>
+          showToast(warning.message, "info", { durationMs: 1_200, group: "mic-readiness" }),
+        );
       },
     );
 
@@ -922,7 +925,11 @@ function App() {
     }
   };
 
-  const showToast = (message: string, type: "success" | "error" | "info" | "saved" = "info") => {
+  const showToast = (
+    message: string,
+    type: "success" | "error" | "info" | "saved" = "info",
+    options: { durationMs?: number; group?: string } = {},
+  ) => {
     // Log to console/backend
     const emoji =
       type === "success" ? "✅" : type === "error" ? "❌" : type === "saved" ? "💾" : "ℹ️";
@@ -930,14 +937,18 @@ function App() {
 
     const id = Date.now();
     setToasts((prev) => {
+      const nextToast = { id, message, type, group: options.group };
+      const baseToasts = options.group
+        ? prev.filter((toast) => toast.group !== options.group)
+        : prev;
       if (type === "saved") {
-        return [...prev.filter((toast) => toast.type !== "saved"), { id, message, type }];
+        return [...baseToasts.filter((toast) => toast.type !== "saved"), nextToast];
       }
-      return [...prev, { id, message, type }];
+      return [...baseToasts, nextToast];
     });
 
     // Errors stay longer (10s), saved confirmations are brief, others 3s
-    const duration = type === "error" ? 10000 : type === "saved" ? 900 : 3000;
+    const duration = options.durationMs ?? (type === "error" ? 10000 : type === "saved" ? 900 : 3000);
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
