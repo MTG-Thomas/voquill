@@ -133,8 +133,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri bundles
+      - name: Build Tauri bundles (Windows)
+        if: runner.os == 'Windows'
         run: npm run tauri:build
+
+      - name: Build Tauri bundles (Linux)
+        if: runner.os == 'Linux'
+        run: npm run tauri -- build --bundles deb,rpm
 
       - name: Upload Windows artifacts
         if: runner.os == 'Windows'
@@ -155,7 +160,6 @@ jobs:
           path: |
             ${{ env.CARGO_TARGET_DIR }}/release/bundle/deb/*.deb
             ${{ env.CARGO_TARGET_DIR }}/release/bundle/rpm/*.rpm
-            ${{ env.CARGO_TARGET_DIR }}/release/bundle/appimage/*.AppImage
 
   publish:
     name: Publish GitHub release
