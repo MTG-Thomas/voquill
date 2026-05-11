@@ -40,6 +40,7 @@ interface ConfigPageProps {
     output_method: "Typewriter" | "Clipboard";
     audio_device: string | null;
     input_sensitivity: number;
+    office_mode: boolean;
     typing_speed_interval: number;
     key_press_duration_ms: number;
     pixels_from_bottom: number;
@@ -47,6 +48,8 @@ interface ConfigPageProps {
     enable_gpu: boolean;
     warm_model_on_startup: boolean;
     enable_recording_logs: boolean;
+    custom_vocabulary: string;
+    custom_corrections: string;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -555,6 +558,65 @@ export function ConfigPage(props: ConfigPageProps) {
               onStartMicTest={startMicTest}
               onStopMicTest={stopMicTest}
               onStopMicPlayback={stopMicPlayback}
+            />
+          </ConfigField>
+
+          <ConfigField
+            label="Office Mode"
+            labelBadge="Experimental"
+            description="Use stricter mic readiness warnings for headset dictation in noisy office spaces."
+          >
+            <Switch
+              checked={config.office_mode}
+              onChange={(checked) => updateConfig("office_mode", checked)}
+            />
+          </ConfigField>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Vocabulary"
+          isOpen={activeConfigSection === "vocabulary"}
+          onToggle={() =>
+            setActiveConfigSection(activeConfigSection === "vocabulary" ? null : "vocabulary")
+          }
+        >
+          <ConfigField
+            label="Custom Terms"
+            description="One preferred company, product, acronym, or internal term per line."
+          >
+            <textarea
+              value={config.custom_vocabulary}
+              onInput={(event) =>
+                updateConfig("custom_vocabulary", event.currentTarget.value)
+              }
+              rows={6}
+              style={{
+                ...inputBaseStyle,
+                minHeight: 120,
+                resize: "vertical",
+                lineHeight: 1.45,
+              }}
+              spellcheck={false}
+            />
+          </ConfigField>
+
+          <ConfigField
+            label="Correction Pairs"
+            description="One correction per line, like: halo p s a => HaloPSA"
+          >
+            <textarea
+              value={config.custom_corrections}
+              onInput={(event) =>
+                updateConfig("custom_corrections", event.currentTarget.value)
+              }
+              rows={6}
+              style={{
+                ...inputBaseStyle,
+                minHeight: 120,
+                resize: "vertical",
+                lineHeight: 1.45,
+              }}
+              spellcheck={false}
             />
           </ConfigField>
         </CollapsibleSection>

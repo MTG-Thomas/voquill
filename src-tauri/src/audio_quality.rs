@@ -13,25 +13,37 @@ struct WavMetrics {
     clipped_ratio: f32,
 }
 
-pub fn analyze_wav(audio_data: &[u8]) -> Vec<AudioReadinessWarning> {
+pub fn analyze_wav(audio_data: &[u8], office_mode: bool) -> Vec<AudioReadinessWarning> {
     let Ok(metrics) = parse_wav_metrics(audio_data) else {
         return Vec::new();
     };
 
     let mut warnings = Vec::new();
-    if metrics.peak < 0.02 || metrics.rms < 0.003 {
+    let low_peak_threshold = 0.02;
+    let silence_rms_threshold = if office_mode { 0.006 } else { 0.003 };
+    let low_level_rms_threshold = if office_mode { 0.025 } else { 0.015 };
+
+    if metrics.peak < low_peak_threshold || metrics.rms < silence_rms_threshold {
         warnings.push(AudioReadinessWarning {
             code: "no_speech_detected",
-            message: "Mic check: very little speech was detected.".to_string(),
+            message: if office_mode {
+                "Office Mode: very little direct speech was detected.".to_string()
+            } else {
+                "Mic check: very little speech was detected.".to_string()
+            },
         });
         return warnings;
     }
 
-    if metrics.rms < 0.015 {
+    if metrics.rms < low_level_rms_threshold {
         warnings.push(AudioReadinessWarning {
             code: "low_level",
-            message: "Mic check: input level is low; move the mic closer or raise gain."
-                .to_string(),
+            message: if office_mode {
+                "Office Mode: your voice is low for a noisy room; move the mic closer or raise gain."
+                    .to_string()
+            } else {
+                "Mic check: input level is low; move the mic closer or raise gain.".to_string()
+            },
         });
     }
 
@@ -145,7 +157,7 @@ mod tests {
 
     #[test]
     fn warns_for_near_silent_audio() {
-        let warnings = analyze_wav(&create_wav(&vec![0; 16_000]));
+        let warnings = analyze_wav(&create_wav(&vec![0; 16_000]), false);
 
         assert!(warnings
             .iter()
@@ -155,7 +167,7 @@ mod tests {
     #[test]
     fn warns_for_clipping() {
         let samples = vec![i16::MAX; 16_000];
-        let warnings = analyze_wav(&create_wav(&samples));
+        let warnings = analyze_wav(&create_wav(&samples), false);
 
         assert!(warnings.iter().any(|warning| warning.code == "clipping"));
     }
@@ -169,7 +181,21 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        assert!(analyze_wav(&create_wav(&samples)).is_empty());
+        assert!(analyze_wav(&create_wav(&samples), false).is_empty());
+    }
+
+    #[test]
+    fn office_mode_warns_on_marginal_level() {
+        let samples = (0..16_000)
+            .map(|index| {
+                let phase = index as f32 / 16_000.0 * 440.0 * std::f32::consts::TAU;
+                (phase.sin() * 800.0) as i16
+            })
+            .collect::<Vec<_>>();
+
+        assert!(analyze_wav(&create_wav(&samples), true)
+            .iter()
+            .any(|warning| warning.code == "low_level"));
     }
 
     fn create_wav(samples: &[i16]) -> Vec<u8> {

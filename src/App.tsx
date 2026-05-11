@@ -53,10 +53,13 @@ interface Config {
   debug_mode: boolean;
   enable_recording_logs: boolean;
   input_sensitivity: number;
+  office_mode: boolean;
   output_method: "Typewriter" | "Clipboard";
   copy_on_typewriter: boolean;
   streaming_typewriter: boolean;
   language: string;
+  custom_vocabulary: string;
+  custom_corrections: string;
   enable_gpu: boolean;
   warm_model_on_startup: boolean;
   shortcuts_token?: string;
@@ -175,10 +178,13 @@ function App() {
     debug_mode: false,
     enable_recording_logs: false,
     input_sensitivity: 1.0,
+    office_mode: false,
     output_method: "Typewriter",
     copy_on_typewriter: false,
     streaming_typewriter: false,
     language: "auto",
+    custom_vocabulary: "",
+    custom_corrections: "",
     enable_gpu: false,
     warm_model_on_startup: true,
   });

@@ -50,6 +50,8 @@ pub struct Config {
     pub enable_recording_logs: bool,
     #[serde(default = "default_input_sensitivity")]
     pub input_sensitivity: f32,
+    #[serde(default = "default_office_mode")]
+    pub office_mode: bool,
     #[serde(default = "default_output_method")]
     pub output_method: OutputMethod,
     #[serde(default = "default_copy_on_typewriter")]
@@ -58,6 +60,10 @@ pub struct Config {
     pub streaming_typewriter: bool,
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default = "default_custom_vocabulary")]
+    pub custom_vocabulary: String,
+    #[serde(default = "default_custom_corrections")]
+    pub custom_corrections: String,
     #[serde(default)]
     pub shortcuts_token: Option<String>,
     #[serde(default)]
@@ -121,6 +127,9 @@ fn default_enable_recording_logs() -> bool {
 fn default_input_sensitivity() -> f32 {
     1.0
 }
+fn default_office_mode() -> bool {
+    false
+}
 fn default_output_method() -> OutputMethod {
     OutputMethod::Typewriter
 }
@@ -132,6 +141,12 @@ fn default_streaming_typewriter() -> bool {
 }
 fn default_language() -> String {
     "auto".to_string()
+}
+fn default_custom_vocabulary() -> String {
+    String::new()
+}
+fn default_custom_corrections() -> String {
+    String::new()
 }
 fn default_enable_gpu() -> bool {
     false
@@ -196,10 +211,13 @@ impl Default for Config {
             debug_mode: default_debug_mode(),
             enable_recording_logs: default_enable_recording_logs(),
             input_sensitivity: default_input_sensitivity(),
+            office_mode: default_office_mode(),
             output_method: default_output_method(),
             copy_on_typewriter: default_copy_on_typewriter(),
             streaming_typewriter: default_streaming_typewriter(),
             language: default_language(),
+            custom_vocabulary: default_custom_vocabulary(),
+            custom_corrections: default_custom_corrections(),
             shortcuts_token: None,
             input_token: None,
             enable_gpu: default_enable_gpu(),
@@ -280,7 +298,7 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize_input_sensitivity();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, streaming_typewriter={}, warm_on_startup={}, input_sensitivity={:.2}",
+        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, streaming_typewriter={}, office_mode={}, warm_on_startup={}, input_sensitivity={:.2}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
         normalized_config.local_accelerator,
@@ -291,6 +309,7 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         normalized_config.enable_recording_logs,
         normalized_config.enable_gpu,
         normalized_config.streaming_typewriter,
+        normalized_config.office_mode,
         normalized_config.warm_model_on_startup,
         normalized_config.input_sensitivity
     );

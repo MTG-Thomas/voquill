@@ -95,6 +95,7 @@ fn spawn_streaming_typewriter(
     committed_text: Arc<Mutex<String>>,
     language: Option<String>,
     prompt: Option<String>,
+    custom_corrections: String,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut previous_partial = String::new();
@@ -128,7 +129,7 @@ fn spawn_streaming_typewriter(
                 .transcribe(&partial_audio, language.as_deref(), prompt.as_deref())
                 .await
             {
-                Ok(text) => domain_vocabulary::correct_transcription(&text),
+                Ok(text) => domain_vocabulary::correct_transcription(&text, &custom_corrections),
                 Err(error) => {
                     crate::log_info!("⚠️ Streaming typewriter partial failed: {}", error);
                     continue;
@@ -194,12 +195,22 @@ pub async fn record_and_transcribe(
         crate::app::status::emit_status_to_frontend("Ready").await;
     };
 
-    let (language_choice, streaming_enabled, streaming_output_method) = {
+    let (
+        language_choice,
+        streaming_enabled,
+        streaming_output_method,
+        office_mode,
+        custom_vocabulary,
+        custom_corrections,
+    ) = {
         let config_guard = config.lock().unwrap();
         (
             config_guard.language.clone(),
             should_stream_typewriter(&config_guard),
             config_guard.output_method.clone(),
+            config_guard.office_mode,
+            config_guard.custom_vocabulary.clone(),
+            config_guard.custom_corrections.clone(),
         )
     };
 
@@ -210,7 +221,8 @@ pub async fn record_and_transcribe(
         "en-US" => (Some("en"), Some("American spelling.")),
         code => (Some(code), None),
     };
-    let prompt_hint = domain_vocabulary::build_transcription_prompt(language_prompt_hint);
+    let prompt_hint =
+        domain_vocabulary::build_transcription_prompt(language_prompt_hint, &custom_vocabulary);
 
     let committed_streaming_text = Arc::new(Mutex::new(String::new()));
     let (partial_tx, streaming_task) = if streaming_enabled {
@@ -223,6 +235,7 @@ pub async fn record_and_transcribe(
             committed_streaming_text.clone(),
             lang_code.map(ToString::to_string),
             Some(prompt_hint.clone()),
+            custom_corrections.clone(),
         );
         (Some(partial_tx), Some(task))
     } else {
@@ -255,7 +268,7 @@ pub async fn record_and_transcribe(
         reset_status_on_exit().await;
         return Ok(());
     }
-    let readiness_warnings = audio_quality::analyze_wav(&audio_data);
+    let readiness_warnings = audio_quality::analyze_wav(&audio_data, office_mode);
     if !readiness_warnings.is_empty() {
         for warning in &readiness_warnings {
             crate::log_info!("🎙️ {}", warning.message);
@@ -369,7 +382,8 @@ pub async fn record_and_transcribe(
         .await
     {
         Ok(text) => {
-            let corrected_text = domain_vocabulary::correct_transcription(&text);
+            let corrected_text =
+                domain_vocabulary::correct_transcription(&text, &custom_corrections);
             if corrected_text != text {
                 crate::log_info!(
                     "🧭 Domain vocabulary corrected transcription: \"{}\" -> \"{}\"",

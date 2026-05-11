@@ -73,7 +73,7 @@ const CORRECTIONS: &[(&str, &str)] = &[
     ("c i p p", "CIPP"),
 ];
 
-pub fn build_transcription_prompt(language_hint: Option<&str>) -> String {
+pub fn build_transcription_prompt(language_hint: Option<&str>, custom_vocabulary: &str) -> String {
     let mut prompt = String::new();
     if let Some(hint) = language_hint {
         let trimmed = hint.trim();
@@ -86,18 +86,63 @@ pub fn build_transcription_prompt(language_hint: Option<&str>) -> String {
         }
     }
 
+    let mut terms = GLOSSARY_TERMS
+        .iter()
+        .map(|term| (*term).to_string())
+        .collect::<Vec<_>>();
+    terms.extend(parse_custom_vocabulary_terms(custom_vocabulary));
+
     prompt.push_str("Prefer these IT and MSP terms when they match the spoken audio: ");
-    prompt.push_str(&GLOSSARY_TERMS.join(", "));
+    prompt.push_str(&terms.join(", "));
     prompt.push('.');
     prompt
 }
 
-pub fn correct_transcription(text: &str) -> String {
-    CORRECTIONS
+pub fn correct_transcription(text: &str, custom_corrections: &str) -> String {
+    let corrected =
+        CORRECTIONS
+            .iter()
+            .fold(text.to_string(), |corrected, (phrase, replacement)| {
+                replace_phrase_case_insensitive(&corrected, phrase, replacement)
+            });
+
+    parse_custom_correction_pairs(custom_corrections)
         .iter()
-        .fold(text.to_string(), |corrected, (phrase, replacement)| {
+        .fold(corrected, |corrected, (phrase, replacement)| {
             replace_phrase_case_insensitive(&corrected, phrase, replacement)
         })
+}
+
+fn parse_custom_vocabulary_terms(custom_vocabulary: &str) -> Vec<String> {
+    custom_vocabulary
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn parse_custom_correction_pairs(custom_corrections: &str) -> Vec<(String, String)> {
+    custom_corrections
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                return None;
+            }
+
+            let (from, to) = trimmed
+                .split_once("=>")
+                .or_else(|| trimmed.split_once("->"))?;
+            let from = from.trim();
+            let to = to.trim();
+            if from.is_empty() || to.is_empty() {
+                return None;
+            }
+
+            Some((from.to_string(), to.to_string()))
+        })
+        .collect()
 }
 
 fn replace_phrase_case_insensitive(text: &str, phrase: &str, replacement: &str) -> String {
@@ -162,7 +207,7 @@ mod tests {
 
     #[test]
     fn prompt_includes_language_hint_and_it_terms() {
-        let prompt = build_transcription_prompt(Some("American spelling"));
+        let prompt = build_transcription_prompt(Some("American spelling"), "");
 
         assert!(prompt.starts_with("American spelling."));
         assert!(prompt.contains("Entra ID"));
@@ -172,7 +217,7 @@ mod tests {
 
     #[test]
     fn prompt_handles_missing_language_hint() {
-        let prompt = build_transcription_prompt(None);
+        let prompt = build_transcription_prompt(None, "");
 
         assert!(prompt.starts_with("Prefer these IT and MSP terms"));
     }
@@ -182,7 +227,7 @@ mod tests {
         let text = "Please check in tune, halo p s a, ninja one, and d mark records.";
 
         assert_eq!(
-            correct_transcription(text),
+            correct_transcription(text, ""),
             "Please check Intune, HaloPSA, NinjaOne, and DMARC records."
         );
     }
@@ -191,7 +236,7 @@ mod tests {
     fn does_not_rewrite_inside_larger_words() {
         let text = "This open aim sentence mentions spfing and autodmark.";
 
-        assert_eq!(correct_transcription(text), text);
+        assert_eq!(correct_transcription(text, ""), text);
     }
 
     #[test]
@@ -199,8 +244,28 @@ mod tests {
         let text = "ENTRA ID and defender x d r should be canonical.";
 
         assert_eq!(
-            correct_transcription(text),
+            correct_transcription(text, ""),
             "Entra ID and Defender XDR should be canonical."
+        );
+    }
+
+    #[test]
+    fn includes_custom_vocabulary_terms() {
+        let prompt = build_transcription_prompt(None, "Contoso Dental\n# comment\nGraphConnector");
+
+        assert!(prompt.contains("Contoso Dental"));
+        assert!(prompt.contains("GraphConnector"));
+        assert!(!prompt.contains("# comment"));
+    }
+
+    #[test]
+    fn applies_custom_correction_pairs() {
+        let text = "Please check contoso dent all and graph connector.";
+        let corrections = "contoso dent all => Contoso Dental\ngraph connector -> GraphConnector";
+
+        assert_eq!(
+            correct_transcription(text, corrections),
+            "Please check Contoso Dental and GraphConnector."
         );
     }
 }
