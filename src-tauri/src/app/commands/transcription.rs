@@ -76,7 +76,7 @@ pub(crate) async fn warm_up_openvino_model(
         .map_err(|error| error.to_string())?;
 
     service
-        .transcribe(&create_silent_warmup_wav(), Some("en"), None)
+        .transcribe(&create_silent_warmup_wav(), None, None)
         .await
         .map(|_| ())
         .map_err(|error| error.to_string())?;
