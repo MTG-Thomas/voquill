@@ -47,7 +47,10 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
 
     {
         let mut cached_device = app_state.cached_device.lock().unwrap();
-        let device = match audio::lookup_device(initial_config.audio_device.clone()) {
+        let device = match audio::lookup_device(
+            initial_config.audio_device.clone(),
+            initial_config.audio_device_label.clone(),
+        ) {
             Ok(device) => Some(device),
             Err(error) => {
                 crate::log_warn!(

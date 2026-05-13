@@ -44,14 +44,20 @@ pub async fn start_recording(
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
             crate::log_info!("🔧 Audio engine not found, attempting to initialize...");
-            let requested_device = { state.config.lock().unwrap().audio_device.clone() };
+            let (requested_device, requested_device_label) = {
+                let config_guard = state.config.lock().unwrap();
+                (
+                    config_guard.audio_device.clone(),
+                    config_guard.audio_device_label.clone(),
+                )
+            };
 
             let resolved_device = {
                 let cached_device = state.cached_device.lock().unwrap().clone();
                 if cached_device.is_some() {
                     cached_device
                 } else {
-                    match audio::lookup_device(requested_device.clone()) {
+                    match audio::lookup_device(requested_device.clone(), requested_device_label) {
                         Ok(device) => {
                             crate::log_info!(
                                 "🔧 Resolved input device on demand for recording (requested_device='{}')",
@@ -162,14 +168,20 @@ pub async fn start_mic_test(
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
             crate::log_info!("🔧 Audio engine not found for mic test, attempting to initialize...");
-            let requested_device = { state.config.lock().unwrap().audio_device.clone() };
+            let (requested_device, requested_device_label) = {
+                let config_guard = state.config.lock().unwrap();
+                (
+                    config_guard.audio_device.clone(),
+                    config_guard.audio_device_label.clone(),
+                )
+            };
 
             let resolved_device = {
                 let cached_device = state.cached_device.lock().unwrap().clone();
                 if cached_device.is_some() {
                     cached_device
                 } else {
-                    match audio::lookup_device(requested_device.clone()) {
+                    match audio::lookup_device(requested_device.clone(), requested_device_label) {
                         Ok(device) => {
                             crate::log_info!(
                                 "🔧 Resolved input device on demand for mic test (requested_device='{}')",

@@ -35,6 +35,7 @@ interface SetupConfig {
   enable_gpu: boolean;
   hotkey: string;
   audio_device: string | null;
+  audio_device_label?: string | null;
   input_sensitivity: number;
 }
 

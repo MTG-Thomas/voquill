@@ -20,7 +20,7 @@ pub async fn save_config(
 
     let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
 
-    let (restart_engine, hotkey_changed, merged_config) = {
+    let (restart_engine, hotkey_changed, mut merged_config) = {
         let config_guard = state.config.lock().unwrap();
         let audio_changed = config_guard.audio_device != normalized_config.audio_device
             || config_guard.input_sensitivity != normalized_config.input_sensitivity;
@@ -36,6 +36,30 @@ pub async fn save_config(
 
         (audio_changed, hotkey_changed, merged_config)
     };
+
+    match audio::resolve_configured_audio_device(
+        merged_config.audio_device.clone(),
+        merged_config.audio_device_label.clone(),
+    ) {
+        Ok(selection) => {
+            if selection.match_kind == audio::AudioDeviceMatchKind::SavedLabel {
+                crate::log_info!(
+                    "🎙️ Updating saved microphone endpoint after re-enumeration: '{}' -> '{}' ({})",
+                    merged_config
+                        .audio_device
+                        .clone()
+                        .unwrap_or_else(|| "default".to_string()),
+                    selection.id,
+                    selection.label
+                );
+            }
+            merged_config.audio_device = Some(selection.id);
+            merged_config.audio_device_label = Some(selection.label);
+        }
+        Err(error) => {
+            crate::log_warn!("⚠️ Could not refresh saved microphone metadata: {}", error);
+        }
+    }
 
     let mut prepared_device: Option<cpal::Device> = None;
     if restart_engine {
@@ -56,7 +80,11 @@ pub async fn save_config(
         }
 
         let selected_device = merged_config.audio_device.clone();
-        let resolved_device = audio::lookup_device(selected_device.clone()).map_err(|error| {
+        let resolved_device = audio::lookup_device(
+            selected_device.clone(),
+            merged_config.audio_device_label.clone(),
+        )
+        .map_err(|error| {
             format!(
                 "Failed to resolve input device '{}': {}",
                 selected_device.unwrap_or_else(|| "default".to_string()),
@@ -91,7 +119,10 @@ pub async fn save_config(
         }
         crate::log_info!("✅ Audio device cache updated; microphone stream remains idle");
     } else {
-        let cached = match audio::lookup_device(merged_config.audio_device.clone()) {
+        let cached = match audio::lookup_device(
+            merged_config.audio_device.clone(),
+            merged_config.audio_device_label.clone(),
+        ) {
             Ok(device) => Some(device),
             Err(error) => {
                 crate::log_warn!(

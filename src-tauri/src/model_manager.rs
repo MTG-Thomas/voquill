@@ -151,6 +151,28 @@ impl ModelManager {
                 recommended: false,
                 artifact: ModelArtifact::OpenVinoSnapshot,
             },
+            ModelInfo {
+                engine: "OpenVINO GenAI".to_string(),
+                size: "openvino-whisper-large-v3-turbo-int4".to_string(),
+                label: "Large v3 Turbo INT4 (Experimental)".to_string(),
+                file_size: 593_000_000,
+                download_url: "FluidInference/whisper-large-v3-turbo-int4-ov-npu".to_string(),
+                sha256: "".to_string(),
+                description: "Experimental NPU-focused Turbo model with a smaller INT4 footprint. Benchmark quality before daily use.".to_string(),
+                recommended: false,
+                artifact: ModelArtifact::OpenVinoSnapshot,
+            },
+            ModelInfo {
+                engine: "OpenVINO GenAI".to_string(),
+                size: "openvino-whisper-large-v3-turbo-fp16".to_string(),
+                label: "Large v3 Turbo FP16 (Experimental)".to_string(),
+                file_size: 1_950_000_000,
+                download_url: "FluidInference/whisper-large-v3-turbo-fp16-ov-npu".to_string(),
+                sha256: "".to_string(),
+                description: "Experimental NPU-focused Turbo model for accuracy and memory comparison. Expect the heaviest warm load.".to_string(),
+                recommended: false,
+                artifact: ModelArtifact::OpenVinoSnapshot,
+            },
         ]
     }
 
@@ -365,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn openvino_candidate_models_include_small_and_turbo() {
+    fn openvino_candidate_models_include_small_and_turbo_variants() {
         let models = ModelManager::get_available_models();
 
         assert!(models
@@ -374,5 +396,11 @@ mod tests {
         assert!(models
             .iter()
             .any(|model| model.size == "openvino-whisper-large-v3-turbo-int8"));
+        assert!(models
+            .iter()
+            .any(|model| model.size == "openvino-whisper-large-v3-turbo-int4"));
+        assert!(models
+            .iter()
+            .any(|model| model.size == "openvino-whisper-large-v3-turbo-fp16"));
     }
 }

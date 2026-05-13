@@ -39,6 +39,7 @@ interface ConfigPageProps {
     streaming_typewriter: boolean;
     output_method: "Typewriter" | "Clipboard";
     audio_device: string | null;
+    audio_device_label?: string | null;
     input_sensitivity: number;
     office_mode: boolean;
     typing_speed_interval: number;

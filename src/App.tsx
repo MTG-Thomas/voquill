@@ -50,6 +50,7 @@ interface Config {
   key_press_duration_ms: number;
   pixels_from_bottom: number;
   audio_device: string | null;
+  audio_device_label?: string | null;
   debug_mode: boolean;
   enable_recording_logs: boolean;
   input_sensitivity: number;
@@ -175,6 +176,7 @@ function App() {
     key_press_duration_ms: 2,
     pixels_from_bottom: 100,
     audio_device: "default",
+    audio_device_label: null,
     debug_mode: false,
     enable_recording_logs: false,
     input_sensitivity: 1.0,
@@ -643,7 +645,7 @@ function App() {
   const isTurboWarmEligible =
     config.transcription_mode === "Local" &&
     config.local_engine === "OpenVINO GenAI" &&
-    config.local_model_size === "openvino-whisper-large-v3-turbo-int8";
+    config.local_model_size.startsWith("openvino-whisper-large-v3-turbo-");
 
   useEffect(() => {
     window.localStorage.setItem(

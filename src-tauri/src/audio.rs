@@ -36,6 +36,88 @@ pub struct AudioDevice {
     pub label: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AudioDeviceMatchKind {
+    Default,
+    ExactId,
+    SavedLabel,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AudioDeviceSelection {
+    pub id: String,
+    pub label: String,
+    pub match_kind: AudioDeviceMatchKind,
+}
+
+fn normalize_device_label(label: &str) -> String {
+    label.trim().to_lowercase()
+}
+
+pub fn select_configured_audio_device(
+    target_id: Option<&str>,
+    target_label: Option<&str>,
+    devices: &[AudioDevice],
+) -> Result<AudioDeviceSelection, String> {
+    let target_id = target_id
+        .map(str::trim)
+        .filter(|id| !id.is_empty() && *id != "default");
+
+    let Some(target_id) = target_id else {
+        return Ok(AudioDeviceSelection {
+            id: "default".to_string(),
+            label: "System Default".to_string(),
+            match_kind: AudioDeviceMatchKind::Default,
+        });
+    };
+
+    if let Some(device) = devices.iter().find(|device| device.id == target_id) {
+        return Ok(AudioDeviceSelection {
+            id: device.id.clone(),
+            label: device.label.clone(),
+            match_kind: AudioDeviceMatchKind::ExactId,
+        });
+    }
+
+    let target_label = target_label
+        .map(str::trim)
+        .filter(|label| !label.is_empty() && *label != "System Default");
+
+    if let Some(target_label) = target_label {
+        let normalized_target_label = normalize_device_label(target_label);
+        let matches = devices
+            .iter()
+            .filter(|device| normalize_device_label(&device.label) == normalized_target_label)
+            .collect::<Vec<&AudioDevice>>();
+
+        if matches.len() == 1 {
+            let device = matches[0];
+            return Ok(AudioDeviceSelection {
+                id: device.id.clone(),
+                label: device.label.clone(),
+                match_kind: AudioDeviceMatchKind::SavedLabel,
+            });
+        }
+
+        if matches.len() > 1 {
+            return Err(format!(
+                "Device '{}' is no longer present, and saved label '{}' matches multiple active devices",
+                target_id, target_label
+            ));
+        }
+    }
+
+    Err(format!("Device '{}' not found", target_id))
+}
+
+pub fn resolve_configured_audio_device(
+    target_id: Option<String>,
+    target_label: Option<String>,
+) -> Result<AudioDeviceSelection, String> {
+    let devices = get_input_devices()?;
+    select_configured_audio_device(target_id.as_deref(), target_label.as_deref(), &devices)
+}
+
 #[cfg(target_os = "windows")]
 unsafe fn get_string_property(props: &IPropertyStore, key: *const PROPERTYKEY) -> Option<String> {
     let mut pv = match props.GetValue(key) {
@@ -312,9 +394,21 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     Ok(final_devices)
 }
 
-pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> {
+pub fn lookup_device(
+    target_id: Option<String>,
+    target_label: Option<String>,
+) -> Result<cpal::Device, String> {
     let host = cpal::default_host();
-    let target = target_id.filter(|id| id != "default");
+    let selected_device = resolve_configured_audio_device(target_id.clone(), target_label)
+        .map_err(|error| {
+            let requested = target_id.clone().unwrap_or_else(|| "default".to_string());
+            format!(
+                "Failed to select configured input device '{}': {}",
+                requested, error
+            )
+        })?;
+    let target = (selected_device.match_kind != AudioDeviceMatchKind::Default)
+        .then_some(selected_device.id.clone());
 
     fn summarize_input_devices(host: &cpal::Host) -> String {
         match host.input_devices() {
@@ -360,6 +454,15 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     let available_inputs = summarize_input_devices(&host);
 
     if let Some(name) = target {
+        if selected_device.match_kind == AudioDeviceMatchKind::SavedLabel {
+            crate::log_info!(
+                "🎙️ Rebound input device by saved label '{}' (old_id='{}', new_id='{}')",
+                selected_device.label,
+                target_id.unwrap_or_else(|| "default".to_string()),
+                selected_device.id
+            );
+        }
+
         if let Some(_stripped) = name.strip_prefix("pulse:") {
             #[cfg(target_os = "linux")]
             {
@@ -482,6 +585,40 @@ pub async fn record_audio_while_flag_with_partials(
         final_wav.len()
     );
     convert_audio_for_whisper(&final_wav, sample_rate, 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selects_reenumerated_device_by_saved_label_when_id_changes() {
+        let devices = vec![
+            AudioDevice {
+                id: "default".to_string(),
+                label: "System Default".to_string(),
+            },
+            AudioDevice {
+                id: "new-yeti-id".to_string(),
+                label: "Microphone (Yeti Stereo Microphone)".to_string(),
+            },
+            AudioDevice {
+                id: "webcam-id".to_string(),
+                label: "Microphone (Logi C615 HD WebCam)".to_string(),
+            },
+        ];
+
+        let selection = select_configured_audio_device(
+            Some("old-yeti-id"),
+            Some("Microphone (Yeti Stereo Microphone)"),
+            &devices,
+        )
+        .expect("same friendly microphone should be rebound");
+
+        assert_eq!(selection.id, "new-yeti-id");
+        assert_eq!(selection.label, "Microphone (Yeti Stereo Microphone)");
+        assert_eq!(selection.match_kind, AudioDeviceMatchKind::SavedLabel);
+    }
 }
 
 fn samples_to_wav(

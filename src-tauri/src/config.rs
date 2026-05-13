@@ -44,6 +44,8 @@ pub struct Config {
     pub pixels_from_bottom: i32,
     #[serde(default = "default_audio_device")]
     pub audio_device: Option<String>,
+    #[serde(default)]
+    pub audio_device_label: Option<String>,
     #[serde(default = "default_debug_mode")]
     pub debug_mode: bool,
     #[serde(default = "default_enable_recording_logs")]
@@ -79,6 +81,31 @@ impl Config {
         self.input_sensitivity = self
             .input_sensitivity
             .clamp(INPUT_SENSITIVITY_MIN, INPUT_SENSITIVITY_MAX);
+    }
+
+    pub fn refresh_audio_device_metadata(&mut self) {
+        match crate::audio::resolve_configured_audio_device(
+            self.audio_device.clone(),
+            self.audio_device_label.clone(),
+        ) {
+            Ok(selection) => {
+                if selection.match_kind == crate::audio::AudioDeviceMatchKind::SavedLabel {
+                    log_info!(
+                        "🎙️ Refreshed saved microphone endpoint after re-enumeration: '{}' -> '{}' ({})",
+                        self.audio_device
+                            .clone()
+                            .unwrap_or_else(|| "default".to_string()),
+                        selection.id,
+                        selection.label
+                    );
+                }
+                self.audio_device = Some(selection.id);
+                self.audio_device_label = Some(selection.label);
+            }
+            Err(error) => {
+                log_info!("⚠️ Could not refresh saved microphone metadata: {}", error);
+            }
+        }
     }
 }
 
@@ -208,6 +235,7 @@ impl Default for Config {
             key_press_duration_ms: default_key_press_duration(),
             pixels_from_bottom: default_pixels_from_bottom(),
             audio_device: default_audio_device(),
+            audio_device_label: None,
             debug_mode: default_debug_mode(),
             enable_recording_logs: default_enable_recording_logs(),
             input_sensitivity: default_input_sensitivity(),
@@ -266,12 +294,14 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
 
         let mut config = serde_json::from_value::<Config>(config_value)?;
         config.normalize_input_sensitivity();
+        config.refresh_audio_device_metadata();
         // Persist migration to disk to keep config clean
         save_config(&config)?;
         Ok(config)
     } else {
         // Create default config file
-        let default_config = Config::default();
+        let mut default_config = Config::default();
+        default_config.refresh_audio_device_metadata();
         save_config(&default_config)?;
         Ok(default_config)
     }
@@ -298,13 +328,14 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize_input_sensitivity();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, streaming_typewriter={}, office_mode={}, warm_on_startup={}, input_sensitivity={:.2}",
+        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, audio_device_label={:?}, debug_mode={}, recording_logs={}, gpu={}, streaming_typewriter={}, office_mode={}, warm_on_startup={}, input_sensitivity={:.2}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
         normalized_config.local_accelerator,
         normalized_config.local_model_size,
         normalized_config.hotkey,
         normalized_config.audio_device,
+        normalized_config.audio_device_label,
         normalized_config.debug_mode,
         normalized_config.enable_recording_logs,
         normalized_config.enable_gpu,
