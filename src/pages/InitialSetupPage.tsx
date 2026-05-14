@@ -165,13 +165,13 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               style={{
                 width: "48px",
                 height: "48px",
-                borderRadius: "12px",
-                background: "rgba(255,255,255,0.05)",
+                borderRadius: tokens.radii.panel,
+                background: tokens.colors.glassBg,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: tokens.colors.accentPrimary,
-                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+                boxShadow: tokens.shadows.sm,
               }}
             >
               <IconShieldLock size={32} />
@@ -181,7 +181,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 margin: 0,
                 fontSize: "24px",
                 fontWeight: 800,
-                letterSpacing: "-0.02em",
+                letterSpacing: 0,
                 color: tokens.colors.textPrimary,
               }}
             >
@@ -194,7 +194,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               display: "flex",
               flexDirection: "column",
               gap: tokens.spacing.md,
-              color: "#d9dfe7",
+              color: tokens.colors.textSecondary,
               lineHeight: 1.6,
               textAlign: "left",
             }}
@@ -214,9 +214,9 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 style={{
                   fontSize: "11px",
                   fontWeight: 800,
-                  letterSpacing: "0.08em",
+                  letterSpacing: 0,
                   textTransform: "uppercase",
-                  color: "#d9dfe7",
+                  color: tokens.colors.textMuted,
                   margin: "2px 0 6px",
                 }}
               >
@@ -398,9 +398,9 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 style={{
                   fontSize: "11px",
                   fontWeight: 800,
-                  letterSpacing: "0.08em",
+                  letterSpacing: 0,
                   textTransform: "uppercase",
-                  color: "#d9dfe7",
+                  color: tokens.colors.textMuted,
                   margin: "8px 0 6px",
                 }}
               >
@@ -474,7 +474,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 style={{
                   marginTop: "8px",
                   fontSize: "11px",
-                  color: "#d9dfe7",
+                  color: tokens.colors.textSecondary,
                   textAlign: "center",
                 }}
               >

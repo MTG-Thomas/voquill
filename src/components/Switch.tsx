@@ -32,7 +32,7 @@ export const Switch = ({ checked, onChange, label, className = "" }: SwitchProps
           {label}
         </span>
       )}
-      <div style={{ position: "relative", width: "40px", height: "22px" }}>
+      <div style={{ position: "relative", width: "40px", height: "20px" }}>
         <input
           type="checkbox"
           checked={checked}
@@ -50,7 +50,8 @@ export const Switch = ({ checked, onChange, label, className = "" }: SwitchProps
           style={{
             position: "absolute",
             inset: 0,
-            background: checked ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.2)",
+            background: checked ? tokens.colors.accentPrimary : tokens.colors.bgTertiary,
+            border: checked ? "1px solid transparent" : "1px solid rgba(255, 255, 255, 0.22)",
             borderRadius: "999px",
             transition: "all 0.2s ease",
           }}
@@ -58,13 +59,13 @@ export const Switch = ({ checked, onChange, label, className = "" }: SwitchProps
           <span
             style={{
               position: "absolute",
-              top: "2px",
-              left: checked ? "20px" : "2px",
-              width: "18px",
-              height: "18px",
-              background: "#fff",
+              top: checked ? "3px" : "4px",
+              left: checked ? "23px" : "4px",
+              width: checked ? "12px" : "10px",
+              height: checked ? "12px" : "10px",
+              background: checked ? "#000000" : tokens.colors.textSecondary,
               borderRadius: "999px",
-              transition: "left 0.2s ease",
+              transition: "all 0.2s ease",
             }}
           ></span>
         </span>

@@ -23,12 +23,13 @@ export const Card = ({
   const style = {
     padding: tokens.spacing.lg,
     borderRadius: tokens.radii.panel,
-    background: variant === "primary" ? "rgba(47, 49, 54, 0.7)" : "rgba(32, 34, 37, 0.6)",
-    backdropFilter: `blur(${tokens.colors.glassBlur})`,
-    border: "none",
-    boxShadow: tokens.shadows.md,
+    background: variant === "primary" ? tokens.colors.glassBgHeavy : tokens.colors.glassBg,
+    backdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
+    WebkitBackdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
+    border: "1px solid rgba(255, 255, 255, 0.10)",
+    boxShadow: tokens.shadows.sm,
     transition: tokens.transitions.normal,
-    transform: hovered && onClick ? "translateY(-2px)" : "translateY(0)",
+    transform: hovered && onClick ? "translateY(-1px)" : "translateY(0)",
     cursor: onClick ? "pointer" : "default",
   } as const;
 

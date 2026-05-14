@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-      - "codex/**"
-      - "mtg/**"
   schedule:
     - cron: "24 9 * * 1"
   workflow_dispatch:

@@ -11,7 +11,7 @@ export const appShellStyle: Style = {
   width: "100%",
   height: "100%",
   position: "relative",
-  background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
+  background: `linear-gradient(180deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 42%, ${tokens.colors.bgGradientCool} 100%)`,
   color: tokens.colors.textPrimary,
 };
 
@@ -20,36 +20,37 @@ export const titleBarStyle: Style = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "0 12px",
-  background: tokens.colors.bgTertiary,
-  backdropFilter: "blur(10px)",
-  borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+  padding: "0 8px 0 14px",
+  background: "rgba(32, 32, 32, 0.78)",
+  backdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.4)`,
+  WebkitBackdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.4)`,
+  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
   userSelect: "none",
   WebkitUserSelect: "none",
 };
 
 export const titleBarTitleStyle: Style = {
   fontSize: "13px",
-  fontWeight: 700,
-  letterSpacing: "0.04em",
+  fontWeight: 600,
+  letterSpacing: 0,
   color: tokens.colors.textSecondary,
 };
 
 export const titleBarControlsStyle: Style = {
   display: "flex",
   alignItems: "center",
-  gap: "6px",
-  paddingRight: "2px",
+  gap: "2px",
+  paddingRight: 0,
 };
 
 export const tabNavStyle: Style = {
   display: "flex",
-  gap: "4px",
-  padding: "8px 8px 0 8px",
-  background: "rgba(47, 49, 54, 0.8)",
-  backdropFilter: "blur(10px)",
-  WebkitBackdropFilter: "blur(10px)",
-  border: "none",
+  gap: "2px",
+  padding: "6px 8px 0 8px",
+  background: "rgba(32, 32, 32, 0.72)",
+  backdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.2)`,
+  WebkitBackdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.2)`,
+  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
   alignItems: "stretch",
 };
 
@@ -86,11 +87,12 @@ export const tabPanelContentStyle: Style = {
 
 export const inputBaseStyle: Style = {
   width: "100%",
-  background: "rgba(255, 255, 255, 0.05)",
+  background: tokens.colors.bgSecondary,
   color: tokens.colors.textPrimary,
-  border: "1px solid rgba(255, 255, 255, 0.1)",
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  borderBottom: `2px solid ${tokens.colors.accentPrimary}`,
   borderRadius: tokens.radii.input,
-  padding: "10px 12px",
+  padding: "8px 10px",
   fontSize: tokens.typography.sizeSm,
   outline: "none",
 };
@@ -104,7 +106,7 @@ export const selectWrapperStyle: Style = {
 
 export const helperTextStyle: Style = {
   fontSize: tokens.typography.sizeXs,
-  color: "#d9dfe7",
+  color: tokens.colors.textSecondary,
   lineHeight: 1.4,
 };
 
@@ -135,15 +137,15 @@ export const getToastStyle = (type: "success" | "error" | "info" | "saved"): Sty
   border: "none",
   background:
     type === "saved"
-      ? "#10b981"
+      ? tokens.colors.success
       : type === "success"
-        ? "#10b981"
+        ? tokens.colors.success
         : type === "error"
-          ? "#ef4444"
-          : "#4cc9f0",
+          ? tokens.colors.error
+          : tokens.colors.bgSecondary,
   cursor: type === "saved" ? "default" : "pointer",
   pointerEvents: "auto",
-  boxShadow: type === "saved" ? "0 3px 10px rgba(0, 0, 0, 0.25)" : "0 4px 12px rgba(0, 0, 0, 0.22)",
+  boxShadow: type === "saved" ? tokens.shadows.md : tokens.shadows.lg,
 });
 
 export const toastDotStyle: Style = {

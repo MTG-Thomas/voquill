@@ -31,7 +31,7 @@ export function Modal({
         height: "100%",
         display: "flex",
         flexDirection: "column" as const,
-        background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
+        background: `linear-gradient(180deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 42%, ${tokens.colors.bgGradientCool} 100%)`,
         backdropFilter: "none",
         WebkitBackdropFilter: "none",
         boxShadow: "none",
@@ -39,7 +39,7 @@ export function Modal({
         scrollbarGutter: "stable" as const,
       }
     : {
-        background: tokens.colors.bgSecondary,
+        background: tokens.colors.glassBgHeavy,
         backdropFilter: "none",
         WebkitBackdropFilter: "none",
         border: "1px solid rgba(255, 255, 255, 0.12)",
@@ -69,7 +69,7 @@ export function Modal({
         zIndex: 1000,
         background: fullScreen
           ? `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`
-          : "rgba(0, 0, 0, 0.5)",
+          : "rgba(0, 0, 0, 0.48)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

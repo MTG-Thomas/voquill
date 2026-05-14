@@ -58,44 +58,44 @@ export function SliderField({
           -webkit-appearance: none;
           appearance: none;
           width: 100%;
-          height: 6px;
-          border-radius: 3px;
+          height: 4px;
+          border-radius: 999px;
           background: ${tokens.colors.bgTertiary};
           outline: none;
         }
 
         .voquill-slider-field::-webkit-slider-runnable-track {
-          height: 6px;
-          border-radius: 3px;
+          height: 4px;
+          border-radius: 999px;
           background: ${tokens.colors.bgTertiary};
         }
 
         .voquill-slider-field::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 14px;
-          height: 14px;
+          width: 18px;
+          height: 18px;
           border-radius: 999px;
-          background: ${tokens.colors.accentPrimary};
-          border: none;
-          box-shadow: none;
-          margin-top: -4px;
+          background: #ffffff;
+          border: 4px solid ${tokens.colors.accentPrimary};
+          box-shadow: ${tokens.shadows.sm};
+          margin-top: -7px;
           cursor: pointer;
         }
 
         .voquill-slider-field::-moz-range-track {
-          height: 6px;
-          border-radius: 3px;
+          height: 4px;
+          border-radius: 999px;
           background: ${tokens.colors.bgTertiary};
         }
 
         .voquill-slider-field::-moz-range-thumb {
-          width: 14px;
-          height: 14px;
+          width: 18px;
+          height: 18px;
           border-radius: 999px;
-          background: ${tokens.colors.accentPrimary};
-          border: none;
-          box-shadow: none;
+          background: #ffffff;
+          border: 4px solid ${tokens.colors.accentPrimary};
+          box-shadow: ${tokens.shadows.sm};
           cursor: pointer;
         }
 

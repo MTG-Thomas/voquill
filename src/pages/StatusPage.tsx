@@ -202,7 +202,7 @@ export function StatusPage({
               onMouseLeave={() => setHoveredFooterIcon(null)}
               title="GitHub Repository"
               style={{
-                background: hoveredFooterIcon === "github" ? "rgba(255, 255, 255, 0.05)" : "none",
+                background: hoveredFooterIcon === "github" ? "rgba(255, 255, 255, 0.06)" : "none",
                 border: "none",
                 padding: "10px",
                 cursor: "pointer",
@@ -227,7 +227,7 @@ export function StatusPage({
               onMouseLeave={() => setHoveredFooterIcon(null)}
               title="Support the project"
               style={{
-                background: hoveredFooterIcon === "heart" ? "rgba(255, 255, 255, 0.05)" : "none",
+                background: hoveredFooterIcon === "heart" ? "rgba(255, 255, 255, 0.06)" : "none",
                 border: "none",
                 padding: "10px",
                 cursor: "pointer",
@@ -263,16 +263,16 @@ export function StatusPage({
               onClick={onOpenUpdateModal}
               title="Open update details"
               style={{
-                border: "1px solid rgba(255, 255, 255, 0.16)",
+                border: "1px solid rgba(255, 255, 255, 0.10)",
                 background: tokens.colors.accentPrimary,
                 cursor: "pointer",
                 padding: "4px 10px",
                 borderRadius: "999px",
-                color: "#ffffff",
+                color: "#000000",
                 fontSize: tokens.typography.sizeXs,
                 fontWeight: 800,
                 letterSpacing: "0.01em",
-                boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+                boxShadow: tokens.shadows.md,
                 transition: tokens.transitions.fast,
                 display: "inline-flex",
                 alignItems: "center",

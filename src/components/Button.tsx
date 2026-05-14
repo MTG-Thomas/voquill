@@ -68,60 +68,60 @@ export const Button = ({
 
   const variantStyles: Record<string, Record<string, string | number>> = {
     primary: {
-      color: tokens.colors.textPrimary,
-      background: tokens.colors.success,
+      color: "#000000",
+      background: tokens.colors.accentPrimary,
       border: "none",
     },
     secondary: {
       color: tokens.colors.textPrimary,
-      background: tokens.colors.accentPrimary,
-      border: "none",
+      background: tokens.colors.bgSecondary,
+      border: "1px solid rgba(255, 255, 255, 0.10)",
     },
     configAction: {
-      color: tokens.colors.textPrimary,
+      color: "#000000",
       background: tokens.colors.accentPrimary,
-      border: "1px solid rgba(255, 255, 255, 0.08)",
-      borderRadius: "40px",
+      border: "1px solid rgba(255, 255, 255, 0.10)",
+      borderRadius: tokens.radii.button,
       padding: "10px 24px",
-      fontWeight: 700,
+      fontWeight: 600,
       boxShadow: "none",
     },
     danger: {
-      color: tokens.colors.textPrimary,
+      color: "#000000",
       background: tokens.colors.error,
       border: "none",
     },
     ghost: {
-      border: "1px solid transparent",
-      background: "rgba(255, 255, 255, 0.08)",
-      color: "#d9dfe7",
+      border: "1px solid rgba(255, 255, 255, 0.10)",
+      background: "rgba(255, 255, 255, 0.06)",
+      color: tokens.colors.textPrimary,
     },
     icon: {
       border: "1px solid transparent",
-      background: "rgba(255, 255, 255, 0.08)",
+      background: "rgba(255, 255, 255, 0.06)",
       color: tokens.colors.textPrimary,
-      width: "38px",
-      height: "38px",
+      width: "34px",
+      height: "34px",
       padding: tokens.spacing.sm,
-      borderRadius: "999px",
+      borderRadius: tokens.radii.button,
     },
     titlebarIcon: {
       border: "1px solid transparent",
-      background: "rgba(255, 255, 255, 0.1)",
+      background: "transparent",
       color: tokens.colors.textPrimary,
-      width: "30px",
-      height: "30px",
+      width: "46px",
+      height: "32px",
       padding: 0,
-      borderRadius: "999px",
+      borderRadius: tokens.radii.button,
     },
     titlebarClose: {
       border: "1px solid transparent",
-      background: "rgba(239, 68, 68, 0.28)",
+      background: "transparent",
       color: tokens.colors.textPrimary,
-      width: "30px",
-      height: "30px",
+      width: "46px",
+      height: "32px",
       padding: 0,
-      borderRadius: "999px",
+      borderRadius: tokens.radii.button,
     },
   };
 
@@ -132,17 +132,18 @@ export const Button = ({
   };
 
   const hoverStyles: Record<string, Record<string, string | number>> = {
-    primary: { background: "#0ea371", transform: "translateY(-2px)" },
-    secondary: { background: tokens.colors.accentHover, transform: "translateY(-2px)" },
-    configAction: { background: tokens.colors.accentHover, filter: "brightness(1.04)" },
-    danger: { background: "#ff5f5f", transform: "translateY(-2px)" },
-    ghost: { background: "rgba(255, 255, 255, 0.14)", transform: "translateY(-1px)" },
-    icon: { background: "rgba(255, 255, 255, 0.14)", transform: "translateY(-1px)" },
+    primary: { background: tokens.colors.accentHover },
+    secondary: { background: tokens.colors.bgHover },
+    configAction: { background: tokens.colors.accentHover },
+    danger: { background: "#a4262c" },
+    ghost: { background: tokens.colors.bgHover },
+    icon: { background: tokens.colors.bgHover },
     titlebarIcon: {
-      background: "rgba(255, 255, 255, 0.3)",
+      background: "rgba(255, 255, 255, 0.08)",
     },
     titlebarClose: {
-      background: "rgba(239, 68, 68, 0.58)",
+      background: "#c42b1c",
+      color: tokens.colors.textPrimary,
     },
   };
 
@@ -167,25 +168,24 @@ export const Button = ({
     ...variantStyles[variant],
     ...(hovered && !disabled ? hoverStyles[variant] : {}),
     ...(pressed && !disabled && !["titlebarIcon", "titlebarClose"].includes(variant)
-      ? { transform: "translateY(0)", filter: "brightness(0.9)" }
+      ? { transform: "scale(0.98)", filter: "brightness(0.96)" }
       : {}),
     ...(pill ? { borderRadius: "40px" } : {}),
     ...(floating
       ? {
           pointerEvents: "auto",
           padding: "12px 32px",
-          borderRadius: "40px",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          boxShadow: `${tokens.shadows.lg}, 0 8px 30px rgba(0, 0, 0, 0.5)`,
-          border: "1px solid rgba(255, 255, 255, 0.1)",
+          borderRadius: tokens.radii.button,
+          backdropFilter: `blur(${tokens.colors.glassBlur})`,
+          WebkitBackdropFilter: `blur(${tokens.colors.glassBlur})`,
+          boxShadow: tokens.shadows.lg,
+          border: "1px solid rgba(255, 255, 255, 0.10)",
         }
       : {}),
     ...(floating && hovered && !disabled
       ? {
-          transform: "translateY(-4px)",
-          boxShadow: `${tokens.shadows.lg}, 0 12px 40px rgba(0, 0, 0, 0.6)`,
-          filter: "brightness(1.1)",
+          boxShadow: tokens.shadows.lg,
+          filter: "brightness(1.02)",
         }
       : {}),
     ...style,
