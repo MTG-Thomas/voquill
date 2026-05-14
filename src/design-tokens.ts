@@ -1,26 +1,26 @@
 export const tokens = {
   colors: {
     // Backgrounds
-    bgPrimary: "#2b2e34",
-    bgSecondary: "#2f3136",
-    bgTertiary: "#202225",
-    bgHover: "#40444b",
-    bgGradientWarm: "#3a2c3d",
-    bgGradientCool: "#243942",
+    bgPrimary: "#202020",
+    bgSecondary: "#2b2b2b",
+    bgTertiary: "#1b1b1b",
+    bgHover: "#3a3a3a",
+    bgGradientWarm: "#242424",
+    bgGradientCool: "#1b2430",
 
     // Text
     textPrimary: "#ffffff",
-    textSecondary: "#c5cbd3",
-    textMuted: "#a6adb8",
+    textSecondary: "#d6d6d6",
+    textMuted: "#a7a7a7",
 
     // Brand/Action
-    accentPrimary: "#5865f2",
-    accentHover: "#4752c4",
-    success: "#10b981",
-    error: "#ef4444",
-    glassBg: "rgba(35, 37, 42, 0.72)",
-    glassBgHeavy: "rgba(54, 57, 63, 0.95)",
-    glassBlur: "16px",
+    accentPrimary: "#60cdff",
+    accentHover: "#8ad7ff",
+    success: "#6ccb5f",
+    error: "#ff99a4",
+    glassBg: "rgba(43, 43, 43, 0.74)",
+    glassBgHeavy: "rgba(48, 48, 48, 0.96)",
+    glassBlur: "24px",
   },
 
   spacing: {
@@ -32,22 +32,22 @@ export const tokens = {
   },
 
   radii: {
-    input: "8px",
-    panel: "12px",
-    button: "8px",
+    input: "4px",
+    panel: "8px",
+    button: "4px",
   },
 
   shadows: {
-    sm: "0 2px 8px rgba(0, 0, 0, 0.2)",
-    md: "0 6px 16px rgba(0, 0, 0, 0.3)",
-    lg: "0 12px 32px rgba(0, 0, 0, 0.4)",
-    accent: "0 4px 12px rgba(88, 101, 242, 0.4)",
+    sm: "0 1px 2px rgba(0, 0, 0, 0.36)",
+    md: "0 4px 12px rgba(0, 0, 0, 0.42)",
+    lg: "0 18px 48px rgba(0, 0, 0, 0.54)",
+    accent: "0 0 0 3px rgba(96, 205, 255, 0.24)",
   },
 
   transitions: {
-    fast: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
-    normal: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-    slow: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+    fast: "all 0.12s cubic-bezier(0.33, 0, 0.67, 1)",
+    normal: "all 0.18s cubic-bezier(0.33, 0, 0.67, 1)",
+    slow: "all 0.28s cubic-bezier(0.33, 0, 0.67, 1)",
   },
 
   typography: {

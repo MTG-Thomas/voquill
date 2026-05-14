@@ -106,7 +106,14 @@ export function ModelSelectionPanel({
                 width: "100%",
               }}
             >
-              <div style={{ fontSize: "12px", color: "#d9dfe7", flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: tokens.colors.textSecondary,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
                 Loading models...
               </div>
               <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
@@ -141,7 +148,7 @@ export function ModelSelectionPanel({
               }}
             ></div>
           </div>
-          <div style={{ fontSize: "10px", color: "#d9dfe7", textAlign: "right" }}>
+          <div style={{ fontSize: "10px", color: tokens.colors.textSecondary, textAlign: "right" }}>
             Downloading model... {Math.round(downloadProgress)}%
           </div>
         </div>

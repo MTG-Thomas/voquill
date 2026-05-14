@@ -28,22 +28,22 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
             display: "flex",
             gap: tokens.spacing.md,
             padding: tokens.spacing.md,
-            background: "#2f3136",
-            borderRadius: "12px",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
+            background: tokens.colors.glassBg,
+            borderRadius: tokens.radii.panel,
+            border: "1px solid rgba(255, 255, 255, 0.10)",
           }}
         >
           <div
             style={{
               width: "48px",
               height: "48px",
-              borderRadius: "10px",
+              borderRadius: tokens.radii.panel,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              background: "#3a2f25",
-              color: "#f1c40f",
+              background: "rgba(252, 225, 0, 0.12)",
+              color: "#fce100",
             }}
           >
             <IconBolt size={24} />
@@ -55,7 +55,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
                 fontSize: tokens.typography.sizeSm,
                 fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: "0.5px",
+                letterSpacing: 0,
               }}
             >
               Lightning Fast
@@ -78,22 +78,22 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
             display: "flex",
             gap: tokens.spacing.md,
             padding: tokens.spacing.md,
-            borderRadius: "12px",
-            border: "1px solid rgba(88, 101, 242, 0.32)",
-            background: "#313652",
+            borderRadius: tokens.radii.panel,
+            border: "1px solid rgba(96, 205, 255, 0.28)",
+            background: "rgba(96, 205, 255, 0.10)",
           }}
         >
           <div
             style={{
               width: "48px",
               height: "48px",
-              borderRadius: "10px",
+              borderRadius: tokens.radii.panel,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              background: "#29413a",
-              color: "#10b981",
+              background: "rgba(16, 124, 16, 0.12)",
+              color: tokens.colors.success,
             }}
           >
             <IconScale size={24} />
@@ -105,7 +105,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
                 fontSize: tokens.typography.sizeSm,
                 fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: "0.5px",
+                letterSpacing: 0,
               }}
             >
               Perfect Balance
@@ -129,22 +129,22 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
             display: "flex",
             gap: tokens.spacing.md,
             padding: tokens.spacing.md,
-            background: "#2f3136",
-            borderRadius: "12px",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
+            background: tokens.colors.glassBg,
+            borderRadius: tokens.radii.panel,
+            border: "1px solid rgba(255, 255, 255, 0.10)",
           }}
         >
           <div
             style={{
               width: "48px",
               height: "48px",
-              borderRadius: "10px",
+              borderRadius: tokens.radii.panel,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              background: "#2a3344",
-              color: "#5865f2",
+              background: "rgba(0, 103, 192, 0.12)",
+              color: tokens.colors.accentPrimary,
             }}
           >
             <IconTarget size={24} />
@@ -156,7 +156,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
                 fontSize: tokens.typography.sizeSm,
                 fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: "0.5px",
+                letterSpacing: 0,
               }}
             >
               Highest Accuracy
@@ -179,9 +179,9 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
       <div
         style={{
           padding: tokens.spacing.md,
-          background: "#26282e",
-          borderRadius: "12px",
-          borderLeft: "4px solid #f1c40f",
+          background: "rgba(252, 225, 0, 0.10)",
+          borderRadius: tokens.radii.panel,
+          borderLeft: "4px solid #fce100",
         }}
       >
         <div
@@ -192,7 +192,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
             marginBottom: "8px",
           }}
         >
-          <IconRocket size={20} color="#f1c40f" />
+          <IconRocket size={20} color="#fce100" />
           <h3 style={{ margin: 0, fontSize: tokens.typography.sizeSm, fontWeight: 700 }}>
             Turbo Mode (GPU)
           </h3>

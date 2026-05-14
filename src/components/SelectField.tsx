@@ -242,12 +242,12 @@ export function SelectField({
 
   const triggerStyle: JSX.CSSProperties = {
     width: "100%",
-    background:
-      isTriggerHovered && !disabled ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.05)",
+    background: isTriggerHovered && !disabled ? tokens.colors.bgHover : tokens.colors.bgSecondary,
     color: tokens.colors.textPrimary,
-    border: `1px solid ${isOpen || isTriggerFocused ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.1)"}`,
+    border: `1px solid ${isOpen || isTriggerFocused ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.12)"}`,
+    borderBottom: `2px solid ${isOpen || isTriggerFocused ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.42)"}`,
     borderRadius: tokens.radii.input,
-    padding: "10px 12px",
+    padding: "8px 10px",
     fontSize: tokens.typography.sizeSm,
     textAlign: "left",
     display: "flex",
@@ -257,7 +257,7 @@ export function SelectField({
     cursor: disabled ? "not-allowed" : "pointer",
     transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
     opacity: disabled ? 0.55 : 1,
-    boxShadow: isOpen || isTriggerFocused ? "0 0 0 2px rgba(88, 101, 242, 0.22)" : "none",
+    boxShadow: isOpen || isTriggerFocused ? tokens.shadows.accent : "none",
   };
 
   const menuStyle: JSX.CSSProperties = {
@@ -267,11 +267,11 @@ export function SelectField({
     width: "100%",
     zIndex: 120,
     border: "1px solid rgba(255, 255, 255, 0.12)",
-    borderRadius: "10px",
-    background: "rgba(36, 39, 45, 0.98)",
-    boxShadow: "0 14px 26px rgba(0, 0, 0, 0.34)",
-    backdropFilter: "blur(14px)",
-    WebkitBackdropFilter: "blur(14px)",
+    borderRadius: tokens.radii.panel,
+    background: tokens.colors.glassBgHeavy,
+    boxShadow: tokens.shadows.lg,
+    backdropFilter: `blur(${tokens.colors.glassBlur})`,
+    WebkitBackdropFilter: `blur(${tokens.colors.glassBlur})`,
     overflow: "hidden",
   };
 
@@ -362,10 +362,10 @@ export function SelectField({
                 placeholder={searchPlaceholder}
                 style={{
                   width: "100%",
-                  background: "rgba(255, 255, 255, 0.05)",
+                  background: tokens.colors.bgSecondary,
                   color: tokens.colors.textPrimary,
                   border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "8px",
+                  borderRadius: tokens.radii.input,
                   padding: "8px 10px",
                   fontSize: tokens.typography.sizeSm,
                   outline: "none",
@@ -397,14 +397,14 @@ export function SelectField({
                   cursor: isInteractive ? "pointer" : "not-allowed",
                   opacity: isInteractive ? 1 : 0.5,
                   background: isSelected
-                    ? "rgba(88, 101, 242, 0.2)"
+                    ? "rgba(96, 205, 255, 0.16)"
                     : isHighlighted && isInteractive
-                      ? "rgba(88, 101, 242, 0.14)"
+                      ? tokens.colors.bgHover
                       : "transparent",
                   borderColor: isSelected
-                    ? "rgba(88, 101, 242, 0.52)"
+                    ? "rgba(96, 205, 255, 0.44)"
                     : isHighlighted && isInteractive
-                      ? "rgba(88, 101, 242, 0.42)"
+                      ? "rgba(255, 255, 255, 0.08)"
                       : "transparent",
                 };
 

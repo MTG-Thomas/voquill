@@ -587,40 +587,6 @@ pub async fn record_audio_while_flag_with_partials(
     convert_audio_for_whisper(&final_wav, sample_rate, 1)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn selects_reenumerated_device_by_saved_label_when_id_changes() {
-        let devices = vec![
-            AudioDevice {
-                id: "default".to_string(),
-                label: "System Default".to_string(),
-            },
-            AudioDevice {
-                id: "new-yeti-id".to_string(),
-                label: "Microphone (Yeti Stereo Microphone)".to_string(),
-            },
-            AudioDevice {
-                id: "webcam-id".to_string(),
-                label: "Microphone (Logi C615 HD WebCam)".to_string(),
-            },
-        ];
-
-        let selection = select_configured_audio_device(
-            Some("old-yeti-id"),
-            Some("Microphone (Yeti Stereo Microphone)"),
-            &devices,
-        )
-        .expect("same friendly microphone should be rebound");
-
-        assert_eq!(selection.id, "new-yeti-id");
-        assert_eq!(selection.label, "Microphone (Yeti Stereo Microphone)");
-        assert_eq!(selection.match_kind, AudioDeviceMatchKind::SavedLabel);
-    }
-}
-
 fn samples_to_wav(
     samples: &[f32],
     sample_rate: u32,
@@ -930,5 +896,39 @@ fn soft_clip(x: f32) -> f32 {
         0.7 + 0.3 * ((x - 0.7) / 0.3).tanh()
     } else {
         -0.7 - 0.3 * ((-x - 0.7) / 0.3).tanh()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selects_reenumerated_device_by_saved_label_when_id_changes() {
+        let devices = vec![
+            AudioDevice {
+                id: "default".to_string(),
+                label: "System Default".to_string(),
+            },
+            AudioDevice {
+                id: "new-yeti-id".to_string(),
+                label: "Microphone (Yeti Stereo Microphone)".to_string(),
+            },
+            AudioDevice {
+                id: "webcam-id".to_string(),
+                label: "Microphone (Logi C615 HD WebCam)".to_string(),
+            },
+        ];
+
+        let selection = select_configured_audio_device(
+            Some("old-yeti-id"),
+            Some("Microphone (Yeti Stereo Microphone)"),
+            &devices,
+        )
+        .expect("same friendly microphone should be rebound");
+
+        assert_eq!(selection.id, "new-yeti-id");
+        assert_eq!(selection.label, "Microphone (Yeti Stereo Microphone)");
+        assert_eq!(selection.match_kind, AudioDeviceMatchKind::SavedLabel);
     }
 }

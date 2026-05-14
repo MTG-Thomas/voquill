@@ -5,10 +5,10 @@ type Style = JSX.CSSProperties;
 
 export const surfaceCardStyle: Style = {
   background: tokens.colors.glassBg,
-  backdropFilter: `blur(${tokens.colors.glassBlur})`,
-  WebkitBackdropFilter: `blur(${tokens.colors.glassBlur})`,
-  border: "1px solid rgba(255, 255, 255, 0.1)",
-  boxShadow: tokens.shadows.md,
+  backdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
+  WebkitBackdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
+  border: "1px solid rgba(255, 255, 255, 0.10)",
+  boxShadow: tokens.shadows.sm,
 };
 
 export const settingRowBaseStyle: Style = {
@@ -17,9 +17,9 @@ export const settingRowBaseStyle: Style = {
   flexDirection: "column",
   gap: "6px",
   alignItems: "flex-start",
-  border: "1px solid rgba(255, 255, 255, 0.08)",
-  borderRadius: "10px",
-  background: "rgba(255, 255, 255, 0.02)",
+  border: "1px solid rgba(255, 255, 255, 0.10)",
+  borderRadius: tokens.radii.panel,
+  background: "rgba(255, 255, 255, 0.04)",
   padding: "12px 14px",
   transition: "border-color 0.2s ease, background 0.2s ease",
 };
@@ -28,8 +28,8 @@ export const getSettingRowStyle = ({ ready }: { ready: boolean }): Style => {
   if (ready) {
     return {
       ...settingRowBaseStyle,
-      background: "rgba(16, 185, 129, 0.05)",
-      borderColor: "rgba(16, 185, 129, 0.2)",
+      background: "rgba(16, 124, 16, 0.06)",
+      borderColor: "rgba(16, 124, 16, 0.28)",
     };
   }
 
@@ -72,9 +72,9 @@ export const settingRowLabelBadgeStyle: Style = {
   fontWeight: 800,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "#f5d88f",
-  border: "1px solid rgba(245, 216, 143, 0.5)",
-  background: "rgba(245, 216, 143, 0.12)",
+  color: "#fce100",
+  border: "1px solid rgba(252, 225, 0, 0.28)",
+  background: "rgba(252, 225, 0, 0.10)",
   borderRadius: "999px",
   padding: "2px 8px",
   lineHeight: 1.2,
@@ -82,7 +82,7 @@ export const settingRowLabelBadgeStyle: Style = {
 
 export const settingRowDescriptionStyle: Style = {
   fontSize: tokens.typography.sizeXs,
-  color: "#d9dfe7",
+  color: tokens.colors.textSecondary,
   margin: `0 0 ${tokens.spacing.sm} 0`,
   lineHeight: 1.4,
   textAlign: "left",

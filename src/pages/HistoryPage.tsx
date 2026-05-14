@@ -37,14 +37,18 @@ export function HistoryPage({ history, onCopyToClipboard }: HistoryPageProps) {
                 key={item.id}
                 style={{
                   padding: "12px 14px",
-                  borderRadius: "10px",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
-                  background: "rgba(255, 255, 255, 0.02)",
+                  borderRadius: tokens.radii.panel,
+                  border: "1px solid rgba(255, 255, 255, 0.10)",
+                  background: "rgba(255, 255, 255, 0.04)",
                   boxShadow: "none",
                 }}
               >
                 <div
-                  style={{ color: "#f1f4f8", fontSize: tokens.typography.sizeSm, lineHeight: 1.45 }}
+                  style={{
+                    color: tokens.colors.textPrimary,
+                    fontSize: tokens.typography.sizeSm,
+                    lineHeight: 1.45,
+                  }}
                 >
                   {item.text}
                 </div>

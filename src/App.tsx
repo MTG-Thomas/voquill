@@ -1218,13 +1218,13 @@ function App() {
 
   const topTabBaseStyle = {
     border: "none",
-    borderRadius: `${tokens.radii.input} ${tokens.radii.input} 0 0`,
+    borderRadius: `${tokens.radii.panel} ${tokens.radii.panel} 0 0`,
     background: "transparent",
     color: tokens.colors.textSecondary,
     fontSize: "12px",
     fontWeight: 600,
-    letterSpacing: "0.005em",
-    padding: `12px ${tokens.spacing.sm}`,
+    letterSpacing: 0,
+    padding: `10px ${tokens.spacing.sm}`,
     cursor: "pointer",
     transition: tokens.transitions.normal,
     flex: 1,
@@ -1240,14 +1240,12 @@ function App() {
     return {
       ...topTabBaseStyle,
       background: isActive
-        ? "rgba(54, 57, 63, 0.5)"
+        ? tokens.colors.bgPrimary
         : isHovered
-          ? "rgba(255, 255, 255, 0.05)"
+          ? "rgba(255, 255, 255, 0.06)"
           : "transparent",
       color: isActive ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-      backdropFilter: isActive ? "blur(5px)" : undefined,
-      WebkitBackdropFilter: isActive ? "blur(5px)" : undefined,
-      boxShadow: isActive ? `inset 0 -1px 0 ${tokens.colors.bgPrimary}` : "none",
+      boxShadow: isActive ? `inset 0 2px 0 ${tokens.colors.accentPrimary}` : "none",
     } as const;
   };
 
@@ -1476,7 +1474,7 @@ function App() {
           </p>
           <div
             style={{
-              border: "1px solid rgba(255,255,255,0.1)",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
               borderRadius: "8px",
               padding: "10px 12px",
               textAlign: "center",
