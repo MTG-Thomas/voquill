@@ -151,6 +151,8 @@ jobs:
 
       - name: Build Tauri bundles (macOS)
         if: runner.os == 'macOS'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
         run: npm run tauri -- build --bundles app,dmg
 
       - name: Upload Windows artifacts
