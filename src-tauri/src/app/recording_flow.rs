@@ -1,7 +1,7 @@
 use crate::config::{self, Config, TranscriptionMode};
 use crate::transcription::TranscriptionService;
 use crate::{
-    audio, audio_quality, domain_vocabulary, history, local_whisper, openvino_whisper,
+    audio, audio_quality, domain_vocabulary, history, local_whisper, mlx_whisper, openvino_whisper,
     transcription, typing,
 };
 use std::sync::{Arc, Mutex};
@@ -347,6 +347,15 @@ pub async fn record_and_transcribe(
                 };
 
                 match engine.as_str() {
+                    "MLX Whisper" => match mlx_whisper::MlxWhisperService::new(&model_size) {
+                        Ok(service) => Box::new(service)
+                            as Box<dyn transcription::TranscriptionService + Send + Sync>,
+                        Err(error) => {
+                            crate::log_info!("❌ Failed to initialize MLX Whisper: {}", error);
+                            reset_status_on_exit().await;
+                            return Err(error.into());
+                        }
+                    },
                     "OpenVINO GenAI" => {
                         match openvino_whisper::OpenVinoWhisperService::new(
                             &model_size,

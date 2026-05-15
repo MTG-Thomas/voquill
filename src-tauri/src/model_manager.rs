@@ -18,6 +18,8 @@ pub struct ModelInfo {
 #[serde(rename_all = "snake_case")]
 pub enum ModelArtifact {
     GgmlFile,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    MlxSnapshot,
     OpenVinoSnapshot,
 }
 
@@ -107,6 +109,34 @@ impl ModelManager {
                 recommended: false,
                 artifact: ModelArtifact::GgmlFile,
             },
+            #[cfg(target_os = "macos")]
+            ModelInfo {
+                engine: "MLX Whisper".to_string(),
+                size: "mlx-whisper-base.en".to_string(),
+                label: "Base English MLX".to_string(),
+                file_size: 145_000_000,
+                download_url: "mlx-community/whisper-base.en-mlx".to_string(),
+                sha256: "".to_string(),
+                description:
+                    "Experimental Apple Silicon model for local macOS dictation through MLX."
+                        .to_string(),
+                recommended: true,
+                artifact: ModelArtifact::MlxSnapshot,
+            },
+            #[cfg(target_os = "macos")]
+            ModelInfo {
+                engine: "MLX Whisper".to_string(),
+                size: "mlx-whisper-small.en".to_string(),
+                label: "Small English MLX".to_string(),
+                file_size: 480_000_000,
+                download_url: "mlx-community/whisper-small.en-mlx".to_string(),
+                sha256: "".to_string(),
+                description:
+                    "Experimental higher-accuracy Apple Silicon model for local macOS dictation."
+                        .to_string(),
+                recommended: false,
+                artifact: ModelArtifact::MlxSnapshot,
+            },
             ModelInfo {
                 engine: "OpenVINO GenAI".to_string(),
                 size: "openvino-whisper-tiny.en-int8".to_string(),
@@ -194,6 +224,13 @@ impl ModelManager {
                 .join(format!("whisper-{}-ov", snapshot_name));
         }
 
+        if let Some(snapshot_name) = model_size.strip_prefix("mlx-whisper-") {
+            return self
+                .models_dir
+                .join("mlx")
+                .join(format!("whisper-{}-mlx", snapshot_name));
+        }
+
         self.models_dir.join(format!("ggml-{}.bin", model_size))
     }
 
@@ -202,6 +239,12 @@ impl ModelManager {
         if model_size.starts_with("openvino-whisper-") {
             return model_path.join("openvino_encoder_model.xml").exists()
                 && model_path.join("openvino_decoder_model.xml").exists();
+        }
+
+        if model_size.starts_with("mlx-whisper-") {
+            return model_path.join("config.json").exists()
+                && (model_path.join("weights.npz").exists()
+                    || model_path.join("model.safetensors").exists());
         }
 
         model_path.exists()
@@ -223,7 +266,10 @@ impl ModelManager {
 
         let path = self.get_model_path(model_size);
 
-        if model_info.artifact == ModelArtifact::OpenVinoSnapshot {
+        if matches!(
+            model_info.artifact,
+            ModelArtifact::MlxSnapshot | ModelArtifact::OpenVinoSnapshot
+        ) {
             return self
                 .download_openvino_snapshot(model_info, path, progress_callback)
                 .await;
@@ -370,6 +416,31 @@ mod tests {
         assert!(ModelManager::get_available_engines()
             .iter()
             .any(|engine| engine == "OpenVINO GenAI"));
+
+        #[cfg(target_os = "macos")]
+        {
+            assert!(models.iter().any(|model| model.engine == "MLX Whisper"));
+            assert!(ModelManager::get_available_engines()
+                .iter()
+                .any(|engine| engine == "MLX Whisper"));
+        }
+    }
+
+    #[test]
+    fn mlx_models_use_directory_paths_instead_of_ggml_files() {
+        let manager = ModelManager {
+            models_dir: "models".into(),
+        };
+
+        assert!(ModelManager::get_available_engines()
+            .iter()
+            .all(|engine| !engine.trim().is_empty()));
+        assert_eq!(
+            manager
+                .get_model_path("mlx-whisper-base.en")
+                .to_string_lossy(),
+            "models\\mlx\\whisper-base.en-mlx"
+        );
     }
 
     #[test]
