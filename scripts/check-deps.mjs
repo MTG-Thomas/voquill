@@ -60,8 +60,40 @@ function getWindowsDependencies() {
   const userProfile = process.env.USERPROFILE ?? "";
   const programFiles = process.env.ProgramFiles ?? "C:\\Program Files";
   const programFilesX86 = process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)";
+  const latestVulkanSdk =
+    fs.existsSync("C:\\VulkanSDK") &&
+    fs.readdirSync("C:\\VulkanSDK", { withFileTypes: true }).some((entry) => entry.isDirectory());
 
   return [
+    {
+      name: "visual-studio-build-tools",
+      desc: "Visual Studio C++ build tools (required by MSVC native dependencies)",
+      check: () =>
+        fs.existsSync(
+          path.join(
+            programFilesX86,
+            "Microsoft Visual Studio",
+            "2022",
+            "BuildTools",
+            "Common7",
+            "Tools",
+            "VsDevCmd.bat",
+          ),
+        ) ||
+        fs.existsSync(
+          path.join(
+            programFiles,
+            "Microsoft Visual Studio",
+            "2022",
+            "Community",
+            "Common7",
+            "Tools",
+            "VsDevCmd.bat",
+          ),
+        ),
+      install:
+        'winget install -e --id Microsoft.VisualStudio.2022.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools"',
+    },
     {
       name: "clang",
       desc: "LLVM/Clang (required for bindgen)",
@@ -81,6 +113,13 @@ function getWindowsDependencies() {
       install: "winget install -e --id Kitware.CMake",
     },
     {
+      name: "vulkan-sdk",
+      desc: "Vulkan SDK (required for Windows Turbo Mode native shaders)",
+      check: () =>
+        Boolean(process.env.VULKAN_SDK && fs.existsSync(process.env.VULKAN_SDK)) || latestVulkanSdk,
+      install: "winget install -e --id KhronosGroup.VulkanSDK",
+    },
+    {
       name: "rust",
       desc: "Rust toolchain (cargo, rustc)",
       check: () =>
@@ -96,6 +135,29 @@ function getWindowsDependencies() {
         fs.existsSync(path.join(programFiles, "nodejs", "node.exe")) ||
         fs.existsSync(path.join(programFilesX86, "nodejs", "node.exe")),
       install: "winget install -e --id OpenJS.NodeJS",
+    },
+  ];
+}
+
+function getMacOSDependencies() {
+  return [
+    {
+      name: "xcode-command-line-tools",
+      desc: "Apple command line developer tools (clang, linker, SDK headers)",
+      check: () => commandExists("xcode-select") && runSuccess("xcode-select", ["-p"]),
+      install: "xcode-select --install",
+    },
+    {
+      name: "rust",
+      desc: "Rust toolchain (cargo, rustc)",
+      check: () => commandExists("cargo"),
+      install: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
+    },
+    {
+      name: "nodejs",
+      desc: "Node.js runtime (required for UI build)",
+      check: () => commandExists("node"),
+      install: "brew install node",
     },
   ];
 }
@@ -559,6 +621,11 @@ function getDependenciesForCurrentSystem() {
   if (process.platform === "win32") {
     console.log(`${colors.cyan}Detected Windows system${colors.reset}`);
     return getWindowsDependencies();
+  }
+
+  if (process.platform === "darwin") {
+    console.log(`${colors.cyan}Detected macOS system${colors.reset}`);
+    return getMacOSDependencies();
   }
 
   if (process.platform !== "linux") {

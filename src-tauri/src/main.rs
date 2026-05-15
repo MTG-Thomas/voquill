@@ -38,6 +38,7 @@ mod domain_vocabulary;
 mod history;
 mod hotkey;
 mod local_whisper;
+mod mlx_whisper;
 mod model_manager;
 mod openvino_whisper;
 pub mod platform;

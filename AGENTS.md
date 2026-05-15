@@ -76,7 +76,7 @@ Managed via **npm** scripts and the Tauri CLI.
 ### Backend (src/)
 
 - **Lint:** `cargo clippy` (Static analysis) and `cargo fmt` (Formatting).
-- **Check:** `cargo check` (Fast compilation check).
+- **Check:** `cargo check` (Fast compilation check). On Windows from a normal shell, prefer `npm run cargo:check` so the short Cargo target directory and Visual Studio/Vulkan toolchain environment are loaded consistently.
 - **Test:** `cargo test` (Run all tests).
 - **Single Test:** `cargo test -- <name>` (Execute a specific test function).
 - **Doc:** `cargo doc --open` (Generate and view crate documentation).

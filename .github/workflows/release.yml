@@ -20,6 +20,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   build:
@@ -35,6 +37,9 @@ jobs:
           - name: Linux
             os: ubuntu-24.04
             artifact_name: voquill-linux
+          - name: macOS
+            os: macos-15
+            artifact_name: voquill-macos
 
     steps:
       - name: Checkout
@@ -109,6 +114,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - name: Set short Cargo target directory
         shell: pwsh
         run: |
@@ -141,6 +149,10 @@ jobs:
         if: runner.os == 'Linux'
         run: npm run tauri -- build --bundles deb,rpm
 
+      - name: Build Tauri bundles (macOS)
+        if: runner.os == 'macOS'
+        run: npm run tauri -- build --bundles app,dmg
+
       - name: Upload Windows artifacts
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -160,6 +172,18 @@ jobs:
           path: |
             ${{ env.CARGO_TARGET_DIR }}/release/bundle/deb/*.deb
             ${{ env.CARGO_TARGET_DIR }}/release/bundle/rpm/*.rpm
+
+      - name: Upload macOS artifacts
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.artifact_name }}-${{ env.RELEASE_TAG }}
+          if-no-files-found: error
+          path: ${{ env.CARGO_TARGET_DIR }}/release/bundle/dmg/*.dmg
+
+      - name: Show sccache stats
+        if: always()
+        run: sccache --show-stats
 
   publish:
     name: Publish GitHub release

@@ -31,7 +31,6 @@ chrono = { version = "0.4", features = ["serde"] }
 libloading = "0.9.0"
 ringbuf = "0.4.7"
 arboard = "3.6.1"
-whisper-rs = { version = "0.16.0", features = ["vulkan"] }
 tokio-util = { version = "0.7", features = ["io"] }
 sha2 = "0.10"
 async-trait = "0.1"
@@ -52,8 +51,13 @@ gtk = "0.18"
 gdk = "0.18"
 gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
+whisper-rs = { version = "0.16.0", features = ["vulkan"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.16.0", features = ["metal"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+whisper-rs = { version = "0.16.0", features = ["vulkan"] }
 windows = { version = "0.62", features = [
     "Win32_UI_Input_KeyboardAndMouse", 
     "Win32_Foundation", 
