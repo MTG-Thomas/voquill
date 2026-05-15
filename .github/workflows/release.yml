@@ -143,6 +143,8 @@ jobs:
 
       - name: Build Tauri bundles (Windows)
         if: runner.os == 'Windows'
+        env:
+          VOQUILL_SKIP_DEPS_CHECK: "1"
         run: npm run tauri -- build --bundles nsis,msi
 
       - name: Build Tauri bundles (Linux)
@@ -152,7 +154,8 @@ jobs:
       - name: Build Tauri bundles (macOS)
         if: runner.os == 'macOS'
         env:
-          MACOSX_DEPLOYMENT_TARGET: "10.15"
+          CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: npm run tauri -- build --bundles app,dmg
 
       - name: Upload Windows artifacts

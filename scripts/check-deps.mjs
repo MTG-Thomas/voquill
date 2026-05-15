@@ -654,6 +654,13 @@ function getDependenciesForCurrentSystem() {
 }
 
 function main() {
+  if (process.env.VOQUILL_SKIP_DEPS_CHECK === "1") {
+    console.log(
+      `${colors.yellow}Skipping system dependency check because VOQUILL_SKIP_DEPS_CHECK=1.${colors.reset}`,
+    );
+    return;
+  }
+
   console.log(
     `\n${colors.bright}[0]${colors.reset} ${colors.cyan}Checking system dependencies...${colors.reset}`,
   );
