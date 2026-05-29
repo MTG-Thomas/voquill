@@ -12,6 +12,9 @@ static STATUS_UPDATE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 struct StatusUpdatePayload {
     seq: u64,
     status: String,
+    /// True when Transcribing reflects an NPU/Turbo model warmup (not user dictation).
+    #[serde(default)]
+    turbo_warm: bool,
 }
 
 pub fn initialize(app_handle: AppHandle) {
@@ -71,6 +74,10 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
 }
 
 pub async fn emit_status_update(status: &str) {
+    emit_status_update_with_turbo_warm(status, false).await;
+}
+
+pub async fn emit_status_update_with_turbo_warm(status: &str, turbo_warm: bool) {
     let sequence = STATUS_UPDATE_SEQUENCE.fetch_add(1, Ordering::Relaxed) + 1;
     let mut previous_status: Option<String> = None;
     let mut changed = false;
@@ -99,6 +106,7 @@ pub async fn emit_status_update(status: &str) {
         let payload = StatusUpdatePayload {
             seq: sequence,
             status: status.to_string(),
+            turbo_warm,
         };
         for window_label in &windows {
             if let Some(window) = app_handle.get_webview_window(window_label) {
@@ -116,4 +124,8 @@ pub async fn emit_status_update(status: &str) {
 
 pub async fn emit_status_to_frontend(status: &str) {
     emit_status_update(status).await;
+}
+
+pub async fn emit_status_to_frontend_with_turbo_warm(status: &str, turbo_warm: bool) {
+    emit_status_update_with_turbo_warm(status, turbo_warm).await;
 }

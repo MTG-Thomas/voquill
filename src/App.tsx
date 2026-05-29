@@ -129,6 +129,7 @@ interface UpdateCheckResult {
 interface StatusUpdatePayload {
   seq: number;
   status: string;
+  turbo_warm?: boolean;
 }
 
 interface HistoryResponse {
@@ -246,6 +247,30 @@ function App() {
   const trayFallbackNotifiedRef = useRef(false);
   const hasShownTurboWarmRef = useRef(false);
   const turboWarmTimeoutRef = useRef<number | null>(null);
+
+  const beginTurboWarmUi = (startedAt = Date.now()) => {
+    if (hasShownTurboWarmRef.current) {
+      return;
+    }
+
+    hasShownTurboWarmRef.current = true;
+    window.localStorage.setItem("voquill-turbo-warm-started-at", String(startedAt));
+    setTurboWarmStartedAt(startedAt);
+    setIsTurboWarmActive(true);
+    if (turboWarmTimeoutRef.current !== null) {
+      window.clearTimeout(turboWarmTimeoutRef.current);
+    }
+    turboWarmTimeoutRef.current = window.setTimeout(() => {
+      setIsTurboWarmActive(false);
+      turboWarmTimeoutRef.current = null;
+    }, TURBO_WARM_FALLBACK_TIMEOUT_MS);
+  };
+
+  const endTurboWarmUi = () => {
+    setIsTurboWarmActive(false);
+    setTurboWarmStartedAt(null);
+    window.localStorage.removeItem("voquill-turbo-warm-started-at");
+  };
 
   useEffect(() => {
     const syncRouteFromHash = () => {
@@ -379,7 +404,14 @@ function App() {
     const unlistenStatus = listen<string | StatusUpdatePayload>("status-update", (event) => {
       const payload = event.payload;
       const nextStatus = typeof payload === "string" ? payload : payload.status;
+      const turboWarm = typeof payload === "object" && payload.turbo_warm === true;
       setCurrentStatus(nextStatus);
+
+      if (nextStatus === "Transcribing" && turboWarm) {
+        beginTurboWarmUi();
+      } else if (nextStatus !== "Transcribing") {
+        endTurboWarmUi();
+      }
     });
 
     const unlistenHistory = listen("history-updated", () => {
@@ -655,26 +687,13 @@ function App() {
   }, [isTurboWarmEligible]);
 
   useEffect(() => {
-    if (currentStatus === "Transcribing" && isTurboWarmEligible && !hasShownTurboWarmRef.current) {
-      hasShownTurboWarmRef.current = true;
-      const startedAt = Date.now();
-      window.localStorage.setItem("voquill-turbo-warm-started-at", String(startedAt));
-      setTurboWarmStartedAt(startedAt);
-      setIsTurboWarmActive(true);
-      if (turboWarmTimeoutRef.current !== null) {
-        window.clearTimeout(turboWarmTimeoutRef.current);
-      }
-      turboWarmTimeoutRef.current = window.setTimeout(() => {
-        setIsTurboWarmActive(false);
-        turboWarmTimeoutRef.current = null;
-      }, TURBO_WARM_FALLBACK_TIMEOUT_MS);
+    if (currentStatus === "Transcribing" && isTurboWarmEligible) {
+      beginTurboWarmUi();
       return;
     }
 
     if (currentStatus !== "Transcribing") {
-      setIsTurboWarmActive(false);
-      setTurboWarmStartedAt(null);
-      window.localStorage.removeItem("voquill-turbo-warm-started-at");
+      endTurboWarmUi();
     }
   }, [currentStatus, isTurboWarmEligible]);
 

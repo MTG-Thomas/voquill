@@ -7,6 +7,7 @@ import { tokens } from "./design-tokens.ts";
 interface StatusUpdatePayload {
   seq: number;
   status: string;
+  turbo_warm?: boolean;
 }
 
 const TURBO_WARM_FALLBACK_TIMEOUT_MS = 190_000;
@@ -18,6 +19,31 @@ function Overlay() {
   const lastStatusSeqRef = useRef<number>(0);
   const hasShownTurboWarmRef = useRef(false);
   const turboWarmTimeoutRef = useRef<number | null>(null);
+
+  const beginTurboWarmUi = (startedAt = Date.now()) => {
+    if (hasShownTurboWarmRef.current) {
+      return;
+    }
+
+    hasShownTurboWarmRef.current = true;
+    window.localStorage.setItem("voquill-turbo-warm-started-at", String(startedAt));
+    setTurboWarmStartedAt(startedAt);
+    setIsTurboWarmActive(true);
+    if (turboWarmTimeoutRef.current !== null) {
+      window.clearTimeout(turboWarmTimeoutRef.current);
+    }
+    turboWarmTimeoutRef.current = window.setTimeout(() => {
+      setIsTurboWarmActive(false);
+      turboWarmTimeoutRef.current = null;
+    }, TURBO_WARM_FALLBACK_TIMEOUT_MS);
+  };
+
+  const endTurboWarmUi = () => {
+    setIsTurboWarmActive(false);
+    setTurboWarmStartedAt(null);
+    window.localStorage.removeItem("voquill-turbo-warm-started-at");
+  };
+
   const hasTauriRuntime =
     typeof window !== "undefined" &&
     "__TAURI_INTERNALS__" in (window as Window & { __TAURI_INTERNALS__?: unknown });
@@ -48,31 +74,22 @@ function Overlay() {
           lastStatusSeqRef.current = nextSeq;
           setStatus(newStatus);
 
-          if (newStatus === "Transcribing") {
-            const turboWarmEligible =
-              window.localStorage.getItem("voquill-turbo-warm-eligible") === "true";
-            if (turboWarmEligible && !hasShownTurboWarmRef.current) {
-              hasShownTurboWarmRef.current = true;
-              const storedStartedAt = Number(
-                window.localStorage.getItem("voquill-turbo-warm-started-at"),
-              );
-              const startedAt =
-                Number.isFinite(storedStartedAt) && storedStartedAt > 0
-                  ? storedStartedAt
-                  : Date.now();
-              setTurboWarmStartedAt(startedAt);
-              setIsTurboWarmActive(true);
-              if (turboWarmTimeoutRef.current !== null) {
-                window.clearTimeout(turboWarmTimeoutRef.current);
-              }
-              turboWarmTimeoutRef.current = window.setTimeout(() => {
-                setIsTurboWarmActive(false);
-                turboWarmTimeoutRef.current = null;
-              }, TURBO_WARM_FALLBACK_TIMEOUT_MS);
-            }
-          } else {
-            setIsTurboWarmActive(false);
-            setTurboWarmStartedAt(null);
+          const turboWarmFromBackend = typeof payload === "object" && payload.turbo_warm === true;
+          const turboWarmEligible =
+            turboWarmFromBackend ||
+            window.localStorage.getItem("voquill-turbo-warm-eligible") === "true";
+
+          if (newStatus === "Transcribing" && turboWarmEligible) {
+            const storedStartedAt = Number(
+              window.localStorage.getItem("voquill-turbo-warm-started-at"),
+            );
+            const startedAt =
+              Number.isFinite(storedStartedAt) && storedStartedAt > 0
+                ? storedStartedAt
+                : Date.now();
+            beginTurboWarmUi(startedAt);
+          } else if (newStatus !== "Transcribing") {
+            endTurboWarmUi();
           }
         });
       } catch (error) {

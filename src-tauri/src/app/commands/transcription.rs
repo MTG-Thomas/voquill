@@ -61,25 +61,44 @@ pub async fn warm_up_model(
     warm_up_openvino_model(&model_size, accelerator.as_deref()).await
 }
 
+fn is_turbo_openvino_model(model_size: &str) -> bool {
+    model_size.starts_with("openvino-whisper-large-v3-turbo-")
+}
+
 pub(crate) async fn warm_up_openvino_model(
     model_size: &str,
     accelerator: Option<&str>,
 ) -> Result<(), String> {
     let accelerator = accelerator.unwrap_or("NPU");
+    let show_turbo_warm_ui = is_turbo_openvino_model(model_size);
     crate::log_info!(
-        "🔥 OpenVINO warmup requested: model={}, accelerator={}",
+        "🔥 OpenVINO warmup requested: model={}, accelerator={}, turbo_ui={}",
         model_size,
-        accelerator
+        accelerator,
+        show_turbo_warm_ui
     );
 
-    let service = openvino_whisper::OpenVinoWhisperService::new(model_size, accelerator)
-        .map_err(|error| error.to_string())?;
+    if show_turbo_warm_ui {
+        crate::app::status::emit_status_to_frontend_with_turbo_warm("Transcribing", true).await;
+    }
 
-    service
-        .transcribe(&create_silent_warmup_wav(), None, None)
-        .await
-        .map(|_| ())
-        .map_err(|error| error.to_string())?;
+    let warmup_result = async {
+        let service = openvino_whisper::OpenVinoWhisperService::new(model_size, accelerator)
+            .map_err(|error| error.to_string())?;
+
+        service
+            .transcribe(&create_silent_warmup_wav(), None, None)
+            .await
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+    .await;
+
+    if show_turbo_warm_ui {
+        crate::app::status::emit_status_to_frontend_with_turbo_warm("Ready", false).await;
+    }
+
+    warmup_result?;
 
     crate::log_info!(
         "✅ OpenVINO warmup complete: model={}, accelerator={}",

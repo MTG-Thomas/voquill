@@ -61,11 +61,12 @@ When running Voquill on Linux, you may see a warning in the terminal:
 
 After a successful build, you can find the artifacts in:
 - **Linux**: `src-tauri/target/release/bundle/` (contains `.deb`, `.rpm`, `.AppImage`)
-- **Windows**: `src-tauri/target/release/bundle/` (contains `.msi`, `.exe`)
+- **Windows** (via `npm run tauri:build` or `npm run tauri:*`): `C:\voquill-build\release\bundle/` (contains `.msi`, `.exe`) — the npm cargo/tauri runners set `CARGO_TARGET_DIR` to avoid long-path failures.
 
 ## Troubleshooting
 
 - **Missing dependencies on Linux**: If the build fails with missing library errors, follow the instructions provided by the script to install the necessary `apt` packages.
 - **Frontend build issues**: If the UI fails to build, try clearing `node_modules` and running the build again.
 - **Rust compilation errors**: Ensure your Rust toolchain is up to date with `rustup update`.
+- **Windows whisper/Vulkan build failures**: Run `npm run deps:check`, then use `npm run cargo:check` or `npm run tauri:dev` instead of `cargo` directly from `src-tauri/`. The cargo runner loads Visual Studio, CMake, LLVM, the Vulkan SDK, and sets `CARGO_TARGET_DIR=C:\voquill-build` to avoid long-path failures.
 - **Fedora AppImage bundling**: Some Fedora toolchains ship RELR-enabled libraries that fail when stripped by the linuxdeploy binary bundled with Tauri. On Fedora, use `npm run tauri -- build --bundles deb,rpm` for distro packages, and build AppImage on Ubuntu/Mint/Kubuntu.
