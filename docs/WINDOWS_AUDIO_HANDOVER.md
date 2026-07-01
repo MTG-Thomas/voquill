@@ -3,14 +3,14 @@
 ## 🎯 Objective
 Achieve full feature parity between Windows and Linux while maintaining a clean, DRY, and high-integrity codebase. The primary focus is currently on Windows microphone enumeration to match the detail seen in Windows System Sound settings.
 
-## 📜 Global Rules & Philosophy
-- **Integrity Over Expediency**: Do not use "quick hacks." If a solution isn't architecturally sound, do not implement it.
-- **Root Cause First**: Fix issues at the data source (e.g., the backend enumeration logic), never at the consumer level (e.g., UI filtering).
-- **OCD-Standard Code**: Code must be semantic, descriptive, and idiomatic. No abbreviations (e.g., use `index` instead of `idx`).
-- **Linux Integrity (CRITICAL)**: The application is "perfect" on Linux. **NEVER** make changes that break or degrade Linux functionality.
-- **Platform Parity**: Features must operate identically across platforms. If Linux has "Hold-to-Talk" and "Typewriter Mode," Windows must have them too.
-- **Linux Display Server Support**: Linux support targets both Wayland and X11. Use XDG Portals on Wayland and native X11 backends on X11.
-- **Zero-Warning Build**: The project must compile with zero errors and zero warnings on all supported platforms.
+## 📜 Rules for This Task
+
+Follow [AGENTS.md](../AGENTS.md) for project-wide philosophy and verification. Task-specific constraints:
+
+- **Root Cause First**: Fix microphone labels in backend enumeration (`audio.rs`), never in the UI dropdown.
+- **Linux Integrity (CRITICAL)**: Do not break or degrade Linux functionality while fixing Windows.
+- **Platform Parity**: Hold-to-Talk and Typewriter Mode must behave identically across Windows and Linux.
+- **Zero-Warning Build**: Match the CI checklist in [REPO_HYGIENE.md](REPO_HYGIENE.md).
 
 ## ✅ Functional Requirements (Windows)
 - **Audio Device Labels**: Must follow the format `[Friendly Name] - [Device Description]` (e.g., "Microphone - 2- Realtek(R) Audio").
