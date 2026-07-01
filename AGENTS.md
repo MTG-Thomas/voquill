@@ -6,14 +6,14 @@ This document serves as a constitution for all agentic coding entities (and huma
 
 ## Quick Navigation
 
-| Topic | Document |
-| --- | --- |
-| Build and dev commands | This file, [BUILD.md](docs/BUILD.md) |
-| CI and pre-PR verification | [REPO_HYGIENE.md](docs/REPO_HYGIENE.md) |
-| Wayland portal quirks | [PORTAL_COMPATIBILITY.md](docs/PORTAL_COMPATIBILITY.md) |
-| Windows audio device naming | [WINDOWS_AUDIO_HANDOVER.md](docs/WINDOWS_AUDIO_HANDOVER.md) |
-| Product architecture overview | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| Code vs philosophy gaps | [GitHub issue #16](https://github.com/MTG-Thomas/voquill/issues/16) |
+| Topic                         | Document                                                            |
+| ----------------------------- | ------------------------------------------------------------------- |
+| Build and dev commands        | This file, [BUILD.md](docs/BUILD.md)                                |
+| CI and pre-PR verification    | [REPO_HYGIENE.md](docs/REPO_HYGIENE.md)                             |
+| Wayland portal quirks         | [PORTAL_COMPATIBILITY.md](docs/PORTAL_COMPATIBILITY.md)             |
+| Windows audio device naming   | [WINDOWS_AUDIO_HANDOVER.md](docs/WINDOWS_AUDIO_HANDOVER.md)         |
+| Product architecture overview | [ARCHITECTURE.md](docs/ARCHITECTURE.md)                             |
+| Code vs philosophy gaps       | [GitHub issue #16](https://github.com/MTG-Thomas/voquill/issues/16) |
 
 ---
 
@@ -184,12 +184,12 @@ On Windows, prefer `npm run cargo:check` for a fast compile check when the full 
 
 ### 3. Transcription Engines
 
-| Engine | Module | Platform | Model storage |
-| --- | --- | --- | --- |
-| OpenAI-compatible API | `transcription.rs` | All | N/A (remote) |
-| whisper.cpp (GGML) | `local_whisper.rs` | All | `models/<size>.bin` |
-| OpenVINO | `openvino_whisper.rs` | Windows | `models/openvino/…` |
-| MLX | `mlx_whisper.rs` | macOS | `models/mlx/…` |
+| Engine                | Module                | Platform | Model storage       |
+| --------------------- | --------------------- | -------- | ------------------- |
+| OpenAI-compatible API | `transcription.rs`    | All      | N/A (remote)        |
+| whisper.cpp (GGML)    | `local_whisper.rs`    | All      | `models/<size>.bin` |
+| OpenVINO              | `openvino_whisper.rs` | Windows  | `models/openvino/…` |
+| MLX                   | `mlx_whisper.rs`      | macOS    | `models/mlx/…`      |
 
 Model catalog, download, and path resolution live in `model_manager.rs`. Keep model I/O asynchronous.
 
@@ -202,11 +202,11 @@ Model catalog, download, and path resolution live in `model_manager.rs`. Keep mo
 
 ## 📋 Platform Compatibility & Requirements
 
-| Platform | Status | Display Server | Audio Backend | Hardware Access |
-| --- | --- | --- | --- | --- |
-| **Linux** | Release | Wayland, X11 | ALSA / PulseAudio | Wayland: XDG Portals (`ashpd`); X11: native backends |
-| **Windows** | Release | Desktop | WASAPI | Native APIs (SendInput, MMDevice) |
-| **macOS** | Experimental | Desktop | CoreAudio | Global shortcuts + clipboard-paste typing; not a release target |
+| Platform    | Status       | Display Server | Audio Backend     | Hardware Access                                                 |
+| ----------- | ------------ | -------------- | ----------------- | --------------------------------------------------------------- |
+| **Linux**   | Release      | Wayland, X11   | ALSA / PulseAudio | Wayland: XDG Portals (`ashpd`); X11: native backends            |
+| **Windows** | Release      | Desktop        | WASAPI            | Native APIs (SendInput, MMDevice)                               |
+| **macOS**   | Experimental | Desktop        | CoreAudio         | Global shortcuts + clipboard-paste typing; not a release target |
 
 ### Linux Permission Setup
 
