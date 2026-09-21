@@ -12,19 +12,8 @@ use crate::platform::traits::{
     GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
 };
 
+#[derive(Default)]
 pub struct WaylandBackend;
-
-impl WaylandBackend {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for WaylandBackend {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[async_trait]
 impl InputSimulation for WaylandBackend {
@@ -42,6 +31,31 @@ impl InputSimulation for WaylandBackend {
             key_press_duration_ms,
         )
         .await
+    }
+
+    async fn send_paste_shortcut(
+        &self,
+        app_handle: &tauri::AppHandle,
+        shortcut: crate::config::PasteShortcut,
+    ) -> Result<(), String> {
+        input::send_paste_shortcut(app_handle, shortcut).await
+    }
+
+    async fn send_key_combination(
+        &self,
+        app_handle: &tauri::AppHandle,
+        combination: &str,
+        hold_duration_ms: u64,
+    ) -> Result<(), String> {
+        input::send_key_combination(app_handle, combination, hold_duration_ms).await
+    }
+
+    async fn send_key_down(&self, app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_down(app_handle, key).await
+    }
+
+    async fn send_key_up(&self, app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_up(app_handle, key).await
     }
 }
 

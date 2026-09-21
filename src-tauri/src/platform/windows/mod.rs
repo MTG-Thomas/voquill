@@ -5,23 +5,18 @@ pub mod shortcuts;
 
 use async_trait::async_trait;
 use std::sync::Arc;
-use tauri::WebviewWindow;
+use tauri::{Manager, WebviewWindow};
 
 use crate::platform::traits::{
     DisplayBackend, GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
 };
 
+#[derive(Default)]
 pub struct WindowsBackend;
 
 impl WindowsBackend {
     pub fn new() -> Self {
         Self
-    }
-}
-
-impl Default for WindowsBackend {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -33,13 +28,45 @@ pub fn initialize() -> Arc<dyn DisplayBackend> {
 impl InputSimulation for WindowsBackend {
     async fn type_text_hardware(
         &self,
-        _app_handle: &tauri::AppHandle,
+        app_handle: &tauri::AppHandle,
         text: &str,
         typing_speed_interval: f64,
         key_press_duration_ms: u64,
     ) -> Result<(), String> {
-        input::type_text_hardware(text, typing_speed_interval, key_press_duration_ms)
+        let session_state = app_handle.state::<crate::AppState>().session_state.clone();
+        input::type_text_hardware(
+            text,
+            typing_speed_interval,
+            key_press_duration_ms,
+            &session_state,
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    async fn send_paste_shortcut(
+        &self,
+        _app_handle: &tauri::AppHandle,
+        shortcut: crate::config::PasteShortcut,
+    ) -> Result<(), String> {
+        input::send_paste_shortcut(shortcut).map_err(|error| error.to_string())
+    }
+
+    async fn send_key_combination(
+        &self,
+        _app_handle: &tauri::AppHandle,
+        combination: &str,
+        hold_duration_ms: u64,
+    ) -> Result<(), String> {
+        input::send_key_combination(combination, hold_duration_ms)
             .map_err(|error| error.to_string())
+    }
+
+    async fn send_key_down(&self, _app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_down(key).map_err(|error| error.to_string())
+    }
+
+    async fn send_key_up(&self, _app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_up(key).map_err(|error| error.to_string())
     }
 }
 
