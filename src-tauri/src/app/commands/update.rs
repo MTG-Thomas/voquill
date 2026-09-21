@@ -1,4 +1,9 @@
+use std::process::Stdio;
+
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
+
+use crate::app::state::AppState;
 
 const GITHUB_LATEST_RELEASE_API_URL: &str =
     "https://api.github.com/repos/jackbrumley/voquill/releases/latest";
@@ -25,7 +30,7 @@ struct GitHubLatestRelease {
 pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     crate::log_info!(
-        "📡 Tauri Command: check_for_updates invoked (current={})",
+        "Tauri Command: check_for_updates invoked (current={})",
         current_version
     );
 
@@ -68,14 +73,14 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
 
     if update_available {
         crate::log_info!(
-            "🧭 Update available: {} -> {} ({})",
+            "Update available: {} -> {} ({})",
             current_version,
             latest_version,
             latest_release.html_url
         );
     } else {
         crate::log_info!(
-            "🧭 No update available (current={}, latest={})",
+            "No update available (current={}, latest={})",
             current_version,
             latest_version
         );
@@ -90,6 +95,129 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
             .body
             .map(|_| GITHUB_RELEASES_LATEST_URL.to_string()),
     })
+}
+
+#[tauri::command]
+pub async fn install_update(app_handle: tauri::AppHandle) -> Result<(), String> {
+    crate::log_info!("Tauri Command: install_update invoked");
+
+    spawn_update_process()?;
+
+    let handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        crate::log_info!("Exiting Voquill for update installation");
+        let state = handle.state::<AppState>();
+        state.cleanup();
+        handle.exit(0);
+    });
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn spawn_update_process() -> Result<(), String> {
+    use std::os::unix::process::CommandExt;
+
+    let is_appimage = std::env::var("APPIMAGE").is_ok()
+        || std::env::current_exe()
+            .map(|path| path.to_string_lossy().contains(".local/bin"))
+            .unwrap_or(false);
+
+    let script_cmd = if is_appimage {
+        "curl -sf https://voquill.org/install.sh | bash -s -- --appimage"
+    } else {
+        "curl -sf https://voquill.org/install.sh | bash"
+    };
+
+    crate::log_info!("Spawning Linux update process: {}", script_cmd);
+
+    let log_path = crate::paths::debug_dir()
+        .map(|dir| dir.join("update.log"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("voquill-update.log"));
+
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&log_path)
+        .map_err(|error| format!("Failed to open update log file: {error}"))?;
+
+    let log_file_err = log_file
+        .try_clone()
+        .map_err(|error| format!("Failed to clone update log handle: {error}"))?;
+
+    let mut command = std::process::Command::new("bash");
+    command
+        .arg("-c")
+        .arg(script_cmd)
+        .stdin(Stdio::null())
+        .stdout(log_file)
+        .stderr(log_file_err);
+
+    unsafe {
+        command.pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
+
+    command
+        .spawn()
+        .map_err(|error| format!("Failed to spawn updater process: {error}"))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn spawn_update_process() -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+
+    const DETACHED_PROCESS: u32 = 0x00000008;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+
+    let script_cmd = "irm https://voquill.org/install.ps1 | iex";
+    crate::log_info!("Spawning Windows update process: {}", script_cmd);
+
+    let log_path = crate::paths::debug_dir()
+        .map(|dir| dir.join("update.log"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("voquill-update.log"));
+
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&log_path)
+        .map_err(|error| format!("Failed to open update log file: {error}"))?;
+
+    let log_file_err = log_file
+        .try_clone()
+        .map_err(|error| format!("Failed to clone update log handle: {error}"))?;
+
+    let mut command = std::process::Command::new("powershell.exe");
+    command
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            script_cmd,
+        ])
+        .stdin(Stdio::null())
+        .stdout(log_file)
+        .stderr(log_file_err)
+        .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+
+    command
+        .spawn()
+        .map_err(|error| format!("Failed to spawn updater process: {error}"))?;
+
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn spawn_update_process() -> Result<(), String> {
+    Err("In-app updates are not supported on this platform".to_string())
 }
 
 fn normalize_version(raw: &str) -> Option<String> {

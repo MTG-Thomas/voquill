@@ -1,27 +1,27 @@
 use std::fs::{self, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 static SESSION_LOG_FILE: OnceLock<Mutex<Option<std::fs::File>>> = OnceLock::new();
 static SESSION_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
+static PERSISTENCE_ENABLED: AtomicBool = AtomicBool::new(true);
+
+pub fn set_persistence_enabled(enabled: bool) {
+    let was_enabled = PERSISTENCE_ENABLED.swap(enabled, Ordering::SeqCst);
+    if enabled && !was_enabled && SESSION_LOG_FILE.get().is_none() {
+        initialize_session_logging_inner();
+    }
+}
+
 pub fn get_session_log_path() -> Result<PathBuf, String> {
-    let debug_dir = dirs::config_dir()
-        .ok_or_else(|| "Could not find config directory".to_string())?
-        .join("foss-voquill")
-        .join("debug");
-    fs::create_dir_all(&debug_dir).map_err(|error| error.to_string())?;
-    Ok(debug_dir.join("session.log"))
+    Ok(crate::paths::debug_dir()?.join("session.log"))
 }
 
 pub fn get_app_config_root_dir() -> Result<PathBuf, String> {
-    let root_dir = dirs::config_dir()
-        .ok_or_else(|| "Could not find config directory".to_string())?
-        .join("foss-voquill");
-
-    fs::create_dir_all(&root_dir).map_err(|error| error.to_string())?;
-    Ok(root_dir)
+    crate::paths::ensure_app_root()
 }
 
 pub fn clear_directory_contents(
@@ -74,6 +74,13 @@ pub fn truncate_session_log_with_header() -> Result<(), String> {
 }
 
 pub fn initialize_session_logging() {
+    if !PERSISTENCE_ENABLED.load(Ordering::SeqCst) {
+        return;
+    }
+    initialize_session_logging_inner();
+}
+
+fn initialize_session_logging_inner() {
     let log_path = match get_session_log_path() {
         Ok(path) => path,
         Err(error) => {
@@ -81,6 +88,12 @@ pub fn initialize_session_logging() {
             return;
         }
     };
+
+    // Rotate previous session log so it survives for post-crash diagnosis
+    if log_path.exists() {
+        let last_path = log_path.with_file_name("last-session.log");
+        let _ = fs::rename(&log_path, &last_path);
+    }
 
     match OpenOptions::new()
         .create(true)
@@ -105,6 +118,9 @@ pub fn initialize_session_logging() {
 }
 
 pub fn append_session_log(level: &str, timestamp: &str, message: &str) {
+    if !PERSISTENCE_ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
     if let Some(lock) = SESSION_LOG_FILE.get() {
         if let Ok(mut maybe_file) = lock.lock() {
             if let Some(file) = maybe_file.as_mut() {
