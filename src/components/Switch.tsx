@@ -4,18 +4,20 @@ import { tokens } from "../design-tokens.ts";
 interface SwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  /** Human-readable setting name, used for UI event logging and accessibility. */
+  name: string;
   label?: string;
   className?: string;
 }
 
-export const Switch = ({ checked, onChange, label, className = "" }: SwitchProps) => {
+export const Switch = ({ checked, onChange, name, label, className = "" }: SwitchProps) => {
   return (
     <label
       className={className}
       style={{
         display: "flex",
         alignItems: "center",
-        justifyContent: label ? "space-between" : "flex-end",
+        justifyContent: label ? "space-between" : "flex-start",
         gap: tokens.spacing.md,
         width: "100%",
         cursor: "pointer",
@@ -32,15 +34,15 @@ export const Switch = ({ checked, onChange, label, className = "" }: SwitchProps
           {label}
         </span>
       )}
-      <div style={{ position: "relative", width: "40px", height: "20px" }}>
+      <div style={{ position: "relative", width: "40px", height: "22px" }}>
         <input
           type="checkbox"
           checked={checked}
+          aria-label={name}
           onChange={(e) => {
             const nextValue = (e.target as HTMLInputElement).checked;
-            const switchLabel = label || "Unnamed switch";
             invoke("log_ui_event", {
-              message: `🖱️ Switch toggled: ${switchLabel} -> ${nextValue ? "On" : "Off"}`,
+              message: `[Switch toggled] ${name} -> ${nextValue ? "On" : "Off"}`,
             }).catch(() => {});
             onChange(nextValue);
           }}
@@ -50,8 +52,7 @@ export const Switch = ({ checked, onChange, label, className = "" }: SwitchProps
           style={{
             position: "absolute",
             inset: 0,
-            background: checked ? tokens.colors.accentPrimary : tokens.colors.bgTertiary,
-            border: checked ? "1px solid transparent" : "1px solid rgba(255, 255, 255, 0.22)",
+            background: checked ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.2)",
             borderRadius: "999px",
             transition: "all 0.2s ease",
           }}
@@ -59,13 +60,13 @@ export const Switch = ({ checked, onChange, label, className = "" }: SwitchProps
           <span
             style={{
               position: "absolute",
-              top: checked ? "3px" : "4px",
-              left: checked ? "23px" : "4px",
-              width: checked ? "12px" : "10px",
-              height: checked ? "12px" : "10px",
-              background: checked ? "#000000" : tokens.colors.textSecondary,
+              top: "2px",
+              left: checked ? "20px" : "2px",
+              width: "18px",
+              height: "18px",
+              background: "#fff",
               borderRadius: "999px",
-              transition: "all 0.2s ease",
+              transition: "left 0.2s ease",
             }}
           ></span>
         </span>

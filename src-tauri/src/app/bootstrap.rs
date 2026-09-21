@@ -1,17 +1,17 @@
 use crate::app::commands::hotkey::re_register_hotkey;
 #[cfg(target_os = "linux")]
 use crate::app::commands::platform::is_status_notifier_watcher_available;
-use crate::app::commands::transcription::warm_up_openvino_model;
 use crate::app::state::AppState;
+use crate::audio;
 use crate::config::Config;
-use crate::{audio, hotkey};
+use crate::engine_factory;
 #[cfg(target_os = "linux")]
 use ashpd::{register_host_app, AppID};
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 
 #[cfg(target_os = "linux")]
@@ -39,22 +39,19 @@ fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::E
 pub fn build_app_state(initial_config: &Config) -> AppState {
     let app_state = AppState {
         config: Arc::new(Mutex::new(initial_config.clone())),
-        hardware_hotkey: Arc::new(Mutex::new(hotkey::parse_hardware_hotkey(
-            &initial_config.hotkey,
-        ))),
         ..Default::default()
     };
 
     {
         let mut cached_device = app_state.cached_device.lock().unwrap();
-        let device = match audio::lookup_device(
+        let device = match audio::lookup_device_with_label(
             initial_config.audio_device.clone(),
             initial_config.audio_device_label.clone(),
         ) {
             Ok(device) => Some(device),
             Err(error) => {
                 crate::log_warn!(
-                    "❌ Initial audio device pre-warm failed (requested_device='{}'): {}",
+                    "Initial audio device pre-warm failed (requested_device='{}'): {}",
                     initial_config
                         .audio_device
                         .clone()
@@ -67,9 +64,9 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
         *cached_device = device.clone();
 
         if device.is_some() {
-            crate::log_info!("✅ Initial audio device resolved; microphone stream remains idle");
+            crate::log_info!("Initial audio device resolved; microphone stream remains idle");
         }
-        crate::log_info!("🔧 Initial pre-warm of audio device cache complete");
+        crate::log_info!("Initial pre-warm of audio device cache complete");
     }
 
     app_state
@@ -78,6 +75,7 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
 pub fn run_setup(
     app: &mut tauri::App<tauri::Wry>,
     initial_config: &Config,
+    start_hidden: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     crate::app::status::initialize(app.handle().clone());
 
@@ -91,7 +89,7 @@ pub fn run_setup(
         let prg_name = gtk::glib::prgname();
         let detected = crate::platform::linux::detection::detect_display_server();
         crate::log_info!(
-            "🧭 Launch context: detected={:?}, XDG_SESSION_TYPE={:?}, WAYLAND_DISPLAY={:?}, DISPLAY={:?}, XDG_CURRENT_DESKTOP={:?}, prgname={:?}",
+            "Launch context: detected={:?}, XDG_SESSION_TYPE={:?}, WAYLAND_DISPLAY={:?}, DISPLAY={:?}, XDG_CURRENT_DESKTOP={:?}, prgname={:?}",
             detected,
             session_type,
             wayland_display,
@@ -99,15 +97,15 @@ pub fn run_setup(
             desktop,
             prg_name
         );
-        crate::log_info!("🧭 App version: {}", env!("CARGO_PKG_VERSION"));
+        crate::log_info!("App version: {}", env!("CARGO_PKG_VERSION"));
         if let Some(distro_name) = read_linux_distribution_name() {
-            crate::log_info!("🧭 Linux distro: {}", distro_name);
+            crate::log_info!("Linux distro: {}", distro_name);
         }
 
         if is_wayland_session() {
             let state = app.state::<AppState>();
             let host_app_registration = tauri::async_runtime::block_on(async {
-                let app_id = AppID::try_from("org.voquill.foss")
+                let app_id = AppID::try_from("org.voquill.desktop")
                     .map_err(|error| format!("Invalid host app id: {error}"))?;
                 register_host_app(app_id)
                     .await
@@ -119,34 +117,57 @@ pub fn run_setup(
                     let mut registration_error =
                         state.wayland_host_app_registration_error.lock().unwrap();
                     *registration_error = None;
-                    crate::log_info!("✅ Registered host app ID with portal registry");
+                    crate::log_info!("Registered host app ID with portal registry");
                 }
                 Err(error) => {
                     let mut registration_error =
                         state.wayland_host_app_registration_error.lock().unwrap();
                     *registration_error = Some(error.clone());
-                    crate::log_warn!("⚠️ Host app registration failed: {}", error);
+                    crate::log_warn!("Host app registration failed: {}", error);
                 }
             }
 
             let tray_watcher_available =
                 tauri::async_runtime::block_on(is_status_notifier_watcher_available());
             crate::log_info!(
-                "🧭 StatusNotifier watcher available: {}",
+                "StatusNotifier watcher available: {}",
                 tray_watcher_available
             );
         }
     }
 
     if let Some(window) = app.get_webview_window("overlay") {
-        crate::log_info!("🔍 Overlay window found in setup");
+        crate::log_info!("Overlay window found in setup");
         let _ = window.hide();
         let state = app.state::<AppState>();
         state.display_backend.apply_overlay_hints(&window);
     } else {
-        crate::log_info!("❌ Overlay window NOT FOUND in setup!");
+        crate::log_info!("Overlay window NOT FOUND in setup!");
     }
     let _ = audio::get_input_devices();
+
+    if initial_config.warm_model_on_startup
+        && initial_config.transcription_mode == crate::config::TranscriptionMode::Local
+        && initial_config.local_engine == "OpenVINO GenAI"
+    {
+        let model_size = initial_config.local_model_size.clone();
+        let accelerator = initial_config.local_accelerator.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::log_info!(
+                "Startup model warm scheduled: model={}, accelerator={}",
+                model_size,
+                accelerator
+            );
+            if let Err(error) = crate::app::commands::transcription::warm_up_openvino_model(
+                &model_size,
+                Some(&accelerator),
+            )
+            .await
+            {
+                crate::log_warn!("Startup model warm failed: {}", error);
+            }
+        });
+    }
 
     let menu = create_tray_menu(app.handle())?;
     let _tray = TrayIconBuilder::with_id("main-tray")
@@ -154,7 +175,9 @@ pub fn run_setup(
         .icon(app.default_window_icon().unwrap().clone())
         .on_menu_event(|app_handle, event| match event.id.as_ref() {
             "quit" => {
-                std::process::exit(0);
+                let state = app_handle.state::<AppState>();
+                state.cleanup();
+                app_handle.exit(0);
             }
             "open" => {
                 if let Some(window) = app_handle.get_webview_window("main") {
@@ -189,7 +212,9 @@ pub fn run_setup(
     }
 
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
+        if !start_hidden {
+            let _ = window.show();
+        }
     }
 
     let hotkey_string = initial_config.hotkey.clone();
@@ -202,24 +227,6 @@ pub fn run_setup(
             *hotkey_error = Some(error);
         }
     });
-
-    if initial_config.warm_model_on_startup
-        && initial_config.transcription_mode == crate::config::TranscriptionMode::Local
-        && initial_config.local_engine == "OpenVINO GenAI"
-    {
-        let model_size = initial_config.local_model_size.clone();
-        let accelerator = initial_config.local_accelerator.clone();
-        tauri::async_runtime::spawn(async move {
-            crate::log_info!(
-                "🔥 Startup model warm scheduled: model={}, accelerator={}",
-                model_size,
-                accelerator
-            );
-            if let Err(error) = warm_up_openvino_model(&model_size, Some(&accelerator)).await {
-                crate::log_warn!("Startup model warm failed: {}", error);
-            }
-        });
-    }
 
     #[cfg(target_os = "linux")]
     {
@@ -238,5 +245,69 @@ pub fn run_setup(
         }
     }
 
+    spawn_engine_preload(
+        app.state::<AppState>().engine_factory.clone(),
+        initial_config,
+    );
+    spawn_post_process_warmup(
+        app.state::<AppState>().post_process_factory.clone(),
+        initial_config,
+        app.handle(),
+    );
+    spawn_python_runner_prewarm(app.handle(), initial_config);
+    crate::voice_macro::sync_voice_macro_listener(app.handle());
+
     Ok(())
+}
+
+/// Pre-loads the transcription engine model into its cache so the first
+/// recording reuses a warm model instead of paying the full load cost.
+/// Fired at startup and re-armed whenever the engine/model changes or a
+/// matching model download completes.
+pub fn spawn_engine_preload(factory: Arc<engine_factory::EngineFactory>, config: &Config) {
+    let config = config.clone();
+    tauri::async_runtime::spawn(async move {
+        factory.preload(&config).await;
+    });
+}
+
+/// Warms the local post-process sidecar when post-processing is enabled, so
+/// the first dictation reuses a warm llama-server instead of paying the
+/// process spawn + GGUF load cost mid-session. Fired at startup and re-armed
+/// whenever post-process settings change or a matching model download
+/// completes. Emits `post-process-gpu-status-changed` when finished so the
+/// settings UI reflects the fresh GPU start attempt.
+pub fn spawn_post_process_warmup(
+    factory: Arc<crate::post_process::factory::PostProcessFactory>,
+    config: &Config,
+    app_handle: &tauri::AppHandle,
+) {
+    let config = config.clone();
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        factory.preload(&config).await;
+        let _ = app_handle.emit("post-process-gpu-status-changed", ());
+    });
+}
+
+/// Pre-warms the Python runner for diarization when diarization is enabled.
+/// Spawned asynchronously at startup so it's ready before the user's first
+/// file import, avoiding the ~2s lazy-start delay on first use.
+pub fn spawn_python_runner_prewarm(app_handle: &tauri::AppHandle, config: &Config) {
+    if !config.diarization_enabled_files {
+        return;
+    }
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::log_info!("Pre-warming Python runner for diarization...");
+        let state = app_handle.state::<AppState>();
+        match state.get_or_start_python_runner(&app_handle).await {
+            Ok(_) => {
+                crate::log_info!("Python runner pre-warmed successfully");
+            }
+            Err(e) => {
+                crate::log_warn!("Failed to pre-warm Python runner: {}", e);
+            }
+        }
+    });
 }

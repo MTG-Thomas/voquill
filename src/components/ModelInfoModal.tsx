@@ -1,4 +1,4 @@
-import { IconRocket, IconTarget, IconScale, IconBolt } from "@tabler/icons-preact";
+import { IconTarget, IconScale, IconBolt } from "@tabler/icons-preact";
 import { Button } from "./Button.tsx";
 import { Modal } from "./Modal.tsx";
 import { tokens } from "../design-tokens.ts";
@@ -9,7 +9,17 @@ interface ModelInfoModalProps {
 
 export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
   return (
-    <Modal title="Model Guide" onClose={onClose} fullScreen>
+    <Modal
+      title="Model Guide"
+      onClose={onClose}
+      maxWidth="680px"
+      footerAlign="center"
+      footer={
+        <Button variant="primary" pill onClick={onClose} style={{ minWidth: "180px" }}>
+          Got it
+        </Button>
+      }
+    >
       <p
         style={{
           fontSize: tokens.typography.sizeMd,
@@ -18,8 +28,8 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
           margin: 0,
         }}
       >
-        Voquill uses AI models to transcribe your voice. Choose the one that best fits your
-        computer's power.
+        Pick an engine in Settings first, then choose a model size below. The right model depends on
+        your computer and how fast you need results.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.md }}>
@@ -28,22 +38,22 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
             display: "flex",
             gap: tokens.spacing.md,
             padding: tokens.spacing.md,
-            background: tokens.colors.glassBg,
-            borderRadius: tokens.radii.panel,
-            border: "1px solid rgba(255, 255, 255, 0.10)",
+            background: "rgba(47, 49, 54, 0.65)",
+            borderRadius: "12px",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
           }}
         >
           <div
             style={{
               width: "48px",
               height: "48px",
-              borderRadius: tokens.radii.panel,
+              borderRadius: "10px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              background: "rgba(252, 225, 0, 0.12)",
-              color: "#fce100",
+              background: "#3a2f25",
+              color: "#f1c40f",
             }}
           >
             <IconBolt size={24} />
@@ -55,7 +65,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
                 fontSize: tokens.typography.sizeSm,
                 fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: 0,
+                letterSpacing: "0.5px",
               }}
             >
               Lightning Fast
@@ -69,6 +79,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
               }}
             >
               <strong>Tiny / Distil-Small</strong>: Fastest and lightest, great for older laptops.
+              Works with both CPU and GPU Whisper engines.
             </p>
           </div>
         </div>
@@ -78,22 +89,22 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
             display: "flex",
             gap: tokens.spacing.md,
             padding: tokens.spacing.md,
-            borderRadius: tokens.radii.panel,
-            border: "1px solid rgba(96, 205, 255, 0.28)",
-            background: "rgba(96, 205, 255, 0.10)",
+            borderRadius: "12px",
+            border: "1px solid rgba(88, 101, 242, 0.32)",
+            background: "rgba(49, 54, 82, 0.65)",
           }}
         >
           <div
             style={{
               width: "48px",
               height: "48px",
-              borderRadius: tokens.radii.panel,
+              borderRadius: "10px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              background: "rgba(16, 124, 16, 0.12)",
-              color: tokens.colors.success,
+              background: "#29413a",
+              color: "#10b981",
             }}
           >
             <IconScale size={24} />
@@ -105,7 +116,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
                 fontSize: tokens.typography.sizeSm,
                 fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: 0,
+                letterSpacing: "0.5px",
               }}
             >
               Perfect Balance
@@ -129,22 +140,22 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
             display: "flex",
             gap: tokens.spacing.md,
             padding: tokens.spacing.md,
-            background: tokens.colors.glassBg,
-            borderRadius: tokens.radii.panel,
-            border: "1px solid rgba(255, 255, 255, 0.10)",
+            background: "rgba(47, 49, 54, 0.65)",
+            borderRadius: "12px",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
           }}
         >
           <div
             style={{
               width: "48px",
               height: "48px",
-              borderRadius: tokens.radii.panel,
+              borderRadius: "10px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              background: "rgba(0, 103, 192, 0.12)",
-              color: tokens.colors.accentPrimary,
+              background: "#2a3344",
+              color: "#5865f2",
             }}
           >
             <IconTarget size={24} />
@@ -156,7 +167,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
                 fontSize: tokens.typography.sizeSm,
                 fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: 0,
+                letterSpacing: "0.5px",
               }}
             >
               Highest Accuracy
@@ -169,59 +180,11 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
                 lineHeight: 1.5,
               }}
             >
-              <strong>Small / Medium</strong>: Best for complex vocabulary or accents. Requires a
-              modern PC or a GPU.
+              <strong>Small / Medium</strong>: Best for complex vocabulary or accents. Needs a
+              modern PC.
             </p>
           </div>
         </div>
-      </div>
-
-      <div
-        style={{
-          padding: tokens.spacing.md,
-          background: "rgba(252, 225, 0, 0.10)",
-          borderRadius: tokens.radii.panel,
-          borderLeft: "4px solid #fce100",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: tokens.spacing.sm,
-            alignItems: "center",
-            marginBottom: "8px",
-          }}
-        >
-          <IconRocket size={20} color="#fce100" />
-          <h3 style={{ margin: 0, fontSize: tokens.typography.sizeSm, fontWeight: 700 }}>
-            Turbo Mode (GPU)
-          </h3>
-        </div>
-        <p
-          style={{
-            margin: 0,
-            fontSize: tokens.typography.sizeSm,
-            color: tokens.colors.textSecondary,
-            lineHeight: 1.6,
-          }}
-        >
-          If you have a dedicated graphics card (AMD or NVIDIA), try <strong>Turbo Mode</strong> in
-          Settings (look for the Experimental badge). It can speed up transcription on some systems,
-          but results vary by hardware and model.
-        </p>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          marginTop: tokens.spacing.sm,
-          paddingBottom: tokens.spacing.md,
-        }}
-      >
-        <Button variant="primary" pill onClick={onClose} style={{ minWidth: "180px" }}>
-          Got it
-        </Button>
       </div>
     </Modal>
   );

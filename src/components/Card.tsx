@@ -1,6 +1,6 @@
 import { ComponentChildren } from "preact";
 import type { JSX } from "preact";
-import { useState } from "preact/hooks";
+import { useSignal } from "@preact/signals";
 import { tokens } from "../design-tokens.ts";
 
 interface CardProps {
@@ -18,28 +18,31 @@ export const Card = ({
   onClick,
   style: styleOverride,
 }: CardProps) => {
-  const [hovered, setHovered] = useState(false);
+  const hovered = useSignal(false);
 
   const style = {
     padding: tokens.spacing.lg,
-    borderRadius: tokens.radii.panel,
-    background: variant === "primary" ? tokens.colors.glassBgHeavy : tokens.colors.glassBg,
-    backdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
-    WebkitBackdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
-    border: "1px solid rgba(255, 255, 255, 0.10)",
-    boxShadow: tokens.shadows.sm,
+    borderRadius: "14px",
+    background: variant === "primary" ? "rgba(36, 40, 52, 0.75)" : "rgba(26, 29, 38, 0.65)",
+    backdropFilter: `blur(${tokens.colors.glassBlur})`,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    boxShadow: "0 6px 24px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25)",
     transition: tokens.transitions.normal,
-    transform: hovered && onClick ? "translateY(-1px)" : "translateY(0)",
+    transform: hovered.value && onClick ? "translateY(-2px)" : "translateY(0)",
     cursor: onClick ? "pointer" : "default",
   } as const;
 
   return (
     <div
       className={className}
-      onClick={onClick}
       style={{ ...style, ...styleOverride }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
+      onMouseEnter={() => {
+        hovered.value = true;
+      }}
+      onMouseLeave={() => {
+        hovered.value = false;
+      }}
     >
       {children}
     </div>

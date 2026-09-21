@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
   "productName": "Voquill",
-  "version": "1.3.21",
-  "identifier": "org.voquill.foss",
+  "version": "1.7.3",
+  "identifier": "org.voquill.desktop",
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
@@ -15,8 +15,8 @@
       {
         "label": "main",
         "title": "Voquill",
-        "width": 430,
-        "height": 700,
+        "width": 400,
+        "height": 600,
         "resizable": true,
         "minWidth": 400,
         "minHeight": 400,
@@ -28,8 +28,6 @@
       {
         "label": "overlay",
         "title": "Voquill Status",
-        "width": 260,
-        "height": 140,
         "resizable": false,
         "center": false,
         "visible": false,
@@ -67,33 +65,36 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "resources": [],
+    "resources": ["packaging/windows/vulkan-1.dll", "../python-runner/**/*"],
     "externalBin": [],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "",
+      "nsis": {
+        "installerHooks": "packaging/windows/hooks.nsh"
+      }
     },
     "linux": {
       "deb": {
-        "desktopTemplate": "packaging/org.voquill.foss.desktop.hbs",
+        "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
         "depends": ["libgtk-layer-shell0", "libpulse0", "libappindicator3-1"],
         "files": {
-          "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml"
+          "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
         }
       },
       "rpm": {
-        "desktopTemplate": "packaging/org.voquill.foss.desktop.hbs",
+        "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
         "depends": ["gtk-layer-shell", "webkit2gtk4.1", "pulseaudio-libs", "libappindicator-gtk3"],
         "files": {
-          "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml"
+          "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
         }
       },
       "appimage": {
         "bundleMediaFramework": false,
         "files": {
-          "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml",
-          "/usr/share/appdata/org.voquill.foss.appdata.xml": "org.voquill.foss.metainfo.xml"
+          "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml",
+          "/usr/share/appdata/org.voquill.desktop.appdata.xml": "org.voquill.desktop.metainfo.xml"
         }
       }
     }

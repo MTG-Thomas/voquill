@@ -82,7 +82,7 @@ pub async fn get_overlay_positioning_capabilities() -> Result<OverlayPositioning
             let layer_shell_supported =
                 crate::platform::linux::wayland::overlay::manual_overlay_offset_supported();
             crate::log_info!(
-                "🧭 Overlay positioning capability check: wayland=true, manual_offset_supported={}",
+                "Overlay positioning capability check: wayland=true, manual_offset_supported={}",
                 layer_shell_supported
             );
             if !layer_shell_supported {
@@ -143,7 +143,7 @@ pub async fn get_system_shortcut_context() -> Result<SystemShortcutContext, Stri
 pub async fn get_linux_setup_status(
     state: tauri::State<'_, AppState>,
 ) -> Result<LinuxPermissions, String> {
-    crate::log_info!("📡 Tauri Command: get_linux_setup_status invoked");
+    crate::log_info!("Tauri Command: get_linux_setup_status invoked");
     let config = {
         let guard = state.config.lock().unwrap();
         guard.clone()
@@ -170,7 +170,7 @@ pub async fn get_linux_setup_status(
         };
     }
     crate::log_info!(
-        "🧭 Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
+        "Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
         permissions.audio,
         permissions.shortcuts,
         permissions.shortcuts_status,
@@ -183,7 +183,7 @@ pub async fn get_linux_setup_status(
 
 #[tauri::command]
 pub async fn request_audio_permission() -> Result<(), String> {
-    crate::log_info!("📡 Tauri Command: request_audio_permission invoked");
+    crate::log_info!("Tauri Command: request_audio_permission invoked");
     #[cfg(target_os = "linux")]
     {
         use ashpd::desktop::camera::Camera;
@@ -211,7 +211,7 @@ pub async fn request_input_permission(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    crate::log_info!("📡 Tauri Command: request_input_permission invoked");
+    crate::log_info!("Tauri Command: request_input_permission invoked");
     #[cfg(target_os = "linux")]
     {
         if is_wayland_session() {
@@ -296,11 +296,11 @@ pub async fn minimize_to_tray_or_taskbar(app_handle: tauri::AppHandle) -> Result
     {
         if is_status_notifier_watcher_available().await {
             window.hide().map_err(|error| error.to_string())?;
-            Ok("tray".to_string())
-        } else {
-            window.minimize().map_err(|error| error.to_string())?;
-            Ok("taskbar".to_string())
+            return Ok("tray".to_string());
         }
+
+        window.minimize().map_err(|error| error.to_string())?;
+        Ok("taskbar".to_string())
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -312,12 +312,20 @@ pub async fn minimize_to_tray_or_taskbar(app_handle: tauri::AppHandle) -> Result
 
 #[tauri::command]
 pub async fn quit_application(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let state = app_handle.state::<AppState>();
+    state.cleanup();
     app_handle.exit(0);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
-    crate::log_info!("📡 Tauri Command: get_audio_devices invoked");
+    crate::log_info!("Tauri Command: get_audio_devices invoked");
     audio::get_input_devices()
+}
+
+#[tauri::command]
+pub async fn get_output_devices() -> Result<Vec<audio::AudioDevice>, String> {
+    crate::log_info!("Tauri Command: get_output_devices invoked");
+    audio::get_output_devices()
 }

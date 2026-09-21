@@ -1,176 +1,97 @@
 import type { JSX } from "preact";
-import { useEffect, useState } from "preact/hooks";
 import { tokens } from "../design-tokens.ts";
-import { inputBaseStyle } from "../theme/ui-primitives.ts";
 
-interface SliderFieldProps {
+export interface SliderFieldProps {
   value: number;
-  min: number;
-  max: number;
-  step?: number;
   onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
   ariaLabel?: string;
+  id?: string;
+  formatEndLabel?: (value: number) => string;
+  hideEndLabels?: boolean;
   style?: JSX.CSSProperties;
 }
 
 export function SliderField({
   value,
-  min,
-  max,
-  step,
+  min = 0,
+  max = 1,
+  step = 0.01,
+  disabled = false,
   onChange,
   ariaLabel,
+  id,
+  formatEndLabel,
+  hideEndLabels = false,
   style,
 }: SliderFieldProps) {
-  const minPercent = Math.round(min * 100);
-  const maxPercent = Math.round(max * 100);
-  const currentPercent = Math.round(value * 100);
-  const [draftPercent, setDraftPercent] = useState(String(currentPercent));
+  const rangeSpan = max - min;
+  const ratio = rangeSpan > 0 ? Math.min(Math.max((value - min) / rangeSpan, 0), 1) : 0;
+  const percent = ratio * 100;
+  // Thumb width is 16px. Offset correction centers the color stop under the grab handle.
+  const offsetPx = (0.5 - ratio) * 16;
+  const fillStop = `calc(${percent}% + ${offsetPx.toFixed(2)}px)`;
 
-  useEffect(() => {
-    setDraftPercent(String(currentPercent));
-  }, [currentPercent]);
-
-  const clampPercent = (nextPercent: number) =>
-    Math.min(maxPercent, Math.max(minPercent, nextPercent));
-
-  const commitPercentValue = (rawValue: string) => {
-    if (rawValue.trim() === "") {
-      setDraftPercent(String(currentPercent));
-      return;
+  const handleInput = (event: Event) => {
+    if (disabled) return;
+    const target = event.currentTarget as HTMLInputElement;
+    const parsed = parseFloat(target.value);
+    if (!Number.isNaN(parsed)) {
+      onChange(parsed);
     }
+  };
 
-    const parsedPercent = Number(rawValue);
-    if (Number.isNaN(parsedPercent)) {
-      setDraftPercent(String(currentPercent));
-      return;
+  const formatDefaultLabel = (val: number): string => {
+    if (min >= 0 && max <= 1 && step < 0.01) {
+      return `${(val * 100).toFixed(1)}%`;
     }
+    if (min >= 0 && max <= 1) {
+      return `${Math.round(val * 100)}%`;
+    }
+    return `${val}`;
+  };
 
-    const clampedPercent = clampPercent(Math.round(parsedPercent));
-    setDraftPercent(String(clampedPercent));
-    onChange(clampedPercent / 100);
+  const minLabel = formatEndLabel ? formatEndLabel(min) : formatDefaultLabel(min);
+  const maxLabel = formatEndLabel ? formatEndLabel(max) : formatDefaultLabel(max);
+
+  const inputStyle: Record<string, string | number> = {
+    "--slider-fill": fillStop,
+    ...(style as Record<string, string | number> | undefined),
   };
 
   return (
-    <>
-      <style>{`
-        .voquill-slider-field {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 100%;
-          height: 4px;
-          border-radius: 999px;
-          background: ${tokens.colors.bgTertiary};
-          outline: none;
-        }
-
-        .voquill-slider-field::-webkit-slider-runnable-track {
-          height: 4px;
-          border-radius: 999px;
-          background: ${tokens.colors.bgTertiary};
-        }
-
-        .voquill-slider-field::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 18px;
-          height: 18px;
-          border-radius: 999px;
-          background: #ffffff;
-          border: 4px solid ${tokens.colors.accentPrimary};
-          box-shadow: ${tokens.shadows.sm};
-          margin-top: -7px;
-          cursor: pointer;
-        }
-
-        .voquill-slider-field::-moz-range-track {
-          height: 4px;
-          border-radius: 999px;
-          background: ${tokens.colors.bgTertiary};
-        }
-
-        .voquill-slider-field::-moz-range-thumb {
-          width: 18px;
-          height: 18px;
-          border-radius: 999px;
-          background: #ffffff;
-          border: 4px solid ${tokens.colors.accentPrimary};
-          box-shadow: ${tokens.shadows.sm};
-          cursor: pointer;
-        }
-
-        .voquill-slider-percent {
-          -moz-appearance: textfield;
-          appearance: textfield;
-        }
-
-        .voquill-slider-percent::-webkit-outer-spin-button,
-        .voquill-slider-percent::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-      `}</style>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: tokens.spacing.sm,
-          width: "100%",
-          ...style,
-        }}
-      >
-        <input
-          className="voquill-slider-field"
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onInput={(event: Event) => {
-            const target = event.target as HTMLInputElement;
-            const nextValue = parseFloat(target.value);
-            onChange(nextValue);
-            setDraftPercent(String(Math.round(nextValue * 100)));
-          }}
-          onChange={(event: Event) => {
-            const target = event.target as HTMLInputElement;
-            const nextValue = parseFloat(target.value);
-            onChange(nextValue);
-            setDraftPercent(String(Math.round(nextValue * 100)));
-          }}
-          aria-label={ariaLabel}
-          style={{ flex: 1, minWidth: 0 }}
-        />
+    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+      <input
+        type="range"
+        id={id}
+        className="voquill-slider"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        onInput={handleInput}
+        aria-label={ariaLabel}
+        style={inputStyle}
+      />
+      {!hideEndLabels && (
         <div
-          style={{ display: "flex", alignItems: "center", gap: tokens.spacing.xs, flexShrink: 0 }}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: tokens.typography.sizeXs,
+            color: tokens.colors.textMuted,
+            marginTop: "-2px",
+            userSelect: "none",
+          }}
         >
-          <input
-            className="voquill-slider-percent"
-            type="number"
-            min={minPercent}
-            max={maxPercent}
-            step={1}
-            value={draftPercent}
-            onInput={(event: Event) => {
-              setDraftPercent((event.target as HTMLInputElement).value);
-            }}
-            onBlur={(event: Event) => {
-              commitPercentValue((event.target as HTMLInputElement).value);
-            }}
-            onKeyDown={(event: KeyboardEvent) => {
-              if (event.key === "Enter") {
-                commitPercentValue((event.target as HTMLInputElement).value);
-                (event.target as HTMLInputElement).blur();
-              }
-            }}
-            aria-label={`${ariaLabel || "Slider value"} percent`}
-            style={{ ...inputBaseStyle, width: "72px", textAlign: "right" }}
-          />
-          <span style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary }}>
-            %
-          </span>
+          <span>{minLabel}</span>
+          <span>{maxLabel}</span>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

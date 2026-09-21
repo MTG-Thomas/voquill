@@ -16,15 +16,16 @@ pub async fn save_config(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut normalized_config = new_config;
-    normalized_config.normalize_input_sensitivity();
+    normalized_config.normalize();
 
     let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
 
-    let (restart_engine, hotkey_changed, mut merged_config) = {
+    let (restart_engine, hotkey_changed, previous_config, mut merged_config) = {
         let config_guard = state.config.lock().unwrap();
         let audio_changed = config_guard.audio_device != normalized_config.audio_device
             || config_guard.input_sensitivity != normalized_config.input_sensitivity;
         let hotkey_changed = config_guard.hotkey != normalized_config.hotkey;
+        let previous_config = config_guard.clone();
 
         let mut merged_config = normalized_config.clone();
         if merged_config.shortcuts_token.is_none() {
@@ -34,7 +35,12 @@ pub async fn save_config(
             merged_config.input_token = config_guard.input_token.clone();
         }
 
-        (audio_changed, hotkey_changed, merged_config)
+        (
+            audio_changed,
+            hotkey_changed,
+            previous_config,
+            merged_config,
+        )
     };
 
     match audio::resolve_configured_audio_device(
@@ -44,7 +50,7 @@ pub async fn save_config(
         Ok(selection) => {
             if selection.match_kind == audio::AudioDeviceMatchKind::SavedLabel {
                 crate::log_info!(
-                    "🎙️ Updating saved microphone endpoint after re-enumeration: '{}' -> '{}' ({})",
+                    "Updating saved microphone endpoint after re-enumeration: '{}' -> '{}' ({})",
                     merged_config
                         .audio_device
                         .clone()
@@ -57,11 +63,12 @@ pub async fn save_config(
             merged_config.audio_device_label = Some(selection.label);
         }
         Err(error) => {
-            crate::log_warn!("⚠️ Could not refresh saved microphone metadata: {}", error);
+            crate::log_warn!("Could not refresh saved microphone metadata: {}", error);
         }
     }
 
     let mut prepared_device: Option<cpal::Device> = None;
+
     if restart_engine {
         if is_mic_test_active {
             let selected_device = merged_config
@@ -80,7 +87,7 @@ pub async fn save_config(
         }
 
         let selected_device = merged_config.audio_device.clone();
-        let resolved_device = audio::lookup_device(
+        let resolved_device = audio::lookup_device_with_label(
             selected_device.clone(),
             merged_config.audio_device_label.clone(),
         )
@@ -93,7 +100,7 @@ pub async fn save_config(
         })?;
 
         crate::log_info!(
-            "🔧 Audio config changed, resolved input device without opening microphone stream (requested_device='{}', sensitivity={:.2})",
+            "Audio config changed, resolved input device without opening microphone stream (requested_device='{}', sensitivity={:.2})",
             merged_config
                 .audio_device
                 .clone()
@@ -117,16 +124,16 @@ pub async fn save_config(
             let mut engine_guard = state.audio_engine.lock().unwrap();
             *engine_guard = None;
         }
-        crate::log_info!("✅ Audio device cache updated; microphone stream remains idle");
+        crate::log_info!("Audio device cache updated; microphone stream remains idle");
     } else {
-        let cached = match audio::lookup_device(
+        let cached = match audio::lookup_device_with_label(
             merged_config.audio_device.clone(),
             merged_config.audio_device_label.clone(),
         ) {
             Ok(device) => Some(device),
             Err(error) => {
                 crate::log_warn!(
-                    "❌ Failed to pre-warm audio device cache (requested_device='{}'): {}",
+                    "Failed to pre-warm audio device cache (requested_device='{}'): {}",
                     merged_config
                         .audio_device
                         .clone()
@@ -138,12 +145,14 @@ pub async fn save_config(
         };
         let mut cached_device = state.cached_device.lock().unwrap();
         *cached_device = cached;
-        crate::log_info!("🔧 Pre-warmed audio device cache");
+        crate::log_info!("Pre-warmed audio device cache");
     }
 
     if let Err(error) = config::save_config(&merged_config) {
         return Err(format!("Failed to save config: {}", error));
     }
+
+    reconcile_engine_warmup(&state, &previous_config, &merged_config, &app_handle);
 
     if hotkey_changed {
         if let Err(error) = re_register_hotkey(&app_handle, &merged_config.hotkey).await {
@@ -159,7 +168,59 @@ pub async fn save_config(
         }
     }
 
+    // Notify all windows (including the overlay) that config values changed.
+    let _ = app_handle.emit("config-updated", ());
+
+    crate::voice_macro::sync_voice_macro_listener(&app_handle);
+
     Ok(())
+}
+
+/// Reconciles engine warm-up state with a freshly saved config. The local
+/// post-process sidecar is unloaded the moment local post-processing is
+/// turned off, and both engines are pre-warmed when their settings change,
+/// so the next dictation never pays the startup cost mid-session.
+fn reconcile_engine_warmup(
+    state: &AppState,
+    previous_config: &Config,
+    merged_config: &Config,
+    app_handle: &tauri::AppHandle,
+) {
+    use crate::config::{PostProcessProvider, TranscriptionMode};
+
+    let was_local_post_process = previous_config.post_process_enabled
+        && previous_config.post_process_provider == PostProcessProvider::Local;
+    let is_local_post_process = merged_config.post_process_enabled
+        && merged_config.post_process_provider == PostProcessProvider::Local;
+
+    if was_local_post_process && !is_local_post_process {
+        crate::log_info!("Local post-processing disabled; unloading llama-server sidecar");
+        state.post_process_factory.invalidate_local();
+    }
+
+    let post_process_changed = previous_config.post_process_enabled
+        != merged_config.post_process_enabled
+        || previous_config.post_process_provider != merged_config.post_process_provider
+        || previous_config.post_process_engine != merged_config.post_process_engine
+        || previous_config.post_process_model != merged_config.post_process_model
+        || previous_config.post_process_threads != merged_config.post_process_threads;
+
+    if post_process_changed && is_local_post_process {
+        crate::app::bootstrap::spawn_post_process_warmup(
+            state.post_process_factory.clone(),
+            merged_config,
+            app_handle,
+        );
+    }
+
+    let transcription_changed = previous_config.transcription_mode
+        != merged_config.transcription_mode
+        || previous_config.local_engine != merged_config.local_engine
+        || previous_config.local_model_size != merged_config.local_model_size;
+
+    if transcription_changed && merged_config.transcription_mode == TranscriptionMode::Local {
+        crate::app::bootstrap::spawn_engine_preload(state.engine_factory.clone(), merged_config);
+    }
 }
 
 #[tauri::command]
@@ -167,7 +228,11 @@ pub async fn reset_application_to_defaults(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    crate::log_info!("🧹 Factory reset requested");
+    crate::log_info!("Factory reset requested");
+
+    // Stop the cached post-process sidecar first so its process releases the
+    // model/binary file locks before the models directory is deleted.
+    state.post_process_factory.invalidate_local();
 
     let root_dir = crate::get_app_config_root_dir()?;
 
@@ -179,11 +244,11 @@ pub async fn reset_application_to_defaults(
 
     let debug_dir = root_dir.join("debug");
     std::fs::create_dir_all(&debug_dir).map_err(|error| error.to_string())?;
-    crate::clear_directory_contents(&debug_dir, &["session.log"])?;
+    crate::clear_directory_contents(&debug_dir, &["session.log", "last-session.log"])?;
 
     if let Err(error) = crate::truncate_session_log_with_header() {
         crate::log_warn!(
-            "⚠️ Could not truncate session log during factory reset: {}",
+            "Could not truncate session log during factory reset: {}",
             error
         );
     }
@@ -233,6 +298,6 @@ pub async fn reset_application_to_defaults(
     let _ = app_handle.emit("config-updated", default_config.clone());
     let _ = app_handle.emit("setup-status-changed", serde_json::json!({}));
 
-    crate::log_info!("✅ Factory reset completed successfully");
+    crate::log_info!("Factory reset completed successfully");
     Ok(())
 }

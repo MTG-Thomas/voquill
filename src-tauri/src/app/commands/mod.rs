@@ -1,15 +1,21 @@
 pub mod config;
 pub mod diagnostics;
+pub mod file_import;
 pub mod hotkey;
 pub mod platform;
+pub mod post_process;
 pub mod recording;
 pub mod transcription;
 pub mod update;
+pub mod voice_macro;
 
 pub use config::*;
 pub use diagnostics::*;
+pub use file_import::*;
 pub use hotkey::*;
 pub use platform::*;
+pub use post_process::*;
 pub use recording::*;
 pub use transcription::*;
 pub use update::*;
+pub use voice_macro::*;

@@ -5,22 +5,18 @@ type Style = JSX.CSSProperties;
 
 export const surfaceCardStyle: Style = {
   background: tokens.colors.glassBg,
-  backdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
-  WebkitBackdropFilter: `blur(${tokens.colors.glassBlur}) saturate(1.35)`,
-  border: "1px solid rgba(255, 255, 255, 0.10)",
-  boxShadow: tokens.shadows.sm,
+  backdropFilter: `blur(${tokens.colors.glassBlur})`,
+  WebkitBackdropFilter: `blur(${tokens.colors.glassBlur})`,
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  boxShadow: tokens.shadows.md,
 };
 
 export const settingRowBaseStyle: Style = {
-  marginBottom: tokens.spacing.md,
   display: "flex",
   flexDirection: "column",
   gap: "6px",
   alignItems: "flex-start",
-  border: "1px solid rgba(255, 255, 255, 0.10)",
-  borderRadius: tokens.radii.panel,
-  background: "rgba(255, 255, 255, 0.04)",
-  padding: "12px 14px",
+  padding: "0",
   transition: "border-color 0.2s ease, background 0.2s ease",
 };
 
@@ -28,8 +24,8 @@ export const getSettingRowStyle = ({ ready }: { ready: boolean }): Style => {
   if (ready) {
     return {
       ...settingRowBaseStyle,
-      background: "rgba(16, 124, 16, 0.06)",
-      borderColor: "rgba(16, 124, 16, 0.28)",
+      borderLeft: "3px solid rgba(16, 185, 129, 0.5)",
+      paddingLeft: "11px",
     };
   }
 
@@ -72,9 +68,9 @@ export const settingRowLabelBadgeStyle: Style = {
   fontWeight: 800,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "#fce100",
-  border: "1px solid rgba(252, 225, 0, 0.28)",
-  background: "rgba(252, 225, 0, 0.10)",
+  color: "#f5d88f",
+  border: "1px solid rgba(245, 216, 143, 0.5)",
+  background: "rgba(245, 216, 143, 0.12)",
   borderRadius: "999px",
   padding: "2px 8px",
   lineHeight: 1.2,
@@ -82,7 +78,7 @@ export const settingRowLabelBadgeStyle: Style = {
 
 export const settingRowDescriptionStyle: Style = {
   fontSize: tokens.typography.sizeXs,
-  color: tokens.colors.textSecondary,
+  color: "#d9dfe7",
   margin: `0 0 ${tokens.spacing.sm} 0`,
   lineHeight: 1.4,
   textAlign: "left",
@@ -93,5 +89,5 @@ export const settingRowContentStyle: Style = {
   flexDirection: "column",
   gap: tokens.spacing.xs,
   width: "100%",
-  alignItems: "center",
+  alignItems: "flex-start",
 };

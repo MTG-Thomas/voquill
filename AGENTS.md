@@ -22,8 +22,10 @@ This document serves as a constitution for all agentic coding entities (and huma
 ```
 voquill/                          # npm root — scripts, Vite, Preact UI
 ├── src/                          # Frontend (Preact + TypeScript)
-│   ├── pages/                    # StatusPage, ConfigPage, HistoryPage, InitialSetupPage, UiLabPage
+│   ├── pages/                    # HomePage, HelpPage, ConfigPage, HistoryPage, InitialSetupPage, UiLabPage
+│   │   └── config/               # Per-concern sections (Audio, Transcription, Typing, …) + voice_macro/
 │   ├── components/               # Reusable UI (Button, Modal, ModelSelectionPanel, …)
+│   ├── hooks/                    # Feature hooks (useConfig, useHistory, useTauriEvents, …)
 │   ├── theme/                    # ui-primitives.ts, component-styles.ts
 │   ├── design-tokens.ts          # Shared spacing, color, typography tokens
 │   ├── App.tsx                   # Main window shell and tab routing
@@ -31,23 +33,31 @@ voquill/                          # npm root — scripts, Vite, Preact UI
 ├── src-tauri/                    # Rust backend (Tauri 2)
 │   ├── src/
 │   │   ├── main.rs               # App entry; registers invoke_handler commands
-│   │   ├── app/                  # Bootstrap, AppState, recording_flow, status, session_log
+│   │   ├── app/                  # Bootstrap, AppState, status, session_log
+│   │   │   ├── recording_flow/   # Capture → transcribe → output pipeline (+ streaming.rs)
 │   │   │   └── commands/         # Tauri commands (config, recording, hotkey, transcription, …)
 │   │   ├── platform/             # OS/display backends (traits + per-platform impls)
 │   │   │   ├── linux/wayland/    # XDG Portals (ashpd), portal capabilities
 │   │   │   ├── linux/x11/        # Native X11 shortcuts, input, overlay
 │   │   │   ├── windows/          # WASAPI, SendInput, global shortcuts
 │   │   │   └── macos/            # Experimental — not a release target
-│   │   ├── audio.rs              # Capture, device enumeration
+│   │   ├── audio/                # Capture, device enumeration, VAD, playback, recording
 │   │   ├── typing.rs             # Keystroke injection orchestration
 │   │   ├── transcription.rs      # TranscriptionService trait + API backend
+│   │   ├── engine_factory.rs     # Engine selection, capabilities, preload
 │   │   ├── local_whisper.rs      # whisper.cpp local engine
 │   │   ├── openvino_whisper.rs   # OpenVINO engine (Windows)
 │   │   ├── mlx_whisper.rs        # MLX engine (macOS)
+│   │   ├── voice_macro/          # Voice macro execution, matching, sounds
+│   │   ├── diarization/          # Speaker diarization models
+│   │   ├── post_process/         # Transcript post-processing providers
+│   │   ├── audio_quality.rs      # Mic readiness analysis
+│   │   ├── domain_vocabulary.rs  # Custom vocabulary + correction learning
 │   │   ├── model_manager.rs      # Model catalog, download, path resolution
 │   │   └── config.rs             # User configuration load/save
 │   ├── capabilities/             # Tauri capability manifests
 │   └── tauri.conf.json
+├── python-runner/                # Pure-execution Python sidecars (TTS, diarization, enhancement)
 ├── scripts/                      # deps:check, cargo-runner, tauri-runner, hardening checks
 └── docs/                         # Architecture, build, portal, and handover docs
 ```
@@ -91,7 +101,7 @@ Linux support targets both Wayland and X11, with clear platform boundaries.
 
 We solve problems at their origin. If data is messy, redundant, or incorrect, do not "clean it up" at the consumer level (e.g., in the UI or intermediate wrappers). Trace the data back to its absolute source of truth and fix the generation/fetching logic there. A workaround is technical debt; a root-cause fix is engineering.
 
-**Example:** If microphone labels are generic in the UI dropdown, fix enumeration in `audio.rs` — do not filter or relabel in the Preact component.
+**Example:** If microphone labels are generic in the UI dropdown, fix enumeration in `audio/device.rs` — do not filter or relabel in the Preact component.
 
 ### 5. Lean, Durable Architecture (No Bloat)
 
@@ -172,12 +182,12 @@ On Windows, prefer `npm run cargo:check` for a fast compile check when the full 
 - **Command Safety:** Return `Result<T, String>` for all `#[tauri::command]` functions. The error string is what the frontend `Promise.reject` receives.
 - **Command Organization:** Implement commands in `src-tauri/src/app/commands/` and register them in `main.rs` via `generate_handler!`.
 - **State Management:** Use `AppState` (managed by Tauri) for shared resources like `Config`, audio engine, and hotkey state.
-- **Modularity:** Keep hardware-specific logic in `platform/` and top-level modules (`audio.rs`, `typing.rs`, `hotkey.rs`).
+- **Modularity:** Keep hardware-specific logic in `platform/` and top-level modules (`audio/`, `typing.rs`, `hotkey.rs`).
 
 ### 2. Frontend (Preact)
 
 - **Strict TypeScript:** No `any`. Explicit interfaces for all data structures (API responses, state slices).
-- **Hooks over Classes:** Use functional components. Extract reusable logic into custom hooks colocated with the feature (e.g. alongside the page or component that owns it). There is no central `hooks/` directory today.
+- **Hooks over Classes:** Use functional components. Extract reusable logic into custom hooks in `src/hooks/` (useConfig, useHistory, useTauriEvents, …).
 - **Styles (Current Convention):** Prefer component-local inline style objects with design tokens (`design-tokens.ts`, `theme/ui-primitives.ts`) for layout, spacing, and color. Use global CSS (`index.css`) for resets, root-level variables, and truly global concerns only.
 - **Style Consistency:** When touching existing UI, follow the style approach already used in that component/file. Do not introduce a separate styling pattern unless there is a clear architectural reason.
 - **Tauri Core:** Use `@tauri-apps/api` for communication with the backend.

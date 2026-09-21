@@ -1,25 +1,30 @@
 import { IconInfoCircle } from "@tabler/icons-preact";
 import { Button } from "./Button.tsx";
 import { SelectField } from "./SelectField.tsx";
+import { DownloadProgressBar } from "./DownloadProgressBar.tsx";
 import { selectWrapperStyle } from "../theme/ui-primitives.ts";
 import { tokens } from "../design-tokens.ts";
+import type { DownloadPhase } from "../types.ts";
 
-export interface LocalModel {
+interface ModelInfo {
   engine: string;
   size: string;
-  label: string;
-  description?: string;
-  recommended?: boolean;
   file_size: number;
+  download_url: string;
+  sha256: string;
+  label: string;
+  description: string;
+  recommended: boolean;
 }
 
 interface ModelSelectionPanelProps {
-  availableModels: LocalModel[];
+  availableModels: ModelInfo[];
   localEngine: string;
   localModelSize: string;
   modelStatus: Record<string, boolean>;
   isDownloading: boolean;
   downloadProgress: number;
+  downloadPhase: DownloadPhase;
   onChangeModel: (size: string) => void;
   onShowModelGuide: () => void;
   onDownloadModel: (size: string) => void;
@@ -34,6 +39,7 @@ export function ModelSelectionPanel({
   modelStatus,
   isDownloading,
   downloadProgress,
+  downloadPhase,
   onChangeModel,
   onShowModelGuide,
   onDownloadModel,
@@ -42,11 +48,9 @@ export function ModelSelectionPanel({
 }: ModelSelectionPanelProps) {
   const actionButtonRowStyle = {
     display: "flex",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     width: "100%",
   } as const;
-
-  const selectedStatusKey = `${localEngine}:${localModelSize}`;
 
   return (
     <>
@@ -76,18 +80,20 @@ export function ModelSelectionPanel({
                 <IconInfoCircle size={20} />
               </Button>
             </div>
-            {!modelStatus[selectedStatusKey] && (
-              <div style={actionButtonRowStyle}>
-                <Button
-                  variant="configAction"
-                  size={actionButtonSize}
-                  onClick={() => onDownloadModel(localModelSize)}
-                  disabled={isDownloading}
-                >
-                  {isDownloading ? "..." : "Download"}
-                </Button>
-              </div>
-            )}
+            {localModelSize &&
+              availableModels.some((m) => m.size === localModelSize && m.engine === localEngine) &&
+              !modelStatus[localModelSize] && (
+                <div style={actionButtonRowStyle}>
+                  <Button
+                    variant="configAction"
+                    size={actionButtonSize}
+                    onClick={() => onDownloadModel(localModelSize)}
+                    disabled={isDownloading}
+                  >
+                    {isDownloading ? "..." : "Download"}
+                  </Button>
+                </div>
+              )}
           </>
         ) : (
           <div
@@ -106,14 +112,7 @@ export function ModelSelectionPanel({
                 width: "100%",
               }}
             >
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: tokens.colors.textSecondary,
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
+              <div style={{ fontSize: "12px", color: "#d9dfe7", flex: 1, minWidth: 0 }}>
                 Loading models...
               </div>
               <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
@@ -129,30 +128,12 @@ export function ModelSelectionPanel({
         )}
       </div>
 
-      {isDownloading && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "100%" }}>
-          <div
-            style={{
-              width: "100%",
-              height: "4px",
-              background: tokens.colors.bgTertiary,
-              borderRadius: "2px",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: `${Math.min(downloadProgress, 100)}%`,
-                height: "100%",
-                background: tokens.colors.success,
-              }}
-            ></div>
-          </div>
-          <div style={{ fontSize: "10px", color: tokens.colors.textSecondary, textAlign: "right" }}>
-            Downloading model... {Math.round(downloadProgress)}%
-          </div>
-        </div>
-      )}
+      <DownloadProgressBar
+        isDownloading={isDownloading}
+        progress={downloadProgress}
+        phase={downloadPhase}
+        itemLabel="model"
+      />
 
       {availableModels.length > 0 && (
         <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>

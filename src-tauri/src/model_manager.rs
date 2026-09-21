@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize)]
@@ -11,467 +11,715 @@ pub struct ModelInfo {
     pub label: String,
     pub description: String,
     pub recommended: bool,
-    pub artifact: ModelArtifact,
+    pub category: String,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum ModelArtifact {
-    GgmlFile,
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    MlxSnapshot,
-    OpenVinoSnapshot,
+/// The required model files for a Parakeet / sherpa-onnx model directory.
+const PARAKEET_REQUIRED_FILES: &[&str] = &[
+    "encoder.int8.onnx",
+    "decoder.int8.onnx",
+    "joiner.int8.onnx",
+    "tokens.txt",
+];
+
+/// Moves model files from a nested wrapper directory up into the model root if
+/// a prior extraction left them wrapped.
+fn ensure_parakeet_model_flattened(dir: &std::path::Path) {
+    if !dir.is_dir() {
+        return;
+    }
+    if PARAKEET_REQUIRED_FILES.iter().all(|f| dir.join(f).exists()) {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let subdirs: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect();
+    if subdirs.len() == 1 {
+        let sub = &subdirs[0];
+        if PARAKEET_REQUIRED_FILES.iter().all(|f| sub.join(f).exists()) {
+            crate::log_info!(
+                "Self-healing: flattening nested Parakeet model dir from {} into {}",
+                sub.display(),
+                dir.display()
+            );
+            if let Ok(children) = std::fs::read_dir(sub) {
+                for child in children.flatten() {
+                    let dest = dir.join(child.file_name());
+                    let _ = std::fs::rename(child.path(), &dest);
+                }
+            }
+            let _ = std::fs::remove_dir(sub);
+        }
+    }
+}
+
+/// Migrates legacy model storage structures to the unified purpose -> engine hierarchy:
+/// - models/ggml-*.bin & models/transcription/ggml-*.bin -> models/transcription/whisper/
+/// - models/parakeet/ -> models/transcription/parakeet/
+/// - models/post-process/*.gguf & models/post-process/bin/ -> models/post-process/llama/
+pub fn migrate_legacy_model_paths(models_dir: &std::path::Path) {
+    if !models_dir.exists() {
+        return;
+    }
+
+    let whisper_dir = models_dir.join("transcription").join("whisper");
+
+    // 1. Move root ggml-*.bin -> transcription/whisper/
+    if let Ok(entries) = std::fs::read_dir(models_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                    if file_name.starts_with("ggml-") && file_name.ends_with(".bin") {
+                        let _ = std::fs::create_dir_all(&whisper_dir);
+                        let dest = whisper_dir.join(file_name);
+                        if !dest.exists() {
+                            let _ = std::fs::rename(&path, &dest);
+                            crate::log_info!(
+                                "Migrated model: {} -> {}",
+                                path.display(),
+                                dest.display()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Move transcription/ggml-*.bin (legacy flat transcription folder) -> transcription/whisper/
+    let transcription_dir = models_dir.join("transcription");
+    if transcription_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&transcription_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                        if file_name.starts_with("ggml-") && file_name.ends_with(".bin") {
+                            let _ = std::fs::create_dir_all(&whisper_dir);
+                            let dest = whisper_dir.join(file_name);
+                            if !dest.exists() {
+                                let _ = std::fs::rename(&path, &dest);
+                                crate::log_info!(
+                                    "Migrated model: {} -> {}",
+                                    path.display(),
+                                    dest.display()
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Move models/parakeet/ -> models/transcription/parakeet/
+    let old_parakeet_dir = models_dir.join("parakeet");
+    let new_parakeet_dir = models_dir.join("transcription").join("parakeet");
+    if old_parakeet_dir.is_dir() {
+        let _ = std::fs::create_dir_all(&new_parakeet_dir);
+        if let Ok(entries) = std::fs::read_dir(&old_parakeet_dir) {
+            for entry in entries.flatten() {
+                let dest = new_parakeet_dir.join(entry.file_name());
+                if !dest.exists() {
+                    let _ = std::fs::rename(entry.path(), &dest);
+                    crate::log_info!(
+                        "Migrated parakeet item: {} -> {}",
+                        entry.path().display(),
+                        dest.display()
+                    );
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&old_parakeet_dir);
+    }
+
+    // 4. Move models/post-process/*.gguf and models/post-process/bin/ -> models/post-process/llama/
+    let post_process_dir = models_dir.join("post-process");
+    let llama_dir = post_process_dir.join("llama");
+    if post_process_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&post_process_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let file_name = entry.file_name();
+                if file_name == "llama" {
+                    continue;
+                }
+                let _ = std::fs::create_dir_all(&llama_dir);
+                let dest = llama_dir.join(&file_name);
+                if !dest.exists() {
+                    let _ = std::fs::rename(&path, &dest);
+                    crate::log_info!(
+                        "Migrated post-process item: {} -> {}",
+                        path.display(),
+                        dest.display()
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Progress of a model download, reported to the frontend through the
+/// `model-download-progress` event.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub phase: DownloadPhase,
+    pub progress: f64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DownloadPhase {
+    Downloading,
+    Extracting,
+}
+
+/// One whisper.cpp model definition. Each spec is expanded into a CPU and a
+/// GPU engine variant so the two catalogs can never drift apart.
+struct WhisperModelSpec {
+    size: &'static str,
+    label: &'static str,
+    file_size: u64,
+    download_url: &'static str,
+    sha256: &'static str,
+    cpu_description: &'static str,
+    gpu_description: &'static str,
+    recommended: bool,
+}
+
+/// One post-process (GGUF) model definition. Same deal: expanded into CPU
+/// ("Post-Process (Local)") and GPU ("Post-Process (GPU)") engine variants
+/// sharing the same model file.
+struct PostProcessModelSpec {
+    size: &'static str,
+    label: &'static str,
+    file_size: u64,
+    download_url: &'static str,
+    cpu_description: &'static str,
+    gpu_description: &'static str,
+    recommended: bool,
 }
 
 pub struct ModelManager {
     pub models_dir: PathBuf,
 }
 
-#[derive(Debug, Deserialize)]
-struct HuggingFaceModelResponse {
-    siblings: Vec<HuggingFaceSibling>,
-}
-
-#[derive(Debug, Deserialize)]
-struct HuggingFaceSibling {
-    rfilename: String,
-    size: Option<u64>,
-}
-
 impl ModelManager {
     pub fn new() -> Result<Self, String> {
-        let models_dir = dirs::config_dir()
-            .ok_or("Could not find config directory")?
-            .join("foss-voquill")
-            .join("models");
-
-        if !models_dir.exists() {
-            std::fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
-        }
-
+        let models_dir = crate::paths::models_dir()?;
+        migrate_legacy_model_paths(&models_dir);
         Ok(Self { models_dir })
     }
 
+    /// Looks up a single model by engine name + model size.
+    pub fn find_model(engine: &str, size: &str) -> Option<ModelInfo> {
+        Self::get_available_models()
+            .into_iter()
+            .find(|m| m.engine == engine && m.size == size)
+    }
+
     pub fn get_available_models() -> Vec<ModelInfo> {
+        let cpu_models = Self::cpu_models();
+        let gpu_models = Self::gpu_models();
+        let mut all = Vec::with_capacity(cpu_models.len() + gpu_models.len());
+        all.extend(cpu_models);
+        all.extend(gpu_models);
+        all.extend(Self::parakeet_models());
+        all.extend(Self::openvino_models());
+        #[cfg(target_os = "macos")]
+        all.extend(Self::mlx_models());
+        all.extend(Self::post_process_models());
+        all
+    }
+
+    /// The on-disk path for a model, taking its engine into account.
+    /// whisper.cpp models are flat files:  models/transcription/whisper/ggml-{size}.bin
+    /// Parakeet models are directories:    models/transcription/parakeet/{size}/
+    /// Post-process models are flat files: models/post-process/llama/{size}.gguf
+    pub fn get_model_path(&self, model: &ModelInfo) -> PathBuf {
+        match model.engine.as_str() {
+            e if e.contains("Whisper.cpp") => self
+                .models_dir
+                .join("transcription")
+                .join("whisper")
+                .join(format!("ggml-{}.bin", model.size)),
+            e if e.starts_with("Post-Process") => self
+                .models_dir
+                .join("post-process")
+                .join("llama")
+                .join(format!("{}.gguf", model.size)),
+            "OpenVINO GenAI" => self.models_dir.join("openvino").join(&model.size),
+            "MLX Whisper" => self.models_dir.join("mlx").join(&model.size),
+            _ => {
+                let dir = self
+                    .models_dir
+                    .join("transcription")
+                    .join("parakeet")
+                    .join(&model.size);
+                ensure_parakeet_model_flattened(&dir);
+                dir
+            }
+        }
+    }
+
+    /// Checks whether the model is present on disk. For whisper.cpp this is a
+    /// single file check. For Parakeet it checks for all required ONNX files.
+    pub fn is_model_downloaded(&self, model: &ModelInfo) -> bool {
+        match model.engine.as_str() {
+            e if e.starts_with("Parakeet") => {
+                let dir = self.get_model_path(model);
+                ensure_parakeet_model_flattened(&dir);
+                PARAKEET_REQUIRED_FILES.iter().all(|f| dir.join(f).exists())
+            }
+            "OpenVINO GenAI" | "MLX Whisper" => {
+                let dir = self.get_model_path(model);
+                dir.is_dir()
+                    && std::fs::read_dir(&dir)
+                        .map(|mut entries| entries.next().is_some())
+                        .unwrap_or(false)
+            }
+            _ => self.get_model_path(model).exists(),
+        }
+    }
+
+    /// Downloads a model. For whisper.cpp this is a single-file download. For
+    /// Parakeet the download is a tar.bz2 archive that gets extracted into a
+    /// subdirectory.
+    pub async fn download_model<F>(
+        &self,
+        model: &ModelInfo,
+        progress_callback: F,
+    ) -> Result<PathBuf, String>
+    where
+        F: Fn(DownloadProgress) + Send + 'static,
+    {
+        let report = |phase: DownloadPhase, progress: f64| {
+            progress_callback(DownloadProgress { phase, progress });
+        };
+        // Snapshot engines (Hugging Face repo downloads) need a dedicated
+        // snapshot downloader; fail fast instead of issuing a bogus GET.
+        if matches!(model.engine.as_str(), "OpenVINO GenAI" | "MLX Whisper") {
+            return Err(format!(
+                "Direct download is not supported for {} snapshot '{}'; use the Hugging Face snapshot downloader (see download_url '{}')",
+                model.engine, model.size, model.download_url
+            ));
+        }
+        let client = reqwest::Client::new();
+        let mut response = client
+            .get(&model.download_url)
+            .send()
+            .await
+            .map_err(|e| format!("Download request failed: {}", e))?;
+
+        let total_size = response.content_length().unwrap_or(model.file_size);
+        let mut downloaded: u64 = 0;
+        let mut last_progress: f64 = -1.0;
+
+        match model.engine.as_str() {
+            e if e.starts_with("Parakeet") => {
+                let archive_path = self.models_dir.join(format!("{}.tar.bz2", model.size));
+
+                {
+                    let mut file = tokio::fs::File::create(&archive_path)
+                        .await
+                        .map_err(|e| format!("Failed to create archive file: {}", e))?;
+                    use tokio::io::AsyncWriteExt;
+                    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+                        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+                        downloaded += chunk.len() as u64;
+                        let pct = (downloaded as f64 / total_size as f64) * 100.0;
+                        if pct - last_progress >= 0.5 || pct >= 100.0 {
+                            report(DownloadPhase::Downloading, pct);
+                            last_progress = pct;
+                        }
+                    }
+                    file.flush().await.map_err(|e| e.to_string())?;
+                }
+
+                // Extraction can take a while for large archives; switch the
+                // UI to an explicit extracting phase so it doesn't sit at 100%.
+                report(DownloadPhase::Extracting, 100.0);
+
+                let target_dir = self
+                    .models_dir
+                    .join("transcription")
+                    .join("parakeet")
+                    .join(&model.size);
+                crate::archive::extract_archive(
+                    &archive_path,
+                    &target_dir,
+                    crate::archive::ExtractLayout::PreservePaths,
+                )
+                .map_err(|e| format!("Failed to extract {}: {}", model.size, e))?;
+
+                // Remove the archive after extraction
+                let _ = std::fs::remove_file(&archive_path);
+
+                Ok(target_dir)
+            }
+            _ => {
+                let path = self.get_model_path(model);
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                let mut file = tokio::fs::File::create(&path)
+                    .await
+                    .map_err(|e| format!("Failed to create model file: {}", e))?;
+
+                use tokio::io::AsyncWriteExt;
+                while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+                    file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+                    downloaded += chunk.len() as u64;
+                    let pct = (downloaded as f64 / total_size as f64) * 100.0;
+                    if pct - last_progress >= 0.5 || pct >= 100.0 {
+                        report(DownloadPhase::Downloading, pct);
+                        last_progress = pct;
+                    }
+                }
+
+                file.flush().await.map_err(|e| e.to_string())?;
+                report(DownloadPhase::Downloading, 100.0);
+                Ok(path)
+            }
+        }
+    }
+
+    fn whisper_model_specs() -> Vec<WhisperModelSpec> {
         vec![
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "tiny.en".to_string(),
-                label: "Tiny (English)".to_string(),
-                file_size: 77_600_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin".to_string(),
-                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776".to_string(),
-                description: "Lightning fast, best for simple commands.".to_string(),
+            WhisperModelSpec {
+                size: "tiny.en", label: "Tiny (English)", file_size: 77_600_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
+                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
+                cpu_description: "Lightning fast, best for simple commands.",
+                gpu_description: "Lightning fast with GPU acceleration. Requires a compatible GPU.",
                 recommended: false,
-                artifact: ModelArtifact::GgmlFile,
             },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "distil-small.en".to_string(),
-                label: "Distil-Small (English)".to_string(),
-                file_size: 175_000_000,
-                download_url: "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin".to_string(),
-                sha256: "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62".to_string(),
-                description: "Perfect balance of speed and high accuracy.".to_string(),
+            WhisperModelSpec {
+                size: "distil-small.en", label: "Distil-Small (English)", file_size: 175_000_000,
+                download_url: "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
+                sha256: "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
+                cpu_description: "Perfect balance of speed and high accuracy.",
+                gpu_description: "Fast and accurate with GPU acceleration. Requires a compatible GPU.",
                 recommended: true,
-                artifact: ModelArtifact::GgmlFile,
             },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "base.en".to_string(),
-                label: "Base (English)".to_string(),
-                file_size: 147_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin".to_string(),
-                sha256: "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d".to_string(),
-                description: "Standard choice for general dictation.".to_string(),
+            WhisperModelSpec {
+                size: "base.en", label: "Base (English)", file_size: 147_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+                sha256: "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
+                cpu_description: "Standard choice for general dictation.",
+                gpu_description: "Standard choice with GPU acceleration. Requires a compatible GPU.",
                 recommended: false,
-                artifact: ModelArtifact::GgmlFile,
             },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "small.en".to_string(),
-                label: "Small (English)".to_string(),
-                file_size: 483_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin".to_string(),
-                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1".to_string(),
-                description: "Great accuracy for complex vocabulary.".to_string(),
+            WhisperModelSpec {
+                size: "small.en", label: "Small (English)", file_size: 483_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
+                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                cpu_description: "Great accuracy for complex vocabulary.",
+                gpu_description: "Great accuracy with GPU acceleration. Requires a compatible GPU.",
                 recommended: false,
-                artifact: ModelArtifact::GgmlFile,
             },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "medium.en".to_string(),
-                label: "Medium (English)".to_string(),
-                file_size: 1_500_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin".to_string(),
-                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1".to_string(),
-                description: "Highest accuracy. Needs a powerful computer or GPU.".to_string(),
+            WhisperModelSpec {
+                size: "medium.en", label: "Medium (English)", file_size: 1_500_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
+                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                cpu_description: "Highest accuracy. Needs a powerful computer or GPU.",
+                gpu_description: "Highest accuracy with GPU acceleration. Requires a compatible GPU.",
                 recommended: false,
-                artifact: ModelArtifact::GgmlFile,
-            },
-            #[cfg(target_os = "macos")]
-            ModelInfo {
-                engine: "MLX Whisper".to_string(),
-                size: "mlx-whisper-base.en".to_string(),
-                label: "Base English MLX".to_string(),
-                file_size: 145_000_000,
-                download_url: "mlx-community/whisper-base.en-mlx".to_string(),
-                sha256: "".to_string(),
-                description:
-                    "Experimental Apple Silicon model for local macOS dictation through MLX."
-                        .to_string(),
-                recommended: true,
-                artifact: ModelArtifact::MlxSnapshot,
-            },
-            #[cfg(target_os = "macos")]
-            ModelInfo {
-                engine: "MLX Whisper".to_string(),
-                size: "mlx-whisper-small.en".to_string(),
-                label: "Small English MLX".to_string(),
-                file_size: 480_000_000,
-                download_url: "mlx-community/whisper-small.en-mlx".to_string(),
-                sha256: "".to_string(),
-                description:
-                    "Experimental higher-accuracy Apple Silicon model for local macOS dictation."
-                        .to_string(),
-                recommended: false,
-                artifact: ModelArtifact::MlxSnapshot,
-            },
-            ModelInfo {
-                engine: "OpenVINO GenAI".to_string(),
-                size: "openvino-whisper-tiny.en-int8".to_string(),
-                label: "Tiny English INT8".to_string(),
-                file_size: 46_400_000,
-                download_url: "OpenVINO/whisper-tiny.en-int8-ov".to_string(),
-                sha256: "".to_string(),
-                description: "Fast Intel CPU/GPU/NPU model for short English dictation.".to_string(),
-                recommended: false,
-                artifact: ModelArtifact::OpenVinoSnapshot,
-            },
-            ModelInfo {
-                engine: "OpenVINO GenAI".to_string(),
-                size: "openvino-whisper-base.en-int8".to_string(),
-                label: "Base English INT8".to_string(),
-                file_size: 80_700_000,
-                download_url: "OpenVINO/whisper-base.en-int8-ov".to_string(),
-                sha256: "".to_string(),
-                description: "Balanced Intel CPU/GPU/NPU model for English dictation.".to_string(),
-                recommended: true,
-                artifact: ModelArtifact::OpenVinoSnapshot,
-            },
-            ModelInfo {
-                engine: "OpenVINO GenAI".to_string(),
-                size: "openvino-whisper-small.en-int8".to_string(),
-                label: "Small English INT8".to_string(),
-                file_size: 244_000_000,
-                download_url: "OpenVINO/whisper-small.en-int8-ov".to_string(),
-                sha256: "".to_string(),
-                description: "More accurate Intel CPU/GPU/NPU model for English dictation.".to_string(),
-                recommended: false,
-                artifact: ModelArtifact::OpenVinoSnapshot,
-            },
-            ModelInfo {
-                engine: "OpenVINO GenAI".to_string(),
-                size: "openvino-whisper-large-v3-turbo-int8".to_string(),
-                label: "Large v3 Turbo INT8 (Experimental)".to_string(),
-                file_size: 820_000_000,
-                download_url: "FluidInference/whisper-large-v3-turbo-int8-ov-npu".to_string(),
-                sha256: "".to_string(),
-                description: "Experimental high-accuracy multilingual NPU model. Expect a slower cold load.".to_string(),
-                recommended: false,
-                artifact: ModelArtifact::OpenVinoSnapshot,
-            },
-            ModelInfo {
-                engine: "OpenVINO GenAI".to_string(),
-                size: "openvino-whisper-large-v3-turbo-int4".to_string(),
-                label: "Large v3 Turbo INT4 (Experimental)".to_string(),
-                file_size: 593_000_000,
-                download_url: "FluidInference/whisper-large-v3-turbo-int4-ov-npu".to_string(),
-                sha256: "".to_string(),
-                description: "Experimental NPU-focused Turbo model with a smaller INT4 footprint. Benchmark quality before daily use.".to_string(),
-                recommended: false,
-                artifact: ModelArtifact::OpenVinoSnapshot,
-            },
-            ModelInfo {
-                engine: "OpenVINO GenAI".to_string(),
-                size: "openvino-whisper-large-v3-turbo-fp16".to_string(),
-                label: "Large v3 Turbo FP16 (Experimental)".to_string(),
-                file_size: 1_950_000_000,
-                download_url: "FluidInference/whisper-large-v3-turbo-fp16-ov-npu".to_string(),
-                sha256: "".to_string(),
-                description: "Experimental NPU-focused Turbo model for accuracy and memory comparison. Expect the heaviest warm load.".to_string(),
-                recommended: false,
-                artifact: ModelArtifact::OpenVinoSnapshot,
             },
         ]
+    }
+
+    fn whisper_models(engine: &'static str, use_gpu: bool) -> Vec<ModelInfo> {
+        Self::whisper_model_specs()
+            .into_iter()
+            .map(|spec| {
+                Self::model_info(
+                    engine,
+                    spec.size,
+                    spec.label,
+                    spec.file_size,
+                    spec.download_url,
+                    spec.sha256,
+                    if use_gpu {
+                        spec.gpu_description
+                    } else {
+                        spec.cpu_description
+                    },
+                    spec.recommended,
+                    "transcription",
+                )
+            })
+            .collect()
+    }
+
+    fn cpu_models() -> Vec<ModelInfo> {
+        Self::whisper_models("Whisper.cpp", false)
+    }
+
+    fn gpu_models() -> Vec<ModelInfo> {
+        Self::whisper_models("Whisper.cpp (GPU)", true)
+    }
+
+    fn parakeet_models() -> Vec<ModelInfo> {
+        vec![
+            Self::model_info("Parakeet", "parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B (Multilingual)", 680_000_000,
+                "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
+                "",
+                "NVIDIA Parakeet model, 25 languages. Requires sherpa-onnx sidecar. Fast on CPU.", true, "transcription"),
+            Self::model_info("Parakeet", "parakeet-unified-en-0.6b", "Parakeet Unified EN 0.6B (English)", 631_000_000,
+                "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2",
+                "",
+                "NVIDIA Parakeet English-only model. Requires sherpa-onnx sidecar. Fast on CPU.", false, "transcription"),
+        ]
+    }
+
+    fn openvino_models() -> Vec<ModelInfo> {
+        vec![
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-tiny.en-int8", "Tiny English INT8", 46_400_000,
+                "OpenVINO/whisper-tiny.en-int8-ov", "",
+                "Fast Intel CPU/GPU/NPU model for short English dictation.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-base.en-int8", "Base English INT8", 80_700_000,
+                "OpenVINO/whisper-base.en-int8-ov", "",
+                "Balanced Intel CPU/GPU/NPU model for English dictation.", true, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-small.en-int8", "Small English INT8", 244_000_000,
+                "OpenVINO/whisper-small.en-int8-ov", "",
+                "More accurate Intel CPU/GPU/NPU model for English dictation.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-large-v3-turbo-int8", "Large v3 Turbo INT8 (Experimental)", 820_000_000,
+                "FluidInference/whisper-large-v3-turbo-int8-ov-npu", "",
+                "Experimental high-accuracy multilingual NPU model. Expect a slower cold load.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-large-v3-turbo-int4", "Large v3 Turbo INT4 (Experimental)", 593_000_000,
+                "FluidInference/whisper-large-v3-turbo-int4-ov-npu", "",
+                "Experimental NPU-focused Turbo model with a smaller INT4 footprint. Benchmark quality before daily use.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-large-v3-turbo-fp16", "Large v3 Turbo FP16 (Experimental)", 1_950_000_000,
+                "FluidInference/whisper-large-v3-turbo-fp16-ov-npu", "",
+                "Experimental NPU-focused Turbo model for accuracy and memory comparison. Expect the heaviest warm load.", false, "transcription"),
+        ]
+    }
+
+    #[cfg(target_os = "macos")]
+    fn mlx_models() -> Vec<ModelInfo> {
+        vec![
+            Self::model_info(
+                "MLX Whisper",
+                "mlx-whisper-base.en",
+                "Base English MLX",
+                145_000_000,
+                "mlx-community/whisper-base.en-mlx",
+                "",
+                "Experimental Apple Silicon model for local macOS dictation through MLX.",
+                true,
+                "transcription",
+            ),
+            Self::model_info(
+                "MLX Whisper",
+                "mlx-whisper-small.en",
+                "Small English MLX",
+                480_000_000,
+                "mlx-community/whisper-small.en-mlx",
+                "",
+                "Experimental higher-accuracy Apple Silicon model for local macOS dictation.",
+                false,
+                "transcription",
+            ),
+        ]
+    }
+
+    fn post_process_model_specs() -> Vec<PostProcessModelSpec> {
+        vec![
+            PostProcessModelSpec {
+                size: "qwen2.5-1.5b-instruct", label: "Qwen 2.5 1.5B", file_size: 700_000_000,
+                download_url: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                cpu_description: "Small local model for post-processing. Fixes punctuation, capitalization, and removes filler words. ~3-5s on CPU.",
+                gpu_description: "Small local model for post-processing, GPU-accelerated via Vulkan. Fixes punctuation, capitalization, and removes filler words.",
+                recommended: true,
+            },
+            PostProcessModelSpec {
+                size: "llama-3.2-1b-instruct", label: "Llama 3.2 1B", file_size: 650_000_000,
+                download_url: "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+                cpu_description: "Meta's lightweight instruct model. Good for post-processing on modest hardware.",
+                gpu_description: "Meta's lightweight instruct model with GPU acceleration via Vulkan.",
+                recommended: false,
+            },
+        ]
+    }
+
+    fn post_process_models() -> Vec<ModelInfo> {
+        ["Post-Process (Local)", "Post-Process (GPU)"]
+            .into_iter()
+            .flat_map(|engine| {
+                let use_gpu = crate::engine_factory::engine_uses_gpu(engine);
+                Self::post_process_model_specs()
+                    .into_iter()
+                    .map(move |spec| {
+                        Self::model_info(
+                            engine,
+                            spec.size,
+                            spec.label,
+                            spec.file_size,
+                            spec.download_url,
+                            "",
+                            if use_gpu {
+                                spec.gpu_description
+                            } else {
+                                spec.cpu_description
+                            },
+                            spec.recommended,
+                            "post_process",
+                        )
+                    })
+            })
+            .collect()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn model_info(
+        engine: &str,
+        size: &str,
+        label: &str,
+        file_size: u64,
+        download_url: &str,
+        sha256: &str,
+        description: &str,
+        recommended: bool,
+        category: &str,
+    ) -> ModelInfo {
+        ModelInfo {
+            engine: engine.to_string(),
+            size: size.to_string(),
+            label: label.to_string(),
+            file_size,
+            download_url: download_url.to_string(),
+            sha256: sha256.to_string(),
+            description: description.to_string(),
+            recommended,
+            category: category.to_string(),
+        }
     }
 
     pub fn get_available_engines() -> Vec<String> {
         let mut engines: Vec<String> = Self::get_available_models()
             .iter()
+            .filter(|m| m.category == "transcription")
             .map(|m| m.engine.clone())
             .collect();
         engines.sort();
         engines.dedup();
         engines
     }
-
-    pub fn get_model_path(&self, model_size: &str) -> PathBuf {
-        if let Some(snapshot_name) = model_size.strip_prefix("openvino-whisper-") {
-            return self
-                .models_dir
-                .join("openvino")
-                .join(format!("whisper-{}-ov", snapshot_name));
-        }
-
-        if let Some(snapshot_name) = model_size.strip_prefix("mlx-whisper-") {
-            return self
-                .models_dir
-                .join("mlx")
-                .join(format!("whisper-{}-mlx", snapshot_name));
-        }
-
-        self.models_dir.join(format!("ggml-{}.bin", model_size))
-    }
-
-    pub fn is_model_downloaded(&self, model_size: &str) -> bool {
-        let model_path = self.get_model_path(model_size);
-        if model_size.starts_with("openvino-whisper-") {
-            return model_path.join("openvino_encoder_model.xml").exists()
-                && model_path.join("openvino_decoder_model.xml").exists();
-        }
-
-        if model_size.starts_with("mlx-whisper-") {
-            return model_path.join("config.json").exists()
-                && (model_path.join("weights.npz").exists()
-                    || model_path.join("model.safetensors").exists());
-        }
-
-        model_path.exists()
-    }
-
-    pub async fn download_model<F>(
-        &self,
-        model_size: &str,
-        progress_callback: F,
-    ) -> Result<PathBuf, String>
-    where
-        F: Fn(f64) + Send + 'static,
-    {
-        let models = Self::get_available_models();
-        let model_info = models
-            .iter()
-            .find(|m| m.size == model_size)
-            .ok_or_else(|| format!("Model size {} not found", model_size))?;
-
-        let path = self.get_model_path(model_size);
-
-        if matches!(
-            model_info.artifact,
-            ModelArtifact::MlxSnapshot | ModelArtifact::OpenVinoSnapshot
-        ) {
-            return self
-                .download_openvino_snapshot(model_info, path, progress_callback)
-                .await;
-        }
-
-        let client = reqwest::Client::new();
-        let mut response = client
-            .get(&model_info.download_url)
-            .send()
-            .await
-            .map_err(|e| e.to_string())?;
-
-        let total_size = response.content_length().unwrap_or(model_info.file_size);
-        let mut downloaded: u64 = 0;
-        let mut last_reported_progress: f64 = -1.0;
-
-        let mut file = tokio::fs::File::create(&path)
-            .await
-            .map_err(|e| e.to_string())?;
-
-        use tokio::io::AsyncWriteExt;
-        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-            file.write_all(&chunk).await.map_err(|e| e.to_string())?;
-            downloaded += chunk.len() as u64;
-
-            let progress = (downloaded as f64 / total_size as f64) * 100.0;
-
-            // Only report progress if it has increased by at least 0.5%
-            // to prevent saturating the Tauri IPC bridge and freezing the UI
-            if progress - last_reported_progress >= 0.5 || progress >= 100.0 {
-                progress_callback(progress);
-                last_reported_progress = progress;
-            }
-        }
-
-        file.flush().await.map_err(|e| e.to_string())?;
-        Ok(path)
-    }
-
-    async fn download_openvino_snapshot<F>(
-        &self,
-        model_info: &ModelInfo,
-        path: PathBuf,
-        progress_callback: F,
-    ) -> Result<PathBuf, String>
-    where
-        F: Fn(f64) + Send + 'static,
-    {
-        let client = reqwest::Client::new();
-        let repo_id = &model_info.download_url;
-        let api_url = format!("https://huggingface.co/api/models/{}", repo_id);
-        let response = client
-            .get(api_url)
-            .send()
-            .await
-            .map_err(|error| error.to_string())?
-            .error_for_status()
-            .map_err(|error| error.to_string())?
-            .json::<HuggingFaceModelResponse>()
-            .await
-            .map_err(|error| error.to_string())?;
-
-        tokio::fs::create_dir_all(&path)
-            .await
-            .map_err(|error| error.to_string())?;
-
-        let files: Vec<HuggingFaceSibling> = response
-            .siblings
-            .into_iter()
-            .filter(|sibling| !sibling.rfilename.starts_with("."))
-            .collect();
-        let total_size: u64 = files
-            .iter()
-            .filter_map(|sibling| sibling.size)
-            .sum::<u64>()
-            .max(model_info.file_size);
-        let mut downloaded = 0u64;
-        let mut last_reported_progress = -1.0f64;
-
-        for sibling in files {
-            if sibling.rfilename.contains("..")
-                || sibling.rfilename.starts_with('/')
-                || sibling.rfilename.starts_with('\\')
-            {
-                return Err(format!(
-                    "Unsafe model filename returned by Hugging Face: {}",
-                    sibling.rfilename
-                ));
-            }
-
-            let destination = path.join(&sibling.rfilename);
-            if let Some(parent) = destination.parent() {
-                tokio::fs::create_dir_all(parent)
-                    .await
-                    .map_err(|error| error.to_string())?;
-            }
-
-            let file_url = format!(
-                "https://huggingface.co/{}/resolve/main/{}",
-                repo_id, sibling.rfilename
-            );
-            let mut response = client
-                .get(file_url)
-                .send()
-                .await
-                .map_err(|error| error.to_string())?
-                .error_for_status()
-                .map_err(|error| error.to_string())?;
-
-            let mut file = tokio::fs::File::create(&destination)
-                .await
-                .map_err(|error| error.to_string())?;
-            use tokio::io::AsyncWriteExt;
-            while let Some(chunk) = response.chunk().await.map_err(|error| error.to_string())? {
-                file.write_all(&chunk)
-                    .await
-                    .map_err(|error| error.to_string())?;
-                downloaded += chunk.len() as u64;
-
-                let progress = (downloaded as f64 / total_size as f64) * 100.0;
-                if progress - last_reported_progress >= 0.5 || progress >= 100.0 {
-                    progress_callback(progress.min(100.0));
-                    last_reported_progress = progress;
-                }
-            }
-
-            file.flush().await.map_err(|error| error.to_string())?;
-        }
-
-        progress_callback(100.0);
-        Ok(path)
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::ModelManager;
+    use super::*;
 
     #[test]
-    fn openvino_models_are_exposed_as_a_separate_engine() {
+    fn find_model_exists() {
+        let model = ModelManager::find_model("Whisper.cpp", "tiny.en");
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().engine, "Whisper.cpp");
+    }
+
+    #[test]
+    fn find_model_gpu_exists() {
+        let model = ModelManager::find_model("Whisper.cpp (GPU)", "tiny.en");
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().engine, "Whisper.cpp (GPU)");
+    }
+
+    #[test]
+    fn find_model_parakeet_exists() {
+        let model = ModelManager::find_model("Parakeet", "parakeet-tdt-0.6b-v3");
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().engine, "Parakeet");
+    }
+
+    #[test]
+    fn find_model_not_found() {
+        let model = ModelManager::find_model("Whisper.cpp", "nonexistent-model");
+        assert!(model.is_none());
+    }
+
+    #[test]
+    fn find_model_wrong_engine() {
+        let model = ModelManager::find_model("Parakeet", "tiny.en");
+        assert!(model.is_none());
+    }
+
+    #[test]
+    fn get_available_engines_includes_all() {
+        let engines = ModelManager::get_available_engines();
+        assert!(engines.contains(&"Whisper.cpp".to_string()));
+        assert!(engines.contains(&"Whisper.cpp (GPU)".to_string()));
+        assert!(engines.contains(&"Parakeet".to_string()));
+        assert!(!engines.contains(&"Post-Process (Local)".to_string()));
+    }
+
+    #[test]
+    fn get_available_engines_no_duplicates() {
+        let engines = ModelManager::get_available_engines();
+        let mut sorted = engines.clone();
+        sorted.dedup();
+        assert_eq!(engines.len(), sorted.len());
+    }
+
+    #[test]
+    fn get_model_path_whisper_cpp() {
+        let manager = ModelManager::new().unwrap();
+        let model = ModelManager::find_model("Whisper.cpp", "tiny.en").unwrap();
+        let path = manager.get_model_path(&model);
+        assert!(path.ends_with(
+            std::path::Path::new("transcription")
+                .join("whisper")
+                .join("ggml-tiny.en.bin")
+        ));
+    }
+
+    #[test]
+    fn get_model_path_parakeet() {
+        let manager = ModelManager::new().unwrap();
+        let model = ModelManager::find_model("Parakeet", "parakeet-tdt-0.6b-v3").unwrap();
+        let path = manager.get_model_path(&model);
+        assert!(path.ends_with(
+            std::path::Path::new("transcription")
+                .join("parakeet")
+                .join("parakeet-tdt-0.6b-v3")
+        ));
+    }
+
+    #[test]
+    fn is_model_downloaded_returns_false_for_nonexistent() {
+        let manager = ModelManager::new().unwrap();
+        let model = ModelManager::find_model("Whisper.cpp", "nonexistent").unwrap_or(ModelInfo {
+            engine: "Whisper.cpp".to_string(),
+            size: "__test_nonexistent__".to_string(),
+            file_size: 0,
+            download_url: String::new(),
+            sha256: String::new(),
+            label: String::new(),
+            description: String::new(),
+            recommended: false,
+            category: "transcription".to_string(),
+        });
+        assert!(!manager.is_model_downloaded(&model));
+    }
+
+    #[test]
+    fn model_info_fields_are_populated() {
         let models = ModelManager::get_available_models();
-
-        assert!(models.iter().any(|model| model.engine == "OpenVINO GenAI"));
-        assert!(ModelManager::get_available_engines()
-            .iter()
-            .any(|engine| engine == "OpenVINO GenAI"));
-
-        #[cfg(target_os = "macos")]
-        {
-            assert!(models.iter().any(|model| model.engine == "MLX Whisper"));
-            assert!(ModelManager::get_available_engines()
-                .iter()
-                .any(|engine| engine == "MLX Whisper"));
+        assert!(!models.is_empty());
+        for model in &models {
+            assert!(!model.engine.is_empty());
+            assert!(!model.size.is_empty());
+            assert!(!model.label.is_empty());
+            assert!(!model.download_url.is_empty());
+            assert!(model.file_size > 0);
         }
-    }
-
-    #[test]
-    fn mlx_models_use_directory_paths_instead_of_ggml_files() {
-        let manager = ModelManager {
-            models_dir: "models".into(),
-        };
-
-        assert!(ModelManager::get_available_engines()
-            .iter()
-            .all(|engine| !engine.trim().is_empty()));
-        assert_eq!(
-            manager
-                .get_model_path("mlx-whisper-base.en")
-                .to_string_lossy(),
-            "models\\mlx\\whisper-base.en-mlx"
-        );
-    }
-
-    #[test]
-    fn openvino_models_use_directory_paths_instead_of_ggml_files() {
-        let manager = ModelManager {
-            models_dir: "models".into(),
-        };
-
-        assert_eq!(
-            manager
-                .get_model_path("openvino-whisper-base.en-int8")
-                .to_string_lossy(),
-            "models\\openvino\\whisper-base.en-int8-ov"
-        );
-    }
-
-    #[test]
-    fn openvino_candidate_models_include_small_and_turbo_variants() {
-        let models = ModelManager::get_available_models();
-
-        assert!(models
-            .iter()
-            .any(|model| model.size == "openvino-whisper-small.en-int8"));
-        assert!(models
-            .iter()
-            .any(|model| model.size == "openvino-whisper-large-v3-turbo-int8"));
-        assert!(models
-            .iter()
-            .any(|model| model.size == "openvino-whisper-large-v3-turbo-int4"));
-        assert!(models
-            .iter()
-            .any(|model| model.size == "openvino-whisper-large-v3-turbo-fp16"));
     }
 }

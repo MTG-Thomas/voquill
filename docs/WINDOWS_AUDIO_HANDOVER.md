@@ -1,5 +1,10 @@
 # Handover: Windows Audio Device Naming & Platform Parity
 
+> **Status (upstream 1.7.3 integration): RESOLVED at the source.** `src-tauri/src/audio/device.rs`
+> now resolves `PKEY_Device_FriendlyName` / `PKEY_Device_DeviceDesc` via the MMDevice Property
+> Store (`windows` 0.62), and `resolve_configured_audio_device` heals stale endpoint ids through
+> saved-label fallback. The "Failure/Blockers" notes below are historical.
+
 ## 🎯 Objective
 Achieve full feature parity between Windows and Linux while maintaining a clean, DRY, and high-integrity codebase. The primary focus is currently on Windows microphone enumeration to match the detail seen in Windows System Sound settings.
 
@@ -7,7 +12,7 @@ Achieve full feature parity between Windows and Linux while maintaining a clean,
 
 Follow [AGENTS.md](../AGENTS.md) for project-wide philosophy and verification. Task-specific constraints:
 
-- **Root Cause First**: Fix microphone labels in backend enumeration (`audio.rs`), never in the UI dropdown.
+- **Root Cause First**: Fix microphone labels in backend enumeration (`audio/device.rs`), never in the UI dropdown.
 - **Linux Integrity (CRITICAL)**: Do not break or degrade Linux functionality while fixing Windows.
 - **Platform Parity**: Hold-to-Talk and Typewriter Mode must behave identically across Windows and Linux.
 - **Zero-Warning Build**: Match the CI checklist in [REPO_HYGIENE.md](REPO_HYGIENE.md).
@@ -28,7 +33,7 @@ Follow [AGENTS.md](../AGENTS.md) for project-wide philosophy and verification. T
 2. **MMDevice API (Direct)**: Attempted to query `PKEY_Device_FriendlyName` and `PKEY_Device_DeviceDesc`.
    - **Blocker 1**: `PROPVARIANT` is a complex union. Manual access is fragile and differs between crate versions.
    - **Blocker 2**: `PropVariantToStringAlloc` signature mismatches in `windows` v0.58.
-   - **Blocker 3**: The current fallback in `audio.rs` reverts to generic CPAL names because the advanced extraction was causing build failures.
+   - **Blocker 3 (historical)**: The old fallback in `audio.rs` reverted to generic CPAL names because the advanced extraction was causing build failures.
 
 ## 💡 Guidance for Next Session
 - **Right Way Only**: Do not retreat to generic CPAL names. Find the correct `windows` crate v0.58 invocation for `PropVariantToStringAlloc`.

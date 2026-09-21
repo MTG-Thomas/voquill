@@ -1,41 +1,3 @@
-const GLOSSARY_TERMS: &[&str] = &[
-    "Microsoft 365",
-    "Entra ID",
-    "Intune",
-    "Defender for Endpoint",
-    "Defender XDR",
-    "Microsoft Lighthouse",
-    "Exchange Online",
-    "SharePoint",
-    "OneDrive",
-    "Microsoft Teams",
-    "Azure",
-    "Azure OpenAI",
-    "Autotask",
-    "HaloPSA",
-    "NinjaOne",
-    "Keeper",
-    "BitLocker",
-    "DNS",
-    "DHCP",
-    "RMM",
-    "PSA",
-    "MFA",
-    "SSO",
-    "SAML",
-    "OAuth",
-    "OIDC",
-    "SMTP",
-    "IMAP",
-    "MX",
-    "SPF",
-    "DKIM",
-    "DMARC",
-    "CIPP",
-    "Bifrost",
-    "Midtown Technology Group",
-];
-
 const CORRECTIONS: &[(&str, &str)] = &[
     ("in tune", "Intune"),
     ("in toon", "Intune"),
@@ -73,31 +35,6 @@ const CORRECTIONS: &[(&str, &str)] = &[
     ("c i p p", "CIPP"),
 ];
 
-pub fn build_transcription_prompt(language_hint: Option<&str>, custom_vocabulary: &str) -> String {
-    let mut prompt = String::new();
-    if let Some(hint) = language_hint {
-        let trimmed = hint.trim();
-        if !trimmed.is_empty() {
-            prompt.push_str(trimmed);
-            if !trimmed.ends_with('.') {
-                prompt.push('.');
-            }
-            prompt.push(' ');
-        }
-    }
-
-    let mut terms = GLOSSARY_TERMS
-        .iter()
-        .map(|term| (*term).to_string())
-        .collect::<Vec<_>>();
-    terms.extend(parse_custom_vocabulary_terms(custom_vocabulary));
-
-    prompt.push_str("Prefer these IT and MSP terms when they match the spoken audio: ");
-    prompt.push_str(&terms.join(", "));
-    prompt.push('.');
-    prompt
-}
-
 pub fn correct_transcription(text: &str, custom_corrections: &str) -> String {
     let corrected =
         CORRECTIONS
@@ -113,7 +50,7 @@ pub fn correct_transcription(text: &str, custom_corrections: &str) -> String {
         })
 }
 
-fn parse_custom_vocabulary_terms(custom_vocabulary: &str) -> Vec<String> {
+pub(crate) fn parse_custom_vocabulary_terms(custom_vocabulary: &str) -> Vec<String> {
     custom_vocabulary
         .lines()
         .map(str::trim)
@@ -203,23 +140,14 @@ fn is_word_separator(character: char) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_transcription_prompt, correct_transcription};
+    use super::{correct_transcription, parse_custom_vocabulary_terms};
 
     #[test]
-    fn prompt_includes_language_hint_and_it_terms() {
-        let prompt = build_transcription_prompt(Some("American spelling"), "");
+    fn parses_custom_vocabulary_terms_ignoring_comments() {
+        let terms = parse_custom_vocabulary_terms("Contoso Dental\n# comment\nGraphConnector");
 
-        assert!(prompt.starts_with("American spelling."));
-        assert!(prompt.contains("Entra ID"));
-        assert!(prompt.contains("HaloPSA"));
-        assert!(prompt.contains("DMARC"));
-    }
-
-    #[test]
-    fn prompt_handles_missing_language_hint() {
-        let prompt = build_transcription_prompt(None, "");
-
-        assert!(prompt.starts_with("Prefer these IT and MSP terms"));
+        assert!(terms.contains(&"Contoso Dental".to_string()));
+        assert!(terms.contains(&"GraphConnector".to_string()));
     }
 
     #[test]
@@ -247,15 +175,6 @@ mod tests {
             correct_transcription(text, ""),
             "Entra ID and Defender XDR should be canonical."
         );
-    }
-
-    #[test]
-    fn includes_custom_vocabulary_terms() {
-        let prompt = build_transcription_prompt(None, "Contoso Dental\n# comment\nGraphConnector");
-
-        assert!(prompt.contains("Contoso Dental"));
-        assert!(prompt.contains("GraphConnector"));
-        assert!(!prompt.contains("# comment"));
     }
 
     #[test]

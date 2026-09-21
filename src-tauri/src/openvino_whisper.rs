@@ -57,11 +57,17 @@ struct LocalWorkerPool;
 
 impl OpenVinoWhisperService {
     pub fn new(model_size: &str, device: &str) -> Result<Self, TranscriptionError> {
-        let model_manager = ModelManager::new().map_err(TranscriptionError::ModelError)?;
-        let model_path = model_manager.get_model_path(model_size);
+        let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
+        let model = ModelManager::find_model("OpenVINO GenAI", model_size).ok_or_else(|| {
+            TranscriptionError::Model(format!(
+                "OpenVINO model {} not found in catalog. Please download it in settings.",
+                model_size
+            ))
+        })?;
+        let model_path = model_manager.get_model_path(&model);
 
-        if !model_manager.is_model_downloaded(model_size) {
-            return Err(TranscriptionError::ModelError(format!(
+        if !model_manager.is_model_downloaded(&model) {
+            return Err(TranscriptionError::Model(format!(
                 "OpenVINO model {} not found. Please download it in settings.",
                 model_size
             )));
@@ -98,7 +104,7 @@ impl TranscriptionService for OpenVinoWhisperService {
             )
         })
         .await
-        .map_err(|error| TranscriptionError::ModelError(error.to_string()))?
+        .map_err(|error| TranscriptionError::Model(error.to_string()))?
     }
 
     fn service_name(&self) -> &'static str {
@@ -134,7 +140,7 @@ fn write_temp_wav(audio_data: &[u8]) -> Result<PathBuf, TranscriptionError> {
             .unwrap_or_default()
     ));
     std::fs::write(&audio_path, audio_data)
-        .map_err(|error| TranscriptionError::AudioError(error.to_string()))?;
+        .map_err(|error| TranscriptionError::Audio(error.to_string()))?;
     Ok(audio_path)
 }
 
@@ -148,14 +154,14 @@ fn send_worker_request(
     let key = format!("{}|{}", model_path.display(), device);
     let mut workers = LocalWorkerPool::get()
         .lock()
-        .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+        .map_err(|error| TranscriptionError::Model(error.to_string()))?;
     if !workers.contains_key(&key) {
         workers.insert(key.clone(), start_worker(model_path, device)?);
     }
 
-    let worker = workers.get_mut(&key).ok_or_else(|| {
-        TranscriptionError::ModelError("OpenVINO worker was not created".to_string())
-    })?;
+    let worker = workers
+        .get_mut(&key)
+        .ok_or_else(|| TranscriptionError::Model("OpenVINO worker was not created".to_string()))?;
     match worker.transcribe(audio_path, language, prompt) {
         Ok(text) => Ok(text),
         Err(error) => {
@@ -193,7 +199,7 @@ fn start_worker(model_path: &Path, device: &str) -> Result<OpenVinoWorker, Trans
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| {
-            TranscriptionError::ModelError(format!(
+            TranscriptionError::Model(format!(
                 "Failed to start OpenVINO Python runtime '{}': {}",
                 python.executable.display(),
                 error
@@ -201,10 +207,10 @@ fn start_worker(model_path: &Path, device: &str) -> Result<OpenVinoWorker, Trans
         })?;
 
     let stdin = child.stdin.take().ok_or_else(|| {
-        TranscriptionError::ModelError("OpenVINO worker stdin unavailable".to_string())
+        TranscriptionError::Model("OpenVINO worker stdin unavailable".to_string())
     })?;
     let stdout = child.stdout.take().ok_or_else(|| {
-        TranscriptionError::ModelError("OpenVINO worker stdout unavailable".to_string())
+        TranscriptionError::Model("OpenVINO worker stdout unavailable".to_string())
     })?;
     let stderr_lines = Arc::new(Mutex::new(Vec::new()));
     if let Some(stderr) = child.stderr.take() {
@@ -277,10 +283,10 @@ impl OpenVinoWorker {
             prompt,
         };
         let request_json = serde_json::to_string(&request)
-            .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+            .map_err(|error| TranscriptionError::Model(error.to_string()))?;
         writeln!(self.stdin, "{}", request_json)
             .and_then(|_| self.stdin.flush())
-            .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+            .map_err(|error| TranscriptionError::Model(error.to_string()))?;
 
         let mut response_json = String::new();
         let worker_process_id = self.child.id();
@@ -302,33 +308,29 @@ impl OpenVinoWorker {
 
         let read_result = self.stdout.read_line(&mut response_json);
         request_completed.store(true, Ordering::SeqCst);
-        read_result.map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+        read_result.map_err(|error| TranscriptionError::Model(error.to_string()))?;
 
         if response_json.trim().is_empty() {
             let stderr = self.read_stderr();
-            return Err(TranscriptionError::ModelError(
-                if stderr.trim().is_empty() {
-                    "OpenVINO worker exited without a response".to_string()
-                } else {
-                    format!(
-                        "OpenVINO worker exited without a response: {}",
-                        stderr.trim()
-                    )
-                },
-            ));
+            return Err(TranscriptionError::Model(if stderr.trim().is_empty() {
+                "OpenVINO worker exited without a response".to_string()
+            } else {
+                format!(
+                    "OpenVINO worker exited without a response: {}",
+                    stderr.trim()
+                )
+            }));
         }
 
         let response = serde_json::from_str::<WorkerResponse>(&response_json)
-            .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+            .map_err(|error| TranscriptionError::Model(error.to_string()))?;
         if response.ok {
             return Ok(response.text.unwrap_or_default().trim().to_string());
         }
 
-        Err(TranscriptionError::ModelError(
-            response
-                .error
-                .unwrap_or_else(|| "OpenVINO transcription failed".to_string()),
-        ))
+        Err(TranscriptionError::Model(response.error.unwrap_or_else(
+            || "OpenVINO transcription failed".to_string(),
+        )))
     }
 
     fn read_stderr(&mut self) -> String {

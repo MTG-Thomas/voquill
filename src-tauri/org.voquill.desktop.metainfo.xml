@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.voquill.desktop</id>
+  <name>Voquill</name>
+  <summary>Push-to-talk dictation app with local transcription</summary>
+  <project_license>AGPL-3.0-only</project_license>
+  <metadata_license>CC0-1.0</metadata_license>
+  <developer id="org.voquill">
+    <name>Jack Brumley</name>
+  </developer>
+  <pkgname>voquill</pkgname>
+  <launchable type="desktop-id">voquill.desktop</launchable>
+  <icon type="stock">org.voquill.desktop</icon>
+  <icon type="stock">voquill</icon>
+  <description>
+    <p>
+      Voquill is a cross-platform push-to-talk dictation app for Linux and Windows. Hold your shortcut to record,
+      release to transcribe, and Voquill types directly into your active application.
+    </p>
+    <p>
+      It is local-first by design: voice processing can run entirely on-device with Whisper models, and cloud API
+      transcription is optional.
+    </p>
+    <p>
+      Voquill is built for a clean desktop workflow with explicit Wayland portal permissions, reliable Linux and Windows
+      behavior, and fast keyboard-first dictation.
+    </p>
+  </description>
+  <url type="homepage">https://voquill.org/</url>
+  <url type="bugtracker">https://github.com/jackbrumley/voquill/issues</url>
+  <url type="vcs-browser">https://github.com/jackbrumley/voquill</url>
+  <categories>
+    <category>Utility</category>
+    <category>Office</category>
+    <category>AudioVideo</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main dictation interface and audio file transcription</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-1.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Local history with audio playback and transcription review</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-2.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Comprehensive settings and local AI engine configuration</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-3.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Integrated user guide and usage tips</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-4.png</image>
+    </screenshot>
+  </screenshots>
+</component>

@@ -24,21 +24,14 @@ export function ModeSwitcher<T extends string>({
   const sliderTransform = activeIndex === 0 ? "translateX(0)" : "translateX(100%)";
 
   return (
-    <div
-      className={className}
-      style={{
-        marginTop: tokens.spacing.md,
-        display: "flex",
-        justifyContent: "center",
-        width: "100%",
-      }}
-    >
+    <div className={className} style={{ display: "flex" }}>
       <div
         style={{
           position: "relative",
           display: "flex",
           background: tokens.colors.bgSecondary,
-          borderRadius: "30px",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: "24px",
           padding: "4px",
           boxShadow: tokens.shadows.sm,
           width: "auto",
@@ -51,10 +44,10 @@ export function ModeSwitcher<T extends string>({
             left: "4px",
             width: "calc(50% - 4px)",
             height: "calc(100% - 8px)",
-            background: tokens.colors.accentPrimary,
-            borderRadius: "26px",
+            background: "linear-gradient(135deg, #5865f2 0%, #4338ca 100%)",
+            borderRadius: "22px",
             transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: tokens.shadows.md,
+            boxShadow: "0 2px 8px rgba(88, 101, 242, 0.22)",
             zIndex: 1,
             transform: sliderTransform,
           }}
@@ -70,22 +63,22 @@ export function ModeSwitcher<T extends string>({
               background: "transparent",
               color:
                 value === option.value ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-              fontSize: tokens.typography.sizeXs,
-              fontWeight: 700,
-              padding: "6px 16px",
+              fontSize: tokens.typography.sizeSm,
+              fontWeight: 600,
+              padding: "5px 12px",
               cursor: "pointer",
-              borderRadius: "26px",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              minWidth: "140px",
+              borderRadius: "22px",
+              letterSpacing: "0.3px",
+              minWidth: "120px",
+              whiteSpace: "nowrap",
               justifyContent: "center",
               display: "flex",
               alignItems: "center",
-              gap: tokens.spacing.sm,
+              gap: "6px",
               transition: tokens.transitions.normal,
             }}
             onClick={() => {
-              invoke("log_ui_event", { message: `🖱️ Button clicked: ${option.label}` }).catch(
+              invoke("log_ui_event", { message: `[Button clicked] ${option.label}` }).catch(
                 () => {},
               );
               onToggle(option.value);

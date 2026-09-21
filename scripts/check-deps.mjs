@@ -120,6 +120,12 @@ function getWindowsDependencies() {
       install: "winget install -e --id KhronosGroup.VulkanSDK",
     },
     {
+      name: "ninja",
+      desc: "Ninja build system (used for the whisper.cpp native build)",
+      check: () => commandExists("ninja"),
+      install: "winget install -e --id Ninja-build.Ninja",
+    },
+    {
       name: "rust",
       desc: "Rust toolchain (cargo, rustc)",
       check: () =>

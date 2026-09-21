@@ -3,10 +3,16 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tokio::sync::Mutex as AsyncMutex;
 
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 static CURRENT_STATUS: OnceLock<Mutex<String>> = OnceLock::new();
 static STATUS_UPDATE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+static OVERLAY_LOCK: OnceLock<AsyncMutex<()>> = OnceLock::new();
+
+fn overlay_lock() -> &'static AsyncMutex<()> {
+    OVERLAY_LOCK.get_or_init(|| AsyncMutex::new(()))
+}
 
 #[derive(Clone, Debug, Serialize)]
 struct StatusUpdatePayload {
@@ -32,10 +38,11 @@ pub fn get_current_status() -> String {
 }
 
 async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
+    let _lock = overlay_lock().lock().await;
     if let Some(overlay_window) = app_handle.get_webview_window("overlay") {
         overlay_window.hide().map_err(|error| error.to_string())?;
     } else {
-        crate::log_warn!("⚠️ hide_overlay_window: overlay window not found");
+        crate::log_warn!("hide_overlay_window: overlay window not found");
     }
     Ok(())
 }
@@ -57,6 +64,7 @@ async fn position_overlay_window(
 }
 
 async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
+    let _lock = overlay_lock().lock().await;
     let overlay_window = app_handle
         .get_webview_window("overlay")
         .ok_or("Overlay window not found")?;
@@ -96,16 +104,26 @@ pub async fn emit_status_update_with_turbo_warm(status: &str, turbo_warm: bool) 
     }
 
     crate::log_info!(
-        "🔄 App Status Change: '{}' -> '{}'",
+        "App Status Change: '{}' -> '{}'",
         previous_status.as_deref().unwrap_or("<unknown>"),
         status
     );
 
-    if let Some(app_handle) = APP_HANDLE.get() {
+    let Some(app_handle) = APP_HANDLE.get() else {
+        return;
+    };
+
+    let status_owned = status.to_string();
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        if get_current_status() != status_owned {
+            return;
+        }
+
         let windows = ["main", "overlay"];
         let payload = StatusUpdatePayload {
             seq: sequence,
-            status: status.to_string(),
+            status: status_owned.clone(),
             turbo_warm,
         };
         for window_label in &windows {
@@ -114,12 +132,12 @@ pub async fn emit_status_update_with_turbo_warm(status: &str, turbo_warm: bool) 
             }
         }
 
-        if status == "Ready" || status == "Typing" {
-            let _ = hide_overlay_window(app_handle).await;
+        if status_owned == "Ready" || status_owned == "Typing" {
+            let _ = hide_overlay_window(&app_handle).await;
         } else {
-            let _ = show_overlay_window(app_handle).await;
+            let _ = show_overlay_window(&app_handle).await;
         }
-    }
+    });
 }
 
 pub async fn emit_status_to_frontend(status: &str) {
