@@ -388,6 +388,15 @@ impl Config {
                 }
             }
         }
+        for term in crate::domain_vocabulary::parse_custom_vocabulary_terms(
+            &self.custom_vocabulary,
+        ) {
+            let mut framed = term;
+            if !framed.ends_with('.') && !framed.ends_with('!') && !framed.ends_with('?') {
+                framed.push('.');
+            }
+            parts.push(framed);
+        }
 
         if parts.is_empty() {
             None
@@ -855,8 +864,21 @@ mod tests {
     }
 
     #[test]
-    fn resolve_prompt_hint_spelling_only() {
+    fn resolve_prompt_hint_includes_custom_vocabulary() {
         let config = Config {
+            language: "auto".to_string(),
+            dictionary: vec![],
+            custom_vocabulary: "Contoso Dental\n# comment\nGraphConnector".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(
+            config.resolve_prompt_hint(),
+            Some("Contoso Dental. GraphConnector.".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_prompt_hint_spelling_only() {        let config = Config {
             language: "en-GB".to_string(),
             dictionary: vec![],
             ..Default::default()

@@ -1,5 +1,7 @@
 use crate::config::Config;
 use crate::local_whisper::{self, WhisperEngineCache};
+use crate::mlx_whisper;
+use crate::openvino_whisper;
 use crate::parakeet;
 use crate::transcription::{self, TranscriptionError, TranscriptionService};
 use serde::Serialize;
@@ -164,6 +166,14 @@ impl EngineFactory {
                     options: Some(build_thread_options(max_cpus)),
                 }],
             },
+            "OpenVINO GenAI" => EngineCapabilities {
+                gpu_supported: false,
+                settings: vec![],
+            },
+            "MLX Whisper" => EngineCapabilities {
+                gpu_supported: false,
+                settings: vec![],
+            },
             _ => EngineCapabilities {
                 gpu_supported: false,
                 settings: vec![],
@@ -227,8 +237,20 @@ impl EngineFactory {
                                 .await?;
                         Ok(Box::new(service))
                     }
+                    "OpenVINO GenAI" => {
+                        let service = openvino_whisper::OpenVinoWhisperService::new(
+                            &config.local_model_size,
+                            &config.local_accelerator,
+                        )?;
+                        Ok(Box::new(service))
+                    }
+                    "MLX Whisper" => {
+                        let service =
+                            mlx_whisper::MlxWhisperService::new(&config.local_model_size)?;
+                        Ok(Box::new(service))
+                    }
                     other => Err(TranscriptionError::Model(format!(
-                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU), Parakeet",
+                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU), Parakeet, OpenVINO GenAI, MLX Whisper",
                         other
                     ))),
                 }
@@ -417,7 +439,6 @@ mod tests {
             .unwrap_or(4);
 
         let mut config = Config::default();
-        config.engine_config = None;
         assert_eq!(
             resolve_thread_count(&config, "whisper.num_threads"),
             max_cpus
