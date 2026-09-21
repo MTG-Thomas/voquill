@@ -30,20 +30,45 @@ macro_rules! log_warn {
 use serde::Serialize;
 use tauri::Manager;
 
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(
+    name = "voquill",
+    version,
+    about = "Cross-platform push-to-talk dictation app"
+)]
+struct Cli {
+    /// Start hidden in the system tray
+    #[arg(short, long)]
+    start_hidden: bool,
+}
+
 mod app;
+mod archive;
 mod audio;
 mod audio_quality;
 mod config;
+mod diarization;
 mod domain_vocabulary;
+mod engine_factory;
 mod history;
 mod hotkey;
 mod local_whisper;
 mod mlx_whisper;
 mod model_manager;
 mod openvino_whisper;
+mod parakeet;
+mod paths;
 pub mod platform;
+mod post_process;
+pub mod process_guard;
+mod python_runner;
+mod sidecar;
+mod text_cleanup;
 mod transcription;
 mod typing;
+pub mod voice_macro;
 
 pub use app::commands::hotkey::set_hotkey_binding_state;
 use app::commands::*;
@@ -68,8 +93,62 @@ pub struct PortalDiagnostics {
     pub detail: Option<String>,
 }
 
+/// Logs detected CPU SIMD capabilities to the session log so crash reports
+/// include the reporter's actual hardware feature set (e.g. diagnosing
+/// illegal-instruction crashes from mismatched whisper.cpp builds).
+#[cfg(target_arch = "x86_64")]
+fn log_cpu_features() {
+    log_info!(
+        "CPU features: sse42={} avx={} avx2={} fma={} f16c={} avx512f={}",
+        std::arch::is_x86_feature_detected!("sse4.2"),
+        std::arch::is_x86_feature_detected!("avx"),
+        std::arch::is_x86_feature_detected!("avx2"),
+        std::arch::is_x86_feature_detected!("fma"),
+        std::arch::is_x86_feature_detected!("f16c"),
+        std::arch::is_x86_feature_detected!("avx512f"),
+    );
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn log_cpu_features() {}
+
 fn main() {
+    let cli = Cli::parse();
+    let start_hidden = cli.start_hidden;
+
+    // Third-party Vulkan "implicit layers" (Steam overlay, OBS capture, NVIDIA
+    // Optimus switching) get injected into every Vulkan process and can corrupt
+    // vkEnumeratePhysicalDevices on hybrid-graphics machines, causing whisper.cpp
+    // to hang indefinitely. Since we only use Vulkan for local compute (never
+    // rendering), disabling all layers is safe. Must be set before any
+    // Vulkan-touching code runs.
+    // SAFETY: called as the first statement in main(), before other threads exist.
+    unsafe {
+        std::env::set_var("VK_LOADER_LAYERS_DISABLE", "~all~");
+    }
+
+    // Migrate legacy data location (%APPDATA%\foss-voquill etc.) to the
+    // unified ~/.config/voquill-app root before anything touches storage.
+    let storage_migration_report = paths::migrate_legacy_location();
+
+    // Clean up any legacy autostart entries from previous application versions.
+    let autostart_cleanup_report = paths::cleanup_legacy_autostart_entries();
+
+    let initial_config = config::load_config().unwrap_or_default();
+
+    // Session logging is always enabled. The persistence toggle is available
+    // for future use (e.g. a private mode setting).
+    app::session_log::set_persistence_enabled(true);
     app::session_log::initialize_session_logging();
+
+    if let Some(report) = storage_migration_report {
+        log_info!("Storage migration: {}", report);
+    }
+    for item in autostart_cleanup_report {
+        log_info!("Autostart migration: {}", item);
+    }
+
+    log_cpu_features();
 
     #[cfg(target_os = "linux")]
     {
@@ -78,14 +157,17 @@ fn main() {
 
     env_logger::init();
 
-    let _is_first_launch = config::is_first_launch().unwrap_or(false);
-    let initial_config = config::load_config().unwrap_or_default();
-
     let app_state = app::bootstrap::build_app_state(&initial_config);
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("voquill")
+                .arg("--start-hidden")
+                .build(),
+        )
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -94,24 +176,23 @@ fn main() {
                     if std::env::var("WAYLAND_DISPLAY").is_ok() {
                         return;
                     }
-                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        let app_handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app_handle.state::<AppState>();
-                            let _ = start_recording(state, app_handle.clone()).await;
-                        });
-                    } else {
-                        let app_handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app_handle.state::<AppState>();
-                            let _ = stop_recording(state).await;
-                        });
-                    }
+                    let app_handle = app.clone();
+                    let pressed =
+                        event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed;
+                    tauri::async_runtime::spawn(async move {
+                        let state = app_handle.state::<AppState>();
+                        if pressed {
+                            app::hotkey_handler::handle_hotkey_press(state, app_handle.clone())
+                                .await;
+                        } else {
+                            app::hotkey_handler::handle_hotkey_release(state).await;
+                        }
+                    });
                 })
                 .build(),
         )
         .manage(app_state)
-        .setup(move |app| app::bootstrap::run_setup(app, &initial_config))
+        .setup(move |app| app::bootstrap::run_setup(app, &initial_config, start_hidden))
         .invoke_handler(tauri::generate_handler![
             start_recording,
             stop_recording,
@@ -121,7 +202,10 @@ fn main() {
             test_api_key,
             get_current_status,
             get_history,
+            search_history,
             clear_history,
+            delete_history_item,
+            get_history_audio,
             check_hotkey_status,
             manual_register_hotkey,
             configure_hotkey,
@@ -130,10 +214,14 @@ fn main() {
             minimize_to_tray_or_taskbar,
             quit_application,
             get_audio_devices,
+            get_output_devices,
             start_mic_test,
             stop_mic_test,
             stop_mic_playback,
+            play_history_recording,
+            stop_history_recording,
             open_debug_folder,
+            clear_recording_logs,
             get_session_log_text,
             copy_session_log_to_clipboard,
             open_session_log,
@@ -143,6 +231,9 @@ fn main() {
             check_model_status,
             download_model,
             warm_up_model,
+            preload_transcription_engine,
+            transcribe_audio_file,
+            test_cleanup_api,
             get_linux_setup_status,
             request_audio_permission,
             request_input_permission,
@@ -151,8 +242,42 @@ fn main() {
             get_portal_diagnostics,
             get_system_shortcut_context,
             get_overlay_positioning_capabilities,
-            check_for_updates
+            check_for_updates,
+            install_update,
+            get_gpu_status,
+            get_post_process_gpu_status,
+            get_engine_capabilities,
+            unload_model,
+            test_voice_macro_sound,
+            test_voice_macro_execution,
+            test_spoken_voice_macro,
+            get_available_tts_voices,
+            download_tts_voice_model,
+            preview_tts_voice,
+            save_macro_tts_audio,
+            import_macro_audio_file,
+            save_macro_mic_recording,
+            play_macro_sound_preview,
+            delete_macro_sound,
+            clone_macro_sound,
+            stop_macro_sound_playback,
+            get_available_base_voice_models,
+            preview_custom_tts_voice,
+            get_custom_voice_presets,
+            save_custom_voice_preset,
+            delete_custom_voice_preset
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                crate::log_info!("Tauri exit event received — cleaning up background sidecars");
+                let state = app_handle.state::<AppState>();
+                let mut runner = None;
+                if let Ok(mut runner_guard) = state.python_runner.lock() {
+                    runner = runner_guard.take();
+                }
+                drop(runner);
+            }
+        });
 }

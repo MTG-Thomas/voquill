@@ -3,19 +3,18 @@ use reqwest::multipart;
 use serde_json::Value;
 
 #[derive(Debug)]
-#[allow(clippy::enum_variant_names)]
 pub enum TranscriptionError {
-    NetworkError(String),
-    ModelError(String),
-    AudioError(String),
+    Network(String),
+    Model(String),
+    Audio(String),
 }
 
 impl std::fmt::Display for TranscriptionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NetworkError(e) => write!(f, "Network error: {}", e),
-            Self::ModelError(e) => write!(f, "Model error: {}", e),
-            Self::AudioError(e) => write!(f, "Audio error: {}", e),
+            Self::Network(e) => write!(f, "Network error: {}", e),
+            Self::Model(e) => write!(f, "Model error: {}", e),
+            Self::Audio(e) => write!(f, "Audio error: {}", e),
         }
     }
 }
@@ -47,6 +46,12 @@ impl TranscriptionService for APITranscriptionService {
         language: Option<&str>,
         prompt: Option<&str>,
     ) -> Result<String, TranscriptionError> {
+        if self.api_model.is_empty() {
+            return Err(TranscriptionError::Model(
+                "API model is not configured. Set a model in Settings.".into(),
+            ));
+        }
+
         let client = reqwest::Client::new();
 
         let mut form = multipart::Form::new()
@@ -55,7 +60,7 @@ impl TranscriptionService for APITranscriptionService {
                 multipart::Part::bytes(audio_data.to_vec())
                     .file_name("audio.wav")
                     .mime_str("audio/wav")
-                    .map_err(|e| TranscriptionError::AudioError(e.to_string()))?,
+                    .map_err(|e| TranscriptionError::Audio(e.to_string()))?,
             )
             .text("model", self.api_model.clone());
 
@@ -73,14 +78,14 @@ impl TranscriptionService for APITranscriptionService {
             .multipart(form)
             .send()
             .await
-            .map_err(|e| TranscriptionError::NetworkError(e.to_string()))?;
+            .map_err(|e| TranscriptionError::Network(e.to_string()))?;
 
         if !response.status().is_success() {
             let error_text = response
                 .text()
                 .await
-                .map_err(|e| TranscriptionError::NetworkError(e.to_string()))?;
-            return Err(TranscriptionError::NetworkError(format!(
+                .map_err(|e| TranscriptionError::Network(e.to_string()))?;
+            return Err(TranscriptionError::Network(format!(
                 "API error: {}",
                 error_text
             )));
@@ -89,7 +94,7 @@ impl TranscriptionService for APITranscriptionService {
         let json: Value = response
             .json()
             .await
-            .map_err(|e| TranscriptionError::NetworkError(e.to_string()))?;
+            .map_err(|e| TranscriptionError::Network(e.to_string()))?;
 
         let text = json["text"].as_str().unwrap_or("").to_string();
 
@@ -117,7 +122,7 @@ pub async fn test_api_key(
                 .file_name("test.wav")
                 .mime_str("audio/wav")?,
         )
-        .text("model", "whisper-1");
+        .text("model", "gpt-transcribe");
 
     let response = client
         .post(api_url)
