@@ -232,6 +232,9 @@ impl ModelManager {
         all.extend(cpu_models);
         all.extend(gpu_models);
         all.extend(Self::parakeet_models());
+        all.extend(Self::openvino_models());
+        #[cfg(target_os = "macos")]
+        all.extend(Self::mlx_models());
         all.extend(Self::post_process_models());
         all
     }
@@ -252,6 +255,8 @@ impl ModelManager {
                 .join("post-process")
                 .join("llama")
                 .join(format!("{}.gguf", model.size)),
+            "OpenVINO GenAI" => self.models_dir.join("openvino").join(&model.size),
+            "MLX Whisper" => self.models_dir.join("mlx").join(&model.size),
             _ => {
                 let dir = self
                     .models_dir
@@ -273,6 +278,13 @@ impl ModelManager {
                 ensure_parakeet_model_flattened(&dir);
                 PARAKEET_REQUIRED_FILES.iter().all(|f| dir.join(f).exists())
             }
+            "OpenVINO GenAI" | "MLX Whisper" => {
+                let dir = self.get_model_path(model);
+                dir.is_dir()
+                    && std::fs::read_dir(&dir)
+                        .map(|mut entries| entries.next().is_some())
+                        .unwrap_or(false)
+            }
             _ => self.get_model_path(model).exists(),
         }
     }
@@ -291,6 +303,14 @@ impl ModelManager {
         let report = |phase: DownloadPhase, progress: f64| {
             progress_callback(DownloadProgress { phase, progress });
         };
+        // Snapshot engines (Hugging Face repo downloads) need a dedicated
+        // snapshot downloader; fail fast instead of issuing a bogus GET.
+        if matches!(model.engine.as_str(), "OpenVINO GenAI" | "MLX Whisper") {
+            return Err(format!(
+                "Direct download is not supported for {} snapshot '{}'; use the Hugging Face snapshot downloader (see download_url '{}')",
+                model.engine, model.size, model.download_url
+            ));
+        }
         let client = reqwest::Client::new();
         let mut response = client
             .get(&model.download_url)
@@ -457,6 +477,41 @@ impl ModelManager {
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2",
                 "",
                 "NVIDIA Parakeet English-only model. Requires sherpa-onnx sidecar. Fast on CPU.", false, "transcription"),
+        ]
+    }
+
+    fn openvino_models() -> Vec<ModelInfo> {
+        vec![
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-tiny.en-int8", "Tiny English INT8", 46_400_000,
+                "OpenVINO/whisper-tiny.en-int8-ov", "",
+                "Fast Intel CPU/GPU/NPU model for short English dictation.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-base.en-int8", "Base English INT8", 80_700_000,
+                "OpenVINO/whisper-base.en-int8-ov", "",
+                "Balanced Intel CPU/GPU/NPU model for English dictation.", true, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-small.en-int8", "Small English INT8", 244_000_000,
+                "OpenVINO/whisper-small.en-int8-ov", "",
+                "More accurate Intel CPU/GPU/NPU model for English dictation.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-large-v3-turbo-int8", "Large v3 Turbo INT8 (Experimental)", 820_000_000,
+                "FluidInference/whisper-large-v3-turbo-int8-ov-npu", "",
+                "Experimental high-accuracy multilingual NPU model. Expect a slower cold load.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-large-v3-turbo-int4", "Large v3 Turbo INT4 (Experimental)", 593_000_000,
+                "FluidInference/whisper-large-v3-turbo-int4-ov-npu", "",
+                "Experimental NPU-focused Turbo model with a smaller INT4 footprint. Benchmark quality before daily use.", false, "transcription"),
+            Self::model_info("OpenVINO GenAI", "openvino-whisper-large-v3-turbo-fp16", "Large v3 Turbo FP16 (Experimental)", 1_950_000_000,
+                "FluidInference/whisper-large-v3-turbo-fp16-ov-npu", "",
+                "Experimental NPU-focused Turbo model for accuracy and memory comparison. Expect the heaviest warm load.", false, "transcription"),
+        ]
+    }
+
+    #[cfg(target_os = "macos")]
+    fn mlx_models() -> Vec<ModelInfo> {
+        vec![
+            Self::model_info("MLX Whisper", "mlx-whisper-base.en", "Base English MLX", 145_000_000,
+                "mlx-community/whisper-base.en-mlx", "",
+                "Experimental Apple Silicon model for local macOS dictation through MLX.", true, "transcription"),
+            Self::model_info("MLX Whisper", "mlx-whisper-small.en", "Small English MLX", 480_000_000,
+                "mlx-community/whisper-small.en-mlx", "",
+                "Experimental higher-accuracy Apple Silicon model for local macOS dictation.", false, "transcription"),
         ]
     }
 

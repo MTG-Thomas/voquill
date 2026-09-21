@@ -57,9 +57,15 @@ impl MlxWhisperService {
         }
 
         let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
-        let model_path = model_manager.get_model_path(model_size);
+        let model = ModelManager::find_model("MLX Whisper", model_size).ok_or_else(|| {
+            TranscriptionError::Model(format!(
+                "MLX model {} not found in catalog. Please download it in settings.",
+                model_size
+            ))
+        })?;
+        let model_path = model_manager.get_model_path(&model);
 
-        if !model_manager.is_model_downloaded(model_size) {
+        if !model_manager.is_model_downloaded(&model) {
             return Err(TranscriptionError::Model(format!(
                 "MLX model {} not found. Please download it in settings.",
                 model_size
