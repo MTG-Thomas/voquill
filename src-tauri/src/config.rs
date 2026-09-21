@@ -388,9 +388,8 @@ impl Config {
                 }
             }
         }
-        for term in crate::domain_vocabulary::parse_custom_vocabulary_terms(
-            &self.custom_vocabulary,
-        ) {
+        for term in crate::domain_vocabulary::parse_custom_vocabulary_terms(&self.custom_vocabulary)
+        {
             let mut framed = term;
             if !framed.ends_with('.') && !framed.ends_with('!') && !framed.ends_with('?') {
                 framed.push('.');
@@ -878,7 +877,8 @@ mod tests {
     }
 
     #[test]
-    fn resolve_prompt_hint_spelling_only() {        let config = Config {
+    fn resolve_prompt_hint_spelling_only() {
+        let config = Config {
             language: "en-GB".to_string(),
             dictionary: vec![],
             ..Default::default()
