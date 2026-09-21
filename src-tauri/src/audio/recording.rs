@@ -115,11 +115,10 @@ pub async fn record_audio_while_flag_with_partials(
 
             if let Some(partial_tx) = partial_tx.as_ref() {
                 let enough_audio = all.len() >= minimum_partial_samples;
-                let enough_new_audio = all.len().saturating_sub(last_partial_sample_count)
-                    >= partial_interval_samples;
+                let enough_new_audio =
+                    all.len().saturating_sub(last_partial_sample_count) >= partial_interval_samples;
                 if enough_audio && enough_new_audio {
-                    if let Ok(partial_wav) =
-                        finalize_captured_audio_for_whisper(&all, sample_rate)
+                    if let Ok(partial_wav) = finalize_captured_audio_for_whisper(&all, sample_rate)
                     {
                         let _ = partial_tx.send(partial_wav);
                         last_partial_sample_count = all.len();

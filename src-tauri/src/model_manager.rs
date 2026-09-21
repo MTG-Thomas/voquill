@@ -506,12 +506,28 @@ impl ModelManager {
     #[cfg(target_os = "macos")]
     fn mlx_models() -> Vec<ModelInfo> {
         vec![
-            Self::model_info("MLX Whisper", "mlx-whisper-base.en", "Base English MLX", 145_000_000,
-                "mlx-community/whisper-base.en-mlx", "",
-                "Experimental Apple Silicon model for local macOS dictation through MLX.", true, "transcription"),
-            Self::model_info("MLX Whisper", "mlx-whisper-small.en", "Small English MLX", 480_000_000,
-                "mlx-community/whisper-small.en-mlx", "",
-                "Experimental higher-accuracy Apple Silicon model for local macOS dictation.", false, "transcription"),
+            Self::model_info(
+                "MLX Whisper",
+                "mlx-whisper-base.en",
+                "Base English MLX",
+                145_000_000,
+                "mlx-community/whisper-base.en-mlx",
+                "",
+                "Experimental Apple Silicon model for local macOS dictation through MLX.",
+                true,
+                "transcription",
+            ),
+            Self::model_info(
+                "MLX Whisper",
+                "mlx-whisper-small.en",
+                "Small English MLX",
+                480_000_000,
+                "mlx-community/whisper-small.en-mlx",
+                "",
+                "Experimental higher-accuracy Apple Silicon model for local macOS dictation.",
+                false,
+                "transcription",
+            ),
         ]
     }
 

@@ -1,6 +1,6 @@
 use crate::config::{self, Config, TranscriptionMode};
-use crate::{domain_vocabulary, openvino_whisper};
 use crate::transcription::TranscriptionService;
+use crate::{domain_vocabulary, openvino_whisper};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 use tokio::sync::mpsc;

@@ -173,12 +173,14 @@ fn start_worker(model_path: &Path) -> Result<MlxWorker, TranscriptionError> {
             ))
         })?;
 
-    let stdin = child.stdin.take().ok_or_else(|| {
-        TranscriptionError::Model("MLX worker stdin unavailable".to_string())
-    })?;
-    let stdout = child.stdout.take().ok_or_else(|| {
-        TranscriptionError::Model("MLX worker stdout unavailable".to_string())
-    })?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| TranscriptionError::Model("MLX worker stdin unavailable".to_string()))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| TranscriptionError::Model("MLX worker stdout unavailable".to_string()))?;
     let stderr_lines = Arc::new(Mutex::new(Vec::new()));
     if let Some(stderr) = child.stderr.take() {
         pipe_worker_stderr(stderr, stderr_lines.clone());
@@ -251,13 +253,11 @@ impl MlxWorker {
 
         if response_json.trim().is_empty() {
             let stderr = self.read_stderr();
-            return Err(TranscriptionError::Model(
-                if stderr.trim().is_empty() {
-                    "MLX worker exited without a response".to_string()
-                } else {
-                    format!("MLX worker exited without a response: {}", stderr.trim())
-                },
-            ));
+            return Err(TranscriptionError::Model(if stderr.trim().is_empty() {
+                "MLX worker exited without a response".to_string()
+            } else {
+                format!("MLX worker exited without a response: {}", stderr.trim())
+            }));
         }
 
         let response = serde_json::from_str::<WorkerResponse>(&response_json)

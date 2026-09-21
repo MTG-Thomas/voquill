@@ -240,7 +240,8 @@ pub async fn start_mic_test(
         if engine_guard.is_none() {
             crate::log_info!("Audio engine not found for mic test, attempting to initialize...");
             let requested_device = { state.config.lock().unwrap().audio_device.clone() };
-            let requested_device_label = { state.config.lock().unwrap().audio_device_label.clone() };
+            let requested_device_label =
+                { state.config.lock().unwrap().audio_device_label.clone() };
 
             let resolved_device = {
                 let cached_device = state.cached_device.lock().unwrap().clone();

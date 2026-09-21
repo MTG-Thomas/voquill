@@ -13,4 +13,6 @@ pub use device::{
 };
 pub use engine::PersistentAudioEngine;
 pub use playback::{play_audio, play_wav_file};
-pub use recording::{record_audio_while_flag, record_audio_while_flag_with_partials, record_mic_test};
+pub use recording::{
+    record_audio_while_flag, record_audio_while_flag_with_partials, record_mic_test,
+};

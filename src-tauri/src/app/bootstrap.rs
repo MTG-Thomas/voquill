@@ -158,8 +158,11 @@ pub fn run_setup(
                 model_size,
                 accelerator
             );
-            if let Err(error) =
-                crate::app::commands::transcription::warm_up_openvino_model(&model_size, Some(&accelerator)).await
+            if let Err(error) = crate::app::commands::transcription::warm_up_openvino_model(
+                &model_size,
+                Some(&accelerator),
+            )
+            .await
             {
                 crate::log_warn!("Startup model warm failed: {}", error);
             }

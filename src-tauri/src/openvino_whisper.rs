@@ -58,13 +58,12 @@ struct LocalWorkerPool;
 impl OpenVinoWhisperService {
     pub fn new(model_size: &str, device: &str) -> Result<Self, TranscriptionError> {
         let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
-        let model =
-            ModelManager::find_model("OpenVINO GenAI", model_size).ok_or_else(|| {
-                TranscriptionError::Model(format!(
-                    "OpenVINO model {} not found in catalog. Please download it in settings.",
-                    model_size
-                ))
-            })?;
+        let model = ModelManager::find_model("OpenVINO GenAI", model_size).ok_or_else(|| {
+            TranscriptionError::Model(format!(
+                "OpenVINO model {} not found in catalog. Please download it in settings.",
+                model_size
+            ))
+        })?;
         let model_path = model_manager.get_model_path(&model);
 
         if !model_manager.is_model_downloaded(&model) {
@@ -160,9 +159,9 @@ fn send_worker_request(
         workers.insert(key.clone(), start_worker(model_path, device)?);
     }
 
-    let worker = workers.get_mut(&key).ok_or_else(|| {
-        TranscriptionError::Model("OpenVINO worker was not created".to_string())
-    })?;
+    let worker = workers
+        .get_mut(&key)
+        .ok_or_else(|| TranscriptionError::Model("OpenVINO worker was not created".to_string()))?;
     match worker.transcribe(audio_path, language, prompt) {
         Ok(text) => Ok(text),
         Err(error) => {
@@ -313,16 +312,14 @@ impl OpenVinoWorker {
 
         if response_json.trim().is_empty() {
             let stderr = self.read_stderr();
-            return Err(TranscriptionError::Model(
-                if stderr.trim().is_empty() {
-                    "OpenVINO worker exited without a response".to_string()
-                } else {
-                    format!(
-                        "OpenVINO worker exited without a response: {}",
-                        stderr.trim()
-                    )
-                },
-            ));
+            return Err(TranscriptionError::Model(if stderr.trim().is_empty() {
+                "OpenVINO worker exited without a response".to_string()
+            } else {
+                format!(
+                    "OpenVINO worker exited without a response: {}",
+                    stderr.trim()
+                )
+            }));
         }
 
         let response = serde_json::from_str::<WorkerResponse>(&response_json)
@@ -331,11 +328,9 @@ impl OpenVinoWorker {
             return Ok(response.text.unwrap_or_default().trim().to_string());
         }
 
-        Err(TranscriptionError::Model(
-            response
-                .error
-                .unwrap_or_else(|| "OpenVINO transcription failed".to_string()),
-        ))
+        Err(TranscriptionError::Model(response.error.unwrap_or_else(
+            || "OpenVINO transcription failed".to_string(),
+        )))
     }
 
     fn read_stderr(&mut self) -> String {
