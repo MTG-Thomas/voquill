@@ -51,16 +51,16 @@ impl MlxWorkerPool {
 impl MlxWhisperService {
     pub fn new(model_size: &str) -> Result<Self, TranscriptionError> {
         if !cfg!(target_os = "macos") {
-            return Err(TranscriptionError::ModelError(
+            return Err(TranscriptionError::Model(
                 "MLX Whisper is only available on Apple Silicon macOS.".to_string(),
             ));
         }
 
-        let model_manager = ModelManager::new().map_err(TranscriptionError::ModelError)?;
+        let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
         let model_path = model_manager.get_model_path(model_size);
 
         if !model_manager.is_model_downloaded(model_size) {
-            return Err(TranscriptionError::ModelError(format!(
+            return Err(TranscriptionError::Model(format!(
                 "MLX model {} not found. Please download it in settings.",
                 model_size
             )));
@@ -92,7 +92,7 @@ impl TranscriptionService for MlxWhisperService {
             )
         })
         .await
-        .map_err(|error| TranscriptionError::ModelError(error.to_string()))?
+        .map_err(|error| TranscriptionError::Model(error.to_string()))?
     }
 
     fn service_name(&self) -> &'static str {
@@ -120,7 +120,7 @@ fn write_temp_wav(audio_data: &[u8]) -> Result<PathBuf, TranscriptionError> {
             .unwrap_or_default()
     ));
     std::fs::write(&audio_path, audio_data)
-        .map_err(|error| TranscriptionError::AudioError(error.to_string()))?;
+        .map_err(|error| TranscriptionError::Audio(error.to_string()))?;
     Ok(audio_path)
 }
 
@@ -133,14 +133,14 @@ fn send_worker_request(
     let key = model_path.to_string_lossy().to_string();
     let mut workers = MlxWorkerPool::get()
         .lock()
-        .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+        .map_err(|error| TranscriptionError::Model(error.to_string()))?;
     if !workers.contains_key(&key) {
         workers.insert(key.clone(), start_worker(model_path)?);
     }
 
     let worker = workers
         .get_mut(&key)
-        .ok_or_else(|| TranscriptionError::ModelError("MLX worker was not created".to_string()))?;
+        .ok_or_else(|| TranscriptionError::Model("MLX worker was not created".to_string()))?;
     match worker.transcribe(audio_path, language, prompt) {
         Ok(text) => Ok(text),
         Err(error) => {
@@ -162,16 +162,16 @@ fn start_worker(model_path: &Path) -> Result<MlxWorker, TranscriptionError> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| {
-            TranscriptionError::ModelError(format!(
+            TranscriptionError::Model(format!(
                 "Failed to start MLX Python worker. Install a native Apple Silicon Python 3 runtime with mlx-whisper: python3 -m pip install mlx-whisper. Error: {error}"
             ))
         })?;
 
     let stdin = child.stdin.take().ok_or_else(|| {
-        TranscriptionError::ModelError("MLX worker stdin unavailable".to_string())
+        TranscriptionError::Model("MLX worker stdin unavailable".to_string())
     })?;
     let stdout = child.stdout.take().ok_or_else(|| {
-        TranscriptionError::ModelError("MLX worker stdout unavailable".to_string())
+        TranscriptionError::Model("MLX worker stdout unavailable".to_string())
     })?;
     let stderr_lines = Arc::new(Mutex::new(Vec::new()));
     if let Some(stderr) = child.stderr.take() {
@@ -214,10 +214,10 @@ impl MlxWorker {
             prompt,
         };
         let request_json = serde_json::to_string(&request)
-            .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+            .map_err(|error| TranscriptionError::Model(error.to_string()))?;
         writeln!(self.stdin, "{}", request_json)
             .and_then(|_| self.stdin.flush())
-            .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+            .map_err(|error| TranscriptionError::Model(error.to_string()))?;
 
         let mut response_json = String::new();
         let worker_process_id = self.child.id();
@@ -241,11 +241,11 @@ impl MlxWorker {
 
         let read_result = self.stdout.read_line(&mut response_json);
         request_completed.store(true, Ordering::SeqCst);
-        read_result.map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+        read_result.map_err(|error| TranscriptionError::Model(error.to_string()))?;
 
         if response_json.trim().is_empty() {
             let stderr = self.read_stderr();
-            return Err(TranscriptionError::ModelError(
+            return Err(TranscriptionError::Model(
                 if stderr.trim().is_empty() {
                     "MLX worker exited without a response".to_string()
                 } else {
@@ -255,12 +255,12 @@ impl MlxWorker {
         }
 
         let response = serde_json::from_str::<WorkerResponse>(&response_json)
-            .map_err(|error| TranscriptionError::ModelError(error.to_string()))?;
+            .map_err(|error| TranscriptionError::Model(error.to_string()))?;
         if response.ok {
             return Ok(response.text.unwrap_or_default().trim().to_string());
         }
 
-        Err(TranscriptionError::ModelError(
+        Err(TranscriptionError::Model(
             response
                 .error
                 .unwrap_or_else(|| "MLX transcription failed".to_string()),

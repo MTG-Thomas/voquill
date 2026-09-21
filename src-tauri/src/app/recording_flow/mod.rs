@@ -156,7 +156,7 @@ async fn record_and_transcribe_inner(
                     code => Some(code.to_string()),
                 }
             },
-            Some(prompt_hint.clone()),
+            prompt_hint.clone(),
             current_config.custom_corrections.clone(),
         );
         (Some(partial_tx), Some(task))
