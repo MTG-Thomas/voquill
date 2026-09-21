@@ -179,6 +179,8 @@ pub struct Config {
     pub local_model_size: String,
     #[serde(default = "default_local_engine")]
     pub local_engine: String,
+    #[serde(default = "default_local_accelerator")]
+    pub local_accelerator: String,
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
     #[serde(default = "default_typing_speed")]
@@ -193,18 +195,28 @@ pub struct Config {
     pub pixels_from_bottom: i32,
     #[serde(default = "default_audio_device")]
     pub audio_device: Option<String>,
+    #[serde(default)]
+    pub audio_device_label: Option<String>,
     #[serde(default = "default_playback_device")]
     pub playback_device: Option<String>,
     #[serde(default = "default_enable_recording_logs")]
     pub enable_recording_logs: bool,
     #[serde(default = "default_input_sensitivity")]
     pub input_sensitivity: f32,
+    #[serde(default = "default_office_mode")]
+    pub office_mode: bool,
     #[serde(default = "default_output_method")]
     pub output_method: OutputMethod,
     #[serde(default = "default_copy_on_typewriter")]
     pub copy_on_typewriter: bool,
+    #[serde(default = "default_streaming_typewriter")]
+    pub streaming_typewriter: bool,
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default = "default_custom_vocabulary")]
+    pub custom_vocabulary: String,
+    #[serde(default = "default_custom_corrections")]
+    pub custom_corrections: String,
     #[serde(default)]
     pub shortcuts_token: Option<String>,
     #[serde(default)]
@@ -283,6 +295,8 @@ pub struct Config {
     pub voice_macro_activation_threshold: f32,
     #[serde(default)]
     pub voice_macros: Vec<VoiceMacroCommand>,
+    #[serde(default = "default_warm_model_on_startup")]
+    pub warm_model_on_startup: bool,
 }
 
 impl Config {
@@ -433,6 +447,9 @@ fn default_local_model_size() -> String {
 fn default_local_engine() -> String {
     "Whisper.cpp (GPU)".to_string()
 }
+fn default_local_accelerator() -> String {
+    "NPU".to_string()
+}
 fn default_hotkey() -> String {
     "ctrl+shift+space".to_string()
 }
@@ -463,6 +480,9 @@ fn default_enable_recording_logs() -> bool {
 fn default_input_sensitivity() -> f32 {
     1.0
 }
+fn default_office_mode() -> bool {
+    false
+}
 fn default_output_method() -> OutputMethod {
     OutputMethod::Clipboard
 }
@@ -475,8 +495,20 @@ fn default_paste_shortcut() -> PasteShortcut {
 fn default_copy_on_typewriter() -> bool {
     false
 }
+fn default_streaming_typewriter() -> bool {
+    false
+}
 fn default_language() -> String {
     "auto".to_string()
+}
+fn default_custom_vocabulary() -> String {
+    String::new()
+}
+fn default_custom_corrections() -> String {
+    String::new()
+}
+fn default_warm_model_on_startup() -> bool {
+    true
 }
 fn default_post_roll_ms() -> u64 {
     0
@@ -606,6 +638,7 @@ impl Default for Config {
             transcription_mode: default_transcription_mode(),
             local_model_size: default_local_model_size(),
             local_engine: default_local_engine(),
+            local_accelerator: default_local_accelerator(),
             hotkey: default_hotkey(),
             typing_speed_interval: default_typing_speed(),
             key_press_duration_ms: default_key_press_duration(),
@@ -613,12 +646,17 @@ impl Default for Config {
             paste_delay_after_ms: default_paste_delay_after_ms(),
             pixels_from_bottom: default_pixels_from_bottom(),
             audio_device: default_audio_device(),
+            audio_device_label: None,
             playback_device: default_playback_device(),
             enable_recording_logs: default_enable_recording_logs(),
             input_sensitivity: default_input_sensitivity(),
+            office_mode: default_office_mode(),
             output_method: default_output_method(),
             copy_on_typewriter: default_copy_on_typewriter(),
+            streaming_typewriter: default_streaming_typewriter(),
             language: default_language(),
+            custom_vocabulary: default_custom_vocabulary(),
+            custom_corrections: default_custom_corrections(),
             shortcuts_token: None,
             input_token: None,
             post_roll_ms: default_post_roll_ms(),
@@ -658,6 +696,7 @@ impl Default for Config {
             voice_macro_suppress_overlay: default_voice_macro_suppress_overlay(),
             voice_macro_activation_threshold: default_voice_macro_activation_threshold(),
             voice_macros: Vec::new(),
+            warm_model_on_startup: default_warm_model_on_startup(),
         }
     }
 }
