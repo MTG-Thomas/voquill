@@ -1,4 +1,6 @@
 import { IconInfoCircle } from "@tabler/icons-preact";
+import { useState } from "preact/hooks";
+import { invoke } from "@tauri-apps/api/core";
 import { ConfigField } from "../../components/ConfigField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ModeSwitcher } from "../../components/ModeSwitcher.tsx";
@@ -8,6 +10,7 @@ import { SliderField } from "../../components/SliderField.tsx";
 import { ModelSelectionPanel } from "../../components/ModelSelectionPanel.tsx";
 import { SelectField } from "../../components/SelectField.tsx";
 import { EngineSettingsPanel } from "../../components/EngineSettingsPanel.tsx";
+import { TurboWarmPhaseBar } from "../../components/TurboWarmPhaseBar.tsx";
 import type {
   Config,
   DownloadPhase,
@@ -58,6 +61,28 @@ export function TranscriptionSection({
   setShowModelGuide,
   languageOptions,
 }: TranscriptionSectionProps) {
+  const [warmStartedAt, setWarmStartedAt] = useState<number | null>(null);
+  const [isWarming, setIsWarming] = useState(false);
+  const isOpenVino = config.local_engine === "OpenVINO GenAI";
+
+  async function handleWarmup() {
+    if (isWarming) return;
+    setIsWarming(true);
+    setWarmStartedAt(Date.now());
+    try {
+      await invoke("warm_up_model", {
+        modelSize: config.local_model_size,
+        engine: config.local_engine,
+        accelerator: config.local_accelerator,
+      });
+    } catch (error) {
+      console.error("Model warmup failed:", error);
+    } finally {
+      setIsWarming(false);
+      setWarmStartedAt(null);
+    }
+  }
+
   return (
     <>
       <ConfigField
@@ -200,6 +225,57 @@ export function TranscriptionSection({
                 }}
               />
             </ConfigField>
+          )}
+
+          {isOpenVino && (
+            <>
+              <ConfigField
+                label="OpenVINO Accelerator"
+                description="Compute device for the OpenVINO GenAI pipeline (NPU recommended on Intel Core Ultra)."
+              >
+                <div style={selectWrapperStyle}>
+                  <SelectField
+                    value={config.local_accelerator}
+                    options={[
+                      { value: "NPU", label: "NPU" },
+                      { value: "GPU", label: "GPU" },
+                      { value: "CPU", label: "CPU" },
+                    ]}
+                    onChange={(next) => updateConfig("local_accelerator", next)}
+                    ariaLabel="OpenVINO accelerator"
+                  />
+                </div>
+              </ConfigField>
+
+              <ConfigField
+                label="Model Warmup"
+                description="Run a silent inference pass now so the first dictation starts instantly. Turbo models show live progress."
+              >
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}
+                >
+                  <Button
+                    variant="configAction"
+                    onClick={handleWarmup}
+                    disabled={isWarming || isDownloading}
+                  >
+                    {isWarming ? "Warming…" : "Warm Up Model"}
+                  </Button>
+                  {isWarming && <TurboWarmPhaseBar compact startedAt={warmStartedAt} />}
+                </div>
+              </ConfigField>
+
+              <ConfigField
+                label="Warm Model on Startup"
+                description="Automatically warm the OpenVINO model when the app launches."
+              >
+                <Switch
+                  name="Warm model on startup"
+                  checked={config.warm_model_on_startup}
+                  onChange={(checked) => updateConfig("warm_model_on_startup", checked)}
+                />
+              </ConfigField>
+            </>
           )}
         </>
       )}

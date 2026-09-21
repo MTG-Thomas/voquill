@@ -193,6 +193,11 @@ function App() {
       audioSetup.setMicTestPassed(true);
     },
     onMicVolume: audioSetup.setMicVolume,
+    onMicReadinessWarnings: (warnings) => {
+      for (const warning of warnings) {
+        showToast(warning.message, "info");
+      }
+    },
     onDownloadProgress: (progress) => {
       configHook.setDownloadProgress(progress);
     },

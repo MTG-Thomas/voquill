@@ -26,10 +26,39 @@ export function DictionarySection({ config, updateConfig }: DictionarySectionPro
   };
 
   return (
-    <ConfigField
-      label="Custom Words"
-      description="Add names, jargon, or terms Whisper often gets wrong. Helps improve accuracy."
-    >
+    <>
+      <ConfigField
+        label="Custom Terms"
+        description="One preferred company, product, acronym, or internal term per line."
+      >
+        <textarea
+          value={config.custom_vocabulary}
+          onInput={(event) =>
+            updateConfig("custom_vocabulary", (event.target as HTMLTextAreaElement).value)
+          }
+          rows={6}
+          style={{ ...inputBaseStyle, minHeight: 120, resize: "vertical", lineHeight: 1.45 }}
+        />
+      </ConfigField>
+
+      <ConfigField
+        label="Correction Pairs"
+        description="One correction per line, like: halo p s a => HaloPSA"
+      >
+        <textarea
+          value={config.custom_corrections}
+          onInput={(event) =>
+            updateConfig("custom_corrections", (event.target as HTMLTextAreaElement).value)
+          }
+          rows={6}
+          style={{ ...inputBaseStyle, minHeight: 120, resize: "vertical", lineHeight: 1.45 }}
+        />
+      </ConfigField>
+
+      <ConfigField
+        label="Custom Words"
+        description="Add names, jargon, or terms Whisper often gets wrong. Helps improve accuracy."
+      >
       <div
         style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.xs, width: "100%" }}
       >
@@ -97,6 +126,7 @@ export function DictionarySection({ config, updateConfig }: DictionarySectionPro
           </div>
         )}
       </div>
-    </ConfigField>
+      </ConfigField>
+    </>
   );
 }

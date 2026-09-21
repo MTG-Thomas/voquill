@@ -2,6 +2,7 @@ import { useEffect } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { listen } from "@tauri-apps/api/event";
 import {
+  AudioReadinessWarning,
   HotkeyBindingState,
   ModelDownloadProgress,
   StatusUpdatePayload,
@@ -17,6 +18,7 @@ interface UseTauriEventsOptions {
   onMicTestStarted: () => void;
   onMicTestFinished: () => void;
   onMicVolume: (payload: MicVolumePayload | number) => void;
+  onMicReadinessWarnings: (warnings: AudioReadinessWarning[]) => void;
   onDownloadProgress: (progress: ModelDownloadProgress) => void;
   onPostProcessGpuStatusChanged: () => void;
   onFocus: () => void;
@@ -55,6 +57,12 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
     const unlistenMicVolume = listen<MicVolumePayload | number>("mic-test-volume", (event) => {
       latest.value.onMicVolume(event.payload);
     });
+    const unlistenMicReadiness = listen<AudioReadinessWarning[]>(
+      "mic-readiness-warnings",
+      (event) => {
+        latest.value.onMicReadinessWarnings(event.payload);
+      },
+    );
     const unlistenDownloadProgress = listen<ModelDownloadProgress>(
       "model-download-progress",
       (event) => {
@@ -81,6 +89,7 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
       unlistenMicTestStarted.then((fn) => fn());
       unlistenMicTestFinished.then((fn) => fn());
       unlistenMicVolume.then((fn) => fn());
+      unlistenMicReadiness.then((fn) => fn());
       unlistenDownloadProgress.then((fn) => fn());
       unlistenPostProcessGpuStatus.then((fn) => fn());
     };

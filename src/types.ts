@@ -81,17 +81,23 @@ export interface Config {
   transcription_mode: "API" | "Local";
   local_model_size: string;
   local_engine: string;
+  local_accelerator: string;
   hotkey: string;
   typing_speed_interval: number;
   key_press_duration_ms: number;
   pixels_from_bottom: number;
   audio_device: string | null;
+  audio_device_label: string | null;
   playback_device?: string | null;
   enable_recording_logs: boolean;
   input_sensitivity: number;
+  office_mode: boolean;
   output_method: "Typewriter" | "Clipboard";
   copy_on_typewriter: boolean;
+  streaming_typewriter: boolean;
   language: string;
+  custom_vocabulary: string;
+  custom_corrections: string;
   post_roll_ms: number;
   hotkey_mode: "HoldToTalk" | "Toggle";
   max_recording_duration_minutes: number;
@@ -129,6 +135,7 @@ export interface Config {
   voice_macro_suppress_overlay: boolean;
   voice_macro_activation_threshold: number;
   voice_macros: VoiceMacroCommand[];
+  warm_model_on_startup: boolean;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -268,6 +275,12 @@ export interface EngineCapabilities {
 export interface StatusUpdatePayload {
   seq: number;
   status: string;
+  turbo_warm?: boolean;
+}
+
+export interface AudioReadinessWarning {
+  code: string;
+  message: string;
 }
 
 export type DictationStatus =

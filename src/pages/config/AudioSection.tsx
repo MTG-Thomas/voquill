@@ -51,7 +51,11 @@ export function AudioSection({
           <SelectField
             value={config.audio_device || "default"}
             options={availableMics.map((mic) => ({ value: mic.id, label: mic.label }))}
-            onChange={(nextMicId) => updateConfig("audio_device", nextMicId)}
+            onChange={(nextMicId) => {
+              updateConfig("audio_device", nextMicId);
+              const selected = availableMics.find((mic) => mic.id === nextMicId);
+              updateConfig("audio_device_label", selected ? selected.label : null);
+            }}
             ariaLabel="Microphone"
           />
           <Button variant="icon" onClick={loadMics} title="Refresh Devices">
@@ -98,6 +102,17 @@ export function AudioSection({
           onStartMicTest={startMicTest}
           onStopMicTest={stopMicTest}
           onStopMicPlayback={stopMicPlayback}
+        />
+      </ConfigField>
+
+      <ConfigField
+        label="Office Mode"
+        description="Use stricter mic readiness warnings for headset dictation in noisy office spaces."
+      >
+        <Switch
+          name="Office Mode"
+          checked={config.office_mode}
+          onChange={(checked) => updateConfig("office_mode", checked)}
         />
       </ConfigField>
 

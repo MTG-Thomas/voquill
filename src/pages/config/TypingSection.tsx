@@ -118,6 +118,18 @@ export function TypingSection({ config, updateConfig }: TypingSectionProps) {
           </ConfigField>
 
           <ConfigField
+            label="Streaming Typewriter"
+            labelBadge="Experimental"
+            description="Types stable partial dictation while you are still speaking. OpenVINO Typewriter mode only."
+          >
+            <Switch
+              name="Streaming Typewriter"
+              checked={config.streaming_typewriter}
+              onChange={(checked) => updateConfig("streaming_typewriter", checked)}
+            />
+          </ConfigField>
+
+          <ConfigField
             label="Typing Speed (ms / char)"
             description="Delay between simulated key presses. Lower is faster (1ms recommended); raise if characters drop in slow applications."
           >
