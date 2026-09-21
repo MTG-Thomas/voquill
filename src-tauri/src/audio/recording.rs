@@ -76,6 +76,88 @@ pub async fn record_audio_while_flag(
     finalize_captured_audio_for_whisper(&raw_samples, sample_rate)
 }
 
+/// Streaming-typewriter variant: like [`record_audio_while_flag`], but emits
+/// whisper-ready partial WAV snapshots (first after ~2s of audio, then every
+/// ~3s) so OpenVINO GenAI can transcribe incrementally while dictating.
+pub async fn record_audio_while_flag_with_partials(
+    session_state: &Arc<Mutex<SessionState>>,
+    engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
+    post_roll_ms: u64,
+    max_recording_duration: std::time::Duration,
+    partial_tx: Option<tokio::sync::mpsc::UnboundedSender<Vec<u8>>>,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    use ringbuf::traits::Consumer;
+
+    crate::log_info!("record_audio_while_flag_with_partials: enter");
+    let (tx, rx) = mpsc::sync_channel::<f32>(65536);
+    let mut samples = Vec::new();
+    let sample_rate;
+    {
+        let mut guard = engine.lock().unwrap();
+        let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
+        sample_rate = eng.sample_rate;
+        if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
+            while let Some(s) = cons.try_pop() {
+                samples.push(s);
+            }
+        }
+        *eng.recording_tx.lock().unwrap() = Some(tx);
+    }
+
+    let (data_tx, data_rx) = mpsc::channel::<Vec<f32>>();
+    std::thread::spawn(move || {
+        let mut all = samples;
+        let mut last_partial_sample_count = 0usize;
+        let partial_interval_samples = sample_rate as usize * 3;
+        let minimum_partial_samples = sample_rate as usize * 2;
+        while let Ok(s) = rx.recv() {
+            all.push(s);
+
+            if let Some(partial_tx) = partial_tx.as_ref() {
+                let enough_audio = all.len() >= minimum_partial_samples;
+                let enough_new_audio = all.len().saturating_sub(last_partial_sample_count)
+                    >= partial_interval_samples;
+                if enough_audio && enough_new_audio {
+                    if let Ok(partial_wav) =
+                        finalize_captured_audio_for_whisper(&all, sample_rate)
+                    {
+                        let _ = partial_tx.send(partial_wav);
+                        last_partial_sample_count = all.len();
+                    }
+                }
+            }
+        }
+        let _ = data_tx.send(all);
+    });
+
+    let capture_started = tokio::time::Instant::now();
+    loop {
+        let still_recording = matches!(*session_state.lock().unwrap(), SessionState::Recording);
+        if !still_recording {
+            break;
+        }
+        if capture_started.elapsed() >= max_recording_duration {
+            crate::log_warn!(
+                "record_audio_while_flag_with_partials: max recording duration of {:?} reached; auto-stopping capture",
+                max_recording_duration
+            );
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+
+    if post_roll_ms > 0 {
+        tokio::time::sleep(std::time::Duration::from_millis(post_roll_ms)).await;
+    }
+
+    if let Some(eng) = engine.lock().unwrap().as_ref() {
+        *eng.recording_tx.lock().unwrap() = None;
+    }
+
+    let raw_samples = data_rx.recv()?;
+    finalize_captured_audio_for_whisper(&raw_samples, sample_rate)
+}
+
 pub async fn record_mic_test<F>(
     is_mic_test: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,

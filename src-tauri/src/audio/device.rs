@@ -327,6 +327,104 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AudioDeviceMatchKind {
+    Default,
+    ExactId,
+    SavedLabel,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AudioDeviceSelection {
+    pub id: String,
+    pub label: String,
+    pub match_kind: AudioDeviceMatchKind,
+}
+
+fn normalize_device_label(label: &str) -> String {
+    label.trim().to_lowercase()
+}
+
+/// Resolve a saved (id, label) pair against currently enumerated inputs.
+/// Falls back to a unique label match when the saved endpoint id is gone
+/// (e.g. USB headset re-enumerated with a new endpoint id).
+pub fn select_configured_audio_device(
+    target_id: Option<&str>,
+    target_label: Option<&str>,
+    devices: &[AudioDevice],
+) -> Result<AudioDeviceSelection, String> {
+    let target_id = target_id
+        .map(str::trim)
+        .filter(|id| !id.is_empty() && *id != "default");
+
+    let Some(target_id) = target_id else {
+        return Ok(AudioDeviceSelection {
+            id: "default".to_string(),
+            label: "System Default".to_string(),
+            match_kind: AudioDeviceMatchKind::Default,
+        });
+    };
+
+    if let Some(device) = devices.iter().find(|device| device.id == target_id) {
+        return Ok(AudioDeviceSelection {
+            id: device.id.clone(),
+            label: device.label.clone(),
+            match_kind: AudioDeviceMatchKind::ExactId,
+        });
+    }
+
+    let target_label = target_label
+        .map(str::trim)
+        .filter(|label| !label.is_empty() && *label != "System Default");
+
+    if let Some(target_label) = target_label {
+        let normalized_target_label = normalize_device_label(target_label);
+        let matches = devices
+            .iter()
+            .filter(|device| normalize_device_label(&device.label) == normalized_target_label)
+            .collect::<Vec<&AudioDevice>>();
+
+        if matches.len() == 1 {
+            let device = matches[0];
+            return Ok(AudioDeviceSelection {
+                id: device.id.clone(),
+                label: device.label.clone(),
+                match_kind: AudioDeviceMatchKind::SavedLabel,
+            });
+        }
+
+        if matches.len() > 1 {
+            return Err(format!(
+                "Device '{}' is no longer present, and saved label '{}' matches multiple active devices",
+                target_id, target_label
+            ));
+        }
+    }
+
+    Err(format!("Device '{}' not found", target_id))
+}
+
+pub fn resolve_configured_audio_device(
+    target_id: Option<String>,
+    target_label: Option<String>,
+) -> Result<AudioDeviceSelection, String> {
+    let devices = get_input_devices()?;
+    select_configured_audio_device(target_id.as_deref(), target_label.as_deref(), &devices)
+}
+
+/// Label-aware variant of [`lookup_device`]: resolves (id, label) via
+/// [`resolve_configured_audio_device`], then delegates to [`lookup_device`].
+pub fn lookup_device_with_label(
+    target_id: Option<String>,
+    target_label: Option<String>,
+) -> Result<cpal::Device, String> {
+    let selection = resolve_configured_audio_device(target_id, target_label)?;
+    if selection.match_kind == AudioDeviceMatchKind::Default {
+        return lookup_device(None);
+    }
+    lookup_device(Some(selection.id))
+}
+
 #[cfg(target_os = "linux")]
 fn get_linux_pulse_output_devices() -> Result<Vec<AudioDevice>, String> {
     let mut devices = Vec::new();
