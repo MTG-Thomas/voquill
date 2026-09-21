@@ -186,6 +186,15 @@ async fn record_and_transcribe_inner(
         task.abort();
     }
 
+    let readiness_warnings =
+        crate::audio_quality::analyze_wav(&audio_data, current_config.office_mode);
+    if !readiness_warnings.is_empty() {
+        for warning in &readiness_warnings {
+            crate::log_info!("Mic readiness: {}", warning.message);
+        }
+        let _ = app_handle.emit("mic-readiness-warnings", readiness_warnings);
+    }
+
     // Capture has ended, however it ended (release, toggle stop, cancel, or
     // the max-duration auto-stop): the recording phase is over.
     {
