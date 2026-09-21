@@ -14,6 +14,9 @@ pub struct OutputPayload {
     pub audio_file: Option<String>,
     pub duration_secs: Option<f64>,
     pub engine: Option<String>,
+    /// Text already committed by the streaming typewriter during capture.
+    /// When present, only the uncommitted suffix is typed (avoids duplicates).
+    pub streamed_committed: Option<String>,
 }
 
 pub async fn deliver_output(
@@ -32,6 +35,7 @@ pub async fn deliver_output(
         audio_file,
         duration_secs,
         engine,
+        streamed_committed,
     } = payload;
     let (
         typing_speed,
@@ -130,11 +134,25 @@ pub async fn deliver_output(
                     crate::log_info!("CLIPBOARD ERROR: {}", error);
                 }
             }
+            let text_to_type: &str = match streamed_committed.as_deref() {
+                Some(committed) if !committed.trim().is_empty() => {
+                    match super::streaming::suffix_after_committed(&output_text, committed) {
+                        Some(suffix) if !suffix.trim().is_empty() => suffix,
+                        _ => {
+                            crate::log_info!(
+                                "Final typewriter output already satisfied by streaming partials"
+                            );
+                            return Ok(());
+                        }
+                    }
+                }
+                _ => &output_text,
+            };
             crate::log_info!("Forwarding text to hardware typing engine...");
             let state = app_handle.state::<crate::AppState>();
             if let Err(error) = state
                 .display_backend
-                .type_text_hardware(app_handle, &output_text, typing_speed, hold_duration)
+                .type_text_hardware(app_handle, text_to_type, typing_speed, hold_duration)
                 .await
             {
                 crate::log_info!("TYPING ENGINE ERROR: {}", error);

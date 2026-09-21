@@ -1,5 +1,6 @@
 pub mod audio_processing;
 pub mod output;
+pub mod streaming;
 
 use crate::app::state::SessionState;
 use crate::config::Config;
@@ -138,13 +139,52 @@ async fn record_and_transcribe_inner(
     let prompt_hint = current_config.resolve_prompt_hint();
     let prompt_name = current_config.resolve_post_process_prompt_name();
 
-    let audio_data = audio::record_audio_while_flag(
-        session_state,
-        audio_engine,
-        post_roll_ms,
-        max_recording_duration,
-    )
-    .await?;
+    let streaming_enabled = streaming::should_stream_typewriter(&current_config);
+    let committed_streaming_text = Arc::new(Mutex::new(String::new()));
+    let (partial_tx, streaming_task) = if streaming_enabled {
+        crate::log_info!("Streaming typewriter enabled for this recording");
+        let (partial_tx, partial_rx) = tokio::sync::mpsc::unbounded_channel();
+        let task = streaming::spawn_streaming_typewriter(
+            app_handle.clone(),
+            config.clone(),
+            partial_rx,
+            committed_streaming_text.clone(),
+            {
+                let choice = current_config.language.as_str();
+                match choice {
+                    "auto" => None,
+                    code => Some(code.to_string()),
+                }
+            },
+            Some(prompt_hint.clone()),
+            current_config.custom_corrections.clone(),
+        );
+        (Some(partial_tx), Some(task))
+    } else {
+        (None, None)
+    };
+
+    let audio_data = if streaming_enabled {
+        audio::record_audio_while_flag_with_partials(
+            session_state,
+            audio_engine,
+            post_roll_ms,
+            max_recording_duration,
+            partial_tx,
+        )
+        .await?
+    } else {
+        audio::record_audio_while_flag(
+            session_state,
+            audio_engine,
+            post_roll_ms,
+            max_recording_duration,
+        )
+        .await?
+    };
+    if let Some(task) = streaming_task {
+        task.abort();
+    }
 
     // Capture has ended, however it ended (release, toggle stop, cancel, or
     // the max-duration auto-stop): the recording phase is over.
@@ -628,6 +668,11 @@ async fn record_and_transcribe_inner(
             audio_file: saved_audio_file,
             duration_secs: Some(duration_secs),
             engine: Some(service.service_name().to_string()),
+            streamed_committed: if streaming_enabled {
+                Some(committed_streaming_text.lock().unwrap().clone())
+            } else {
+                None
+            },
         },
     )
     .await
