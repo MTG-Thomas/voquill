@@ -398,6 +398,7 @@ impl Config {
 
     pub fn normalize(&mut self) {
         self.normalize_input_sensitivity();
+        self.refresh_audio_device_metadata();
         self.diarization_cluster_threshold = self.diarization_cluster_threshold.clamp(
             DIARIZATION_CLUSTER_THRESHOLD_MIN,
             DIARIZATION_CLUSTER_THRESHOLD_MAX,
@@ -426,6 +427,33 @@ impl Config {
         self.input_sensitivity = self
             .input_sensitivity
             .clamp(INPUT_SENSITIVITY_MIN, INPUT_SENSITIVITY_MAX);
+    }
+
+    /// Re-resolve the saved (id, label) microphone pair after enumeration.
+    /// Heals stale endpoint ids (USB re-enumeration) via unique label match.
+    pub fn refresh_audio_device_metadata(&mut self) {
+        match crate::audio::resolve_configured_audio_device(
+            self.audio_device.clone(),
+            self.audio_device_label.clone(),
+        ) {
+            Ok(selection) => {
+                if selection.match_kind == crate::audio::AudioDeviceMatchKind::SavedLabel {
+                    log_info!(
+                        "Refreshed saved microphone endpoint after re-enumeration: '{}' -> '{}' ({})",
+                        self.audio_device
+                            .clone()
+                            .unwrap_or_else(|| "default".to_string()),
+                        selection.id,
+                        selection.label
+                    );
+                }
+                self.audio_device = Some(selection.id);
+                self.audio_device_label = Some(selection.label);
+            }
+            Err(error) => {
+                log_info!("Could not refresh saved microphone metadata: {}", error);
+            }
+        }
     }
 }
 
@@ -755,15 +783,20 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, recording_logs={}, input_sensitivity={:.2}, diarization_cluster_threshold={:.2}",
+        "Config summary: mode={:?}, engine={}, accelerator={}, model={}, hotkey={}, audio_device={:?}, audio_device_label={:?}, recording_logs={}, input_sensitivity={:.2}, diarization_cluster_threshold={:.2}, office_mode={}, streaming_typewriter={}, warm_on_startup={}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
+        normalized_config.local_accelerator,
         normalized_config.local_model_size,
         normalized_config.hotkey,
         normalized_config.audio_device,
+        normalized_config.audio_device_label,
         normalized_config.enable_recording_logs,
         normalized_config.input_sensitivity,
-        normalized_config.diarization_cluster_threshold
+        normalized_config.diarization_cluster_threshold,
+        normalized_config.office_mode,
+        normalized_config.streaming_typewriter,
+        normalized_config.warm_model_on_startup
     );
 
     fs::write(&config_path, config_str)?;

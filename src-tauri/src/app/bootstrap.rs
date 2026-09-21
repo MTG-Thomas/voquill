@@ -44,7 +44,10 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
 
     {
         let mut cached_device = app_state.cached_device.lock().unwrap();
-        let device = match audio::lookup_device(initial_config.audio_device.clone()) {
+        let device = match audio::lookup_device_with_label(
+            initial_config.audio_device.clone(),
+            initial_config.audio_device_label.clone(),
+        ) {
             Ok(device) => Some(device),
             Err(error) => {
                 crate::log_warn!(
@@ -60,25 +63,8 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
         };
         *cached_device = device.clone();
 
-        if let Some(device) = device {
-            match audio::PersistentAudioEngine::new(&device, initial_config.input_sensitivity) {
-                Ok(engine) => {
-                    let mut engine_guard = app_state.audio_engine.lock().unwrap();
-                    *engine_guard = Some(engine);
-                    crate::log_info!("Persistent audio engine initialized");
-                }
-                Err(error) => {
-                    crate::log_warn!(
-                        "Initial persistent audio engine initialization failed (requested_device='{}', sensitivity={:.2}): {}",
-                        initial_config
-                            .audio_device
-                            .clone()
-                            .unwrap_or_else(|| "default".to_string()),
-                        initial_config.input_sensitivity,
-                        error
-                    );
-                }
-            }
+        if device.is_some() {
+            crate::log_info!("Initial audio device resolved; microphone stream remains idle");
         }
         crate::log_info!("Initial pre-warm of audio device cache complete");
     }
@@ -159,6 +145,26 @@ pub fn run_setup(
         crate::log_info!("Overlay window NOT FOUND in setup!");
     }
     let _ = audio::get_input_devices();
+
+    if initial_config.warm_model_on_startup
+        && initial_config.transcription_mode == crate::config::TranscriptionMode::Local
+        && initial_config.local_engine == "OpenVINO GenAI"
+    {
+        let model_size = initial_config.local_model_size.clone();
+        let accelerator = initial_config.local_accelerator.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::log_info!(
+                "Startup model warm scheduled: model={}, accelerator={}",
+                model_size,
+                accelerator
+            );
+            if let Err(error) =
+                crate::app::commands::transcription::warm_up_openvino_model(&model_size, Some(&accelerator)).await
+            {
+                crate::log_warn!("Startup model warm failed: {}", error);
+            }
+        });
+    }
 
     let menu = create_tray_menu(app.handle())?;
     let _tray = TrayIconBuilder::with_id("main-tray")
