@@ -1,5 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { JSX } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useRef } from "preact/hooks";
+import { useSignal, useSignalEffect } from "@preact/signals";
 import { IconCheck, IconChevronDown } from "@tabler/icons-preact";
 import { tokens } from "../design-tokens.ts";
 
@@ -37,44 +39,40 @@ export function SelectField({
   style,
   ariaLabel,
 }: SelectFieldProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [isTriggerHovered, setIsTriggerHovered] = useState(false);
-  const [isTriggerFocused, setIsTriggerFocused] = useState(false);
+  const isOpen = useSignal(false);
+  const searchQuery = useSignal("");
+  const highlightedIndex = useSignal(-1);
+  const isTriggerHovered = useSignal(false);
+  const isTriggerFocused = useSignal(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const listboxIdRef = useRef(`voquill-select-listbox-${Math.random().toString(36).slice(2, 11)}`);
+  const listboxId = `voquill-select-listbox-${Math.random().toString(36).slice(2, 11)}`;
+  const openUpward = useSignal(false);
+  const maxMenuHeight = useSignal(260);
 
   const selectedOption = options.find((option) => option.value === value) || null;
 
-  const filteredOptions = useMemo(() => {
-    if (!searchable) {
-      return options;
-    }
-
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return options;
-    }
-
-    return options.filter((option) => {
-      const searchPool = `${option.label} ${option.value} ${option.searchText || ""}`.toLowerCase();
-      return searchPool.includes(query);
-    });
-  }, [options, searchable, searchQuery]);
+  const query = searchable ? searchQuery.value.trim().toLowerCase() : "";
+  const filteredOptions = query
+    ? options.filter((option) => {
+        const searchPool =
+          `${option.label} ${option.value} ${option.searchText || ""}`.toLowerCase();
+        return searchPool.includes(query);
+      })
+    : options;
 
   const findNextEnabledIndex = (startIndex: number, direction: 1 | -1) => {
-    if (filteredOptions.length === 0 || filteredOptions.every((option) => option.disabled)) {
+    const filtered = filteredOptions;
+    if (filtered.length === 0 || filtered.every((option) => option.disabled)) {
       return -1;
     }
 
     let index = startIndex;
-    for (let step = 0; step < filteredOptions.length; step += 1) {
-      index = (index + direction + filteredOptions.length) % filteredOptions.length;
-      if (!filteredOptions[index].disabled) {
+    for (let step = 0; step < filtered.length; step += 1) {
+      index = (index + direction + filtered.length) % filtered.length;
+      if (!filtered[index].disabled) {
         return index;
       }
     }
@@ -83,9 +81,9 @@ export function SelectField({
   };
 
   const closeDropdown = (focusTrigger: boolean) => {
-    setIsOpen(false);
-    setSearchQuery("");
-    setHighlightedIndex(-1);
+    isOpen.value = false;
+    searchQuery.value = "";
+    highlightedIndex.value = -1;
     if (focusTrigger) {
       triggerRef.current?.focus();
     }
@@ -95,7 +93,18 @@ export function SelectField({
     if (disabled) {
       return;
     }
-    setIsOpen(true);
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      const shouldOpenUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+      openUpward.value = shouldOpenUpward;
+
+      const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow;
+      maxMenuHeight.value = Math.min(260, Math.max(120, availableSpace - 24));
+    }
+    isOpen.value = true;
   };
 
   const selectOption = (optionValue: string) => {
@@ -103,14 +112,17 @@ export function SelectField({
     if (!option || option.disabled) {
       return;
     }
+    const label = option.label || option.value;
+    invoke("log_ui_event", {
+      message: `Setting changed: ${ariaLabel || "SelectField"} -> ${label}`,
+    }).catch(() => {});
     onChange(optionValue);
     closeDropdown(true);
   };
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+  // Outside click handler
+  useSignalEffect(() => {
+    if (!isOpen.value) return;
 
     const handleOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Node | null;
@@ -123,12 +135,11 @@ export function SelectField({
     return () => {
       window.removeEventListener("pointerdown", handleOutsidePointer);
     };
-  }, [isOpen]);
+  });
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+  // Focus search input on open, set initial highlight
+  useSignalEffect(() => {
+    if (!isOpen.value) return;
 
     if (searchable) {
       requestAnimationFrame(() => {
@@ -137,50 +148,45 @@ export function SelectField({
       return;
     }
 
-    const selectedIndex = filteredOptions.findIndex(
-      (option) => option.value === value && !option.disabled,
-    );
+    const selectedIndex = filteredOptions.findIndex((o) => o.value === value && !o.disabled);
     if (selectedIndex >= 0) {
-      setHighlightedIndex(selectedIndex);
+      highlightedIndex.value = selectedIndex;
       return;
     }
 
-    setHighlightedIndex(findNextEnabledIndex(-1, 1));
-  }, [isOpen, searchable, filteredOptions, value]);
+    highlightedIndex.value = findNextEnabledIndex(-1, 1);
+  });
 
-  useEffect(() => {
-    if (!isOpen || !searchable) {
-      return;
-    }
+  // Re-highlight on search query change
+  useSignalEffect(() => {
+    if (!isOpen.value || !searchable) return;
+    void searchQuery.value;
 
-    const selectedIndex = filteredOptions.findIndex(
-      (option) => option.value === value && !option.disabled,
-    );
+    const selectedIndex = filteredOptions.findIndex((o) => o.value === value && !o.disabled);
     if (selectedIndex >= 0) {
-      setHighlightedIndex(selectedIndex);
+      highlightedIndex.value = selectedIndex;
       return;
     }
 
-    setHighlightedIndex(findNextEnabledIndex(-1, 1));
-  }, [searchQuery, isOpen, searchable, filteredOptions, value]);
+    highlightedIndex.value = findNextEnabledIndex(-1, 1);
+  });
 
-  useEffect(() => {
-    if (!isOpen || highlightedIndex < 0) {
-      return;
-    }
+  // Scroll highlighted option into view
+  useSignalEffect(() => {
+    if (!isOpen.value || highlightedIndex.value < 0) return;
 
-    const highlightedOption = containerRef.current?.querySelector<HTMLButtonElement>(
-      `[data-option-index="${highlightedIndex}"]`,
+    const el = containerRef.current?.querySelector<HTMLButtonElement>(
+      `[data-option-index="${highlightedIndex.value}"]`,
     );
-    highlightedOption?.scrollIntoView({ block: "nearest" });
-  }, [highlightedIndex, isOpen]);
+    el?.scrollIntoView({ block: "nearest" });
+  });
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (disabled) {
       return;
     }
 
-    if (!isOpen) {
+    if (!isOpen.value) {
       if (
         event.key === "ArrowDown" ||
         event.key === "ArrowUp" ||
@@ -206,34 +212,34 @@ export function SelectField({
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlightedIndex((index) => findNextEnabledIndex(index, 1));
+      highlightedIndex.value = findNextEnabledIndex(highlightedIndex.value, 1);
       return;
     }
 
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setHighlightedIndex((index) => findNextEnabledIndex(index, -1));
+      highlightedIndex.value = findNextEnabledIndex(highlightedIndex.value, -1);
       return;
     }
 
     if (event.key === "Home") {
       event.preventDefault();
-      setHighlightedIndex(findNextEnabledIndex(-1, 1));
+      highlightedIndex.value = findNextEnabledIndex(-1, 1);
       return;
     }
 
     if (event.key === "End") {
       event.preventDefault();
-      setHighlightedIndex(findNextEnabledIndex(0, -1));
+      highlightedIndex.value = findNextEnabledIndex(0, -1);
       return;
     }
 
     if (event.key === "Enter") {
       event.preventDefault();
-      if (highlightedIndex < 0) {
+      if (highlightedIndex.value < 0) {
         return;
       }
-      const option = filteredOptions[highlightedIndex];
+      const option = filteredOptions[highlightedIndex.value];
       if (!option?.disabled) {
         selectOption(option.value);
       }
@@ -242,12 +248,14 @@ export function SelectField({
 
   const triggerStyle: JSX.CSSProperties = {
     width: "100%",
-    background: isTriggerHovered && !disabled ? tokens.colors.bgHover : tokens.colors.bgSecondary,
+    background:
+      isTriggerHovered.value && !disabled
+        ? "rgba(255, 255, 255, 0.08)"
+        : "rgba(255, 255, 255, 0.05)",
     color: tokens.colors.textPrimary,
-    border: `1px solid ${isOpen || isTriggerFocused ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.12)"}`,
-    borderBottom: `2px solid ${isOpen || isTriggerFocused ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.42)"}`,
+    border: `1px solid ${isOpen.value || isTriggerFocused.value ? tokens.colors.accentPrimary : "rgba(255, 255, 255, 0.1)"}`,
     borderRadius: tokens.radii.input,
-    padding: "8px 10px",
+    padding: "10px 12px",
     fontSize: tokens.typography.sizeSm,
     textAlign: "left",
     display: "flex",
@@ -257,21 +265,23 @@ export function SelectField({
     cursor: disabled ? "not-allowed" : "pointer",
     transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
     opacity: disabled ? 0.55 : 1,
-    boxShadow: isOpen || isTriggerFocused ? tokens.shadows.accent : "none",
+    boxShadow:
+      isOpen.value || isTriggerFocused.value ? "0 0 0 2px rgba(88, 101, 242, 0.22)" : "none",
   };
 
   const menuStyle: JSX.CSSProperties = {
     position: "absolute",
-    top: "calc(100% + 6px)",
+    top: openUpward.value ? undefined : "calc(100% + 6px)",
+    bottom: openUpward.value ? "calc(100% + 6px)" : undefined,
     left: 0,
     width: "100%",
     zIndex: 120,
     border: "1px solid rgba(255, 255, 255, 0.12)",
-    borderRadius: tokens.radii.panel,
-    background: tokens.colors.glassBgHeavy,
-    boxShadow: tokens.shadows.lg,
-    backdropFilter: `blur(${tokens.colors.glassBlur})`,
-    WebkitBackdropFilter: `blur(${tokens.colors.glassBlur})`,
+    borderRadius: "10px",
+    background: "rgba(36, 39, 45, 0.98)",
+    boxShadow: "0 14px 26px rgba(0, 0, 0, 0.34)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
     overflow: "hidden",
   };
 
@@ -303,23 +313,31 @@ export function SelectField({
         ref={triggerRef}
         type="button"
         role="combobox"
-        aria-expanded={isOpen}
+        aria-expanded={isOpen.value}
         aria-haspopup="listbox"
-        aria-controls={listboxIdRef.current}
+        aria-controls={listboxId}
         aria-label={ariaLabel}
         disabled={disabled}
         style={triggerStyle}
         onClick={() => {
-          if (isOpen) {
+          if (isOpen.value) {
             closeDropdown(false);
             return;
           }
           openDropdown();
         }}
-        onMouseEnter={() => setIsTriggerHovered(true)}
-        onMouseLeave={() => setIsTriggerHovered(false)}
-        onFocus={() => setIsTriggerFocused(true)}
-        onBlur={() => setIsTriggerFocused(false)}
+        onMouseEnter={() => {
+          isTriggerHovered.value = true;
+        }}
+        onMouseLeave={() => {
+          isTriggerHovered.value = false;
+        }}
+        onFocus={() => {
+          isTriggerFocused.value = true;
+        }}
+        onBlur={() => {
+          isTriggerFocused.value = false;
+        }}
       >
         <span
           style={{
@@ -339,14 +357,14 @@ export function SelectField({
           style={{
             color: tokens.colors.textSecondary,
             flexShrink: 0,
-            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+            transform: isOpen.value ? "rotate(180deg)" : "rotate(0deg)",
             transition: "transform 0.2s ease",
           }}
         />
       </button>
 
-      {isOpen && (
-        <div role="listbox" id={listboxIdRef.current} style={menuStyle}>
+      {isOpen.value && (
+        <div role="listbox" id={listboxId} style={menuStyle}>
           {searchable && (
             <div
               style={{
@@ -357,15 +375,17 @@ export function SelectField({
               <input
                 ref={searchInputRef}
                 type="text"
-                value={searchQuery}
-                onInput={(event) => setSearchQuery((event.target as HTMLInputElement).value)}
+                value={searchQuery.value}
+                onInput={(event) => {
+                  searchQuery.value = (event.target as HTMLInputElement).value;
+                }}
                 placeholder={searchPlaceholder}
                 style={{
                   width: "100%",
-                  background: tokens.colors.bgSecondary,
+                  background: "rgba(255, 255, 255, 0.05)",
                   color: tokens.colors.textPrimary,
                   border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: tokens.radii.input,
+                  borderRadius: "8px",
                   padding: "8px 10px",
                   fontSize: tokens.typography.sizeSm,
                   outline: "none",
@@ -374,7 +394,7 @@ export function SelectField({
             </div>
           )}
 
-          <div style={{ maxHeight: "260px", overflow: "auto", padding: "6px" }}>
+          <div style={{ maxHeight: `${maxMenuHeight.value}px`, overflow: "auto", padding: "6px" }}>
             {filteredOptions.length === 0 ? (
               <div
                 style={{
@@ -389,7 +409,7 @@ export function SelectField({
             ) : (
               filteredOptions.map((option, index) => {
                 const isSelected = option.value === value;
-                const isHighlighted = index === highlightedIndex;
+                const isHighlighted = index === highlightedIndex.value;
                 const isInteractive = !option.disabled;
 
                 const optionStyle: JSX.CSSProperties = {
@@ -397,14 +417,14 @@ export function SelectField({
                   cursor: isInteractive ? "pointer" : "not-allowed",
                   opacity: isInteractive ? 1 : 0.5,
                   background: isSelected
-                    ? "rgba(96, 205, 255, 0.16)"
+                    ? "rgba(88, 101, 242, 0.2)"
                     : isHighlighted && isInteractive
-                      ? tokens.colors.bgHover
+                      ? "rgba(88, 101, 242, 0.14)"
                       : "transparent",
                   borderColor: isSelected
-                    ? "rgba(96, 205, 255, 0.44)"
+                    ? "rgba(88, 101, 242, 0.52)"
                     : isHighlighted && isInteractive
-                      ? "rgba(255, 255, 255, 0.08)"
+                      ? "rgba(88, 101, 242, 0.42)"
                       : "transparent",
                 };
 
@@ -419,7 +439,7 @@ export function SelectField({
                     style={optionStyle}
                     onMouseEnter={() => {
                       if (!option.disabled) {
-                        setHighlightedIndex(index);
+                        highlightedIndex.value = index;
                       }
                     }}
                     onClick={() => selectOption(option.value)}

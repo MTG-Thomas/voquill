@@ -1,6 +1,6 @@
-import { useSignal } from '@preact/signals';
-import { invoke } from '@tauri-apps/api/core';
-import type { GpuStatus } from '../types.ts';
+import { useSignal } from "@preact/signals";
+import { invoke } from "@tauri-apps/api/core";
+import type { GpuStatus } from "../types.ts";
 
 interface UseGpuStatusReturn {
   gpuStatus: GpuStatus | null;
@@ -23,7 +23,7 @@ export function useGpuStatus(): UseGpuStatusReturn {
 
   const refreshGpuStatus = async () => {
     try {
-      gpuStatus.value = await invoke<GpuStatus>('get_gpu_status');
+      gpuStatus.value = await invoke<GpuStatus>("get_gpu_status");
     } catch {
       // Best-effort diagnostic; a missing status is not actionable.
     }
@@ -31,7 +31,7 @@ export function useGpuStatus(): UseGpuStatusReturn {
 
   const refreshPostProcessGpuStatus = async () => {
     try {
-      postProcessGpuStatus.value = await invoke<GpuStatus>('get_post_process_gpu_status');
+      postProcessGpuStatus.value = await invoke<GpuStatus>("get_post_process_gpu_status");
     } catch {
       // Best-effort diagnostic; a missing status is not actionable.
     }
@@ -43,7 +43,7 @@ export function useGpuStatus(): UseGpuStatusReturn {
     }
     isTestingEngine.value = true;
     try {
-      await invoke('preload_transcription_engine');
+      await invoke("preload_transcription_engine");
       await refreshGpuStatus();
     } catch {
       // Preload failures are logged backend-side; status stays as reported.

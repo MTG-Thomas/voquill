@@ -1,4 +1,4 @@
-import type { MacroSoundMode, MacroStep, VoiceMacroCommand } from '../../../types.ts';
+import type { MacroSoundMode, MacroStep, VoiceMacroCommand } from "../../../types.ts";
 
 export function generateMacroId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -17,7 +17,7 @@ export function cloneMacro(cmd: VoiceMacroCommand, customPhrase?: string): Voice
     key_combination: null,
     hold_ms: null,
     delay_after_ms: null,
-    sound_mode: cmd.sound_mode || 'default',
+    sound_mode: cmd.sound_mode || "default",
     sound_tts_text: cmd.sound_tts_text || null,
     sound_tts_voice: cmd.sound_tts_voice || null,
     sound_tts_speed: cmd.sound_tts_speed || null,
@@ -28,7 +28,7 @@ export function cloneMacro(cmd: VoiceMacroCommand, customPhrase?: string): Voice
 
 export interface MacroExportBundle {
   voquill_version: string;
-  type: 'voice_macros';
+  type: "voice_macros";
   created_at: string;
   macros: VoiceMacroCommand[];
 }
@@ -42,7 +42,7 @@ export function serializeSingleMacro(cmd: VoiceMacroCommand): string {
     key_combination: null,
     hold_ms: null,
     delay_after_ms: null,
-    sound_mode: cmd.sound_mode || 'default',
+    sound_mode: cmd.sound_mode || "default",
     sound_tts_text: cmd.sound_tts_text || null,
     sound_tts_voice: cmd.sound_tts_voice || null,
     sound_tts_speed: cmd.sound_tts_speed || null,
@@ -54,8 +54,8 @@ export function serializeSingleMacro(cmd: VoiceMacroCommand): string {
 
 export function serializeMacroBundle(macros: VoiceMacroCommand[]): string {
   const bundle: MacroExportBundle = {
-    voquill_version: '1.0',
-    type: 'voice_macros',
+    voquill_version: "1.0",
+    type: "voice_macros",
     created_at: new Date().toISOString(),
     macros: macros.map((cmd) => ({
       id: cmd.id,
@@ -65,7 +65,7 @@ export function serializeMacroBundle(macros: VoiceMacroCommand[]): string {
       key_combination: null,
       hold_ms: null,
       delay_after_ms: null,
-      sound_mode: cmd.sound_mode || 'default',
+      sound_mode: cmd.sound_mode || "default",
       sound_tts_text: cmd.sound_tts_text || null,
       sound_tts_voice: cmd.sound_tts_voice || null,
       sound_tts_speed: cmd.sound_tts_speed || null,
@@ -77,22 +77,22 @@ export function serializeMacroBundle(macros: VoiceMacroCommand[]): string {
 }
 
 function isValidStep(step: unknown): step is MacroStep {
-  if (!step || typeof step !== 'object') return false;
+  if (!step || typeof step !== "object") return false;
   const s = step as Record<string, unknown>;
-  const validTypes = ['KeyPress', 'KeyDown', 'KeyUp', 'Delay', 'TypeText', 'RunCommand'];
+  const validTypes = ["KeyPress", "KeyDown", "KeyUp", "Delay", "TypeText", "RunCommand"];
   if (!validTypes.includes(String(s.type))) return false;
 
-  if (s.type === 'KeyPress' || s.type === 'KeyDown' || s.type === 'KeyUp') {
-    return typeof s.key === 'string' && s.key.trim().length > 0;
+  if (s.type === "KeyPress" || s.type === "KeyDown" || s.type === "KeyUp") {
+    return typeof s.key === "string" && s.key.trim().length > 0;
   }
-  if (s.type === 'Delay') {
-    return typeof s.duration_ms === 'number' && !isNaN(s.duration_ms) && s.duration_ms >= 0;
+  if (s.type === "Delay") {
+    return typeof s.duration_ms === "number" && !isNaN(s.duration_ms) && s.duration_ms >= 0;
   }
-  if (s.type === 'TypeText') {
-    return typeof s.text === 'string';
+  if (s.type === "TypeText") {
+    return typeof s.text === "string";
   }
-  if (s.type === 'RunCommand') {
-    return typeof s.command === 'string' && s.command.trim().length > 0;
+  if (s.type === "RunCommand") {
+    return typeof s.command === "string" && s.command.trim().length > 0;
   }
   return false;
 }
@@ -111,18 +111,18 @@ export function parseAndValidateMacros(jsonText: string): {
     return { valid: [], errors: [`Invalid JSON syntax: ${(e as Error).message}`] };
   }
 
-  if (!parsed || typeof parsed !== 'object') {
-    return { valid: [], errors: ['JSON root must be an object or an array of macros.'] };
+  if (!parsed || typeof parsed !== "object") {
+    return { valid: [], errors: ["JSON root must be an object or an array of macros."] };
   }
 
-  let candidates: unknown[] = [];
+  let candidates: unknown[];
   if (Array.isArray(parsed)) {
     candidates = parsed;
   } else {
     const obj = parsed as Record<string, unknown>;
     if (Array.isArray(obj.macros)) {
       candidates = obj.macros;
-    } else if (typeof obj.phrase === 'string') {
+    } else if (typeof obj.phrase === "string") {
       candidates = [obj];
     } else {
       return {
@@ -136,13 +136,13 @@ export function parseAndValidateMacros(jsonText: string): {
 
   for (let i = 0; i < candidates.length; i++) {
     const item = candidates[i];
-    if (!item || typeof item !== 'object') {
+    if (!item || typeof item !== "object") {
       errors.push(`Item #${i + 1}: Invalid macro object format.`);
       continue;
     }
 
     const c = item as Record<string, unknown>;
-    const phrase = typeof c.phrase === 'string' ? c.phrase.trim().toLowerCase() : '';
+    const phrase = typeof c.phrase === "string" ? c.phrase.trim().toLowerCase() : "";
     if (!phrase) {
       errors.push(`Item #${i + 1}: Missing or empty trigger phrase.`);
       continue;
@@ -151,7 +151,7 @@ export function parseAndValidateMacros(jsonText: string): {
     const phrases: string[] = [];
     if (Array.isArray(c.phrases)) {
       for (const p of c.phrases) {
-        if (typeof p === 'string') {
+        if (typeof p === "string") {
           const clean = p.trim().toLowerCase();
           if (clean && clean !== phrase && !phrases.includes(clean)) {
             phrases.push(clean);
@@ -179,8 +179,8 @@ export function parseAndValidateMacros(jsonText: string): {
     }
 
     // Support legacy key_combination migration if steps array is empty
-    if (steps.length === 0 && typeof c.key_combination === 'string' && c.key_combination.trim()) {
-      steps = [{ type: 'KeyPress', key: c.key_combination.trim(), hold_ms: 50 }];
+    if (steps.length === 0 && typeof c.key_combination === "string" && c.key_combination.trim()) {
+      steps = [{ type: "KeyPress", key: c.key_combination.trim(), hold_ms: 50 }];
     }
 
     if (steps.length === 0) {
@@ -197,15 +197,15 @@ export function parseAndValidateMacros(jsonText: string): {
       hold_ms: null,
       delay_after_ms: null,
       sound_mode:
-        typeof c.sound_mode === 'string' &&
-        ['default', 'none', 'tts', 'custom_file', 'mic_recording'].includes(c.sound_mode)
+        typeof c.sound_mode === "string" &&
+        ["default", "none", "tts", "custom_file", "mic_recording"].includes(c.sound_mode)
           ? (c.sound_mode as MacroSoundMode)
-          : 'default',
-      sound_tts_text: typeof c.sound_tts_text === 'string' ? c.sound_tts_text : null,
-      sound_tts_voice: typeof c.sound_tts_voice === 'string' ? c.sound_tts_voice : null,
-      sound_tts_speed: typeof c.sound_tts_speed === 'number' ? c.sound_tts_speed : null,
-      sound_tts_effect: typeof c.sound_tts_effect === 'string' ? c.sound_tts_effect : null,
-      sound_tts_pitch: typeof c.sound_tts_pitch === 'number' ? c.sound_tts_pitch : null,
+          : "default",
+      sound_tts_text: typeof c.sound_tts_text === "string" ? c.sound_tts_text : null,
+      sound_tts_voice: typeof c.sound_tts_voice === "string" ? c.sound_tts_voice : null,
+      sound_tts_speed: typeof c.sound_tts_speed === "number" ? c.sound_tts_speed : null,
+      sound_tts_effect: typeof c.sound_tts_effect === "string" ? c.sound_tts_effect : null,
+      sound_tts_pitch: typeof c.sound_tts_pitch === "number" ? c.sound_tts_pitch : null,
     });
   }
 
@@ -214,7 +214,7 @@ export function parseAndValidateMacros(jsonText: string): {
 
 export function sanitizeImportedPhrases(
   imported: VoiceMacroCommand[],
-  existing: VoiceMacroCommand[]
+  existing: VoiceMacroCommand[],
 ): VoiceMacroCommand[] {
   const existingPhrases = new Set(existing.map((m) => m.phrase.trim().toLowerCase()));
 

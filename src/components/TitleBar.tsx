@@ -1,6 +1,10 @@
-import { IconMinus, IconSquare, IconX } from '@tabler/icons-preact';
-import { Button } from './Button.tsx';
-import { titleBarStyle, titleBarTitleStyle, titleBarControlsStyle } from '../theme/ui-primitives.ts';
+import { IconMinus, IconSquare, IconX } from "@tabler/icons-preact";
+import { Button } from "./Button.tsx";
+import {
+  titleBarStyle,
+  titleBarTitleStyle,
+  titleBarControlsStyle,
+} from "../theme/ui-primitives.ts";
 
 interface TitleBarProps {
   onMinimize: () => void;
@@ -10,7 +14,13 @@ interface TitleBarProps {
   onDoubleClick: (event: MouseEvent) => void;
 }
 
-export function TitleBar({ onMinimize, onMaximize, onClose, onMouseDown, onDoubleClick }: TitleBarProps) {
+export function TitleBar({
+  onMinimize,
+  onMaximize,
+  onClose,
+  onMouseDown,
+  onDoubleClick,
+}: TitleBarProps) {
   return (
     <div
       data-tauri-drag-region

@@ -1,5 +1,5 @@
-import { useSignal } from '@preact/signals';
-import { useEffect } from 'preact/hooks';
+import { useSignal } from "@preact/signals";
+import { useEffect } from "preact/hooks";
 import {
   IconVolume,
   IconVolumeOff,
@@ -13,60 +13,60 @@ import {
   IconUpload,
   IconAdjustmentsHorizontal,
   IconDotsVertical,
-} from '@tabler/icons-preact';
-import { invoke } from '@tauri-apps/api/core';
-import { ConfigField } from '../../components/ConfigField.tsx';
-import { Switch } from '../../components/Switch.tsx';
-import { Button } from '../../components/Button.tsx';
-import type { Config, MacroSoundMode, MacroStep, VoiceMacroCommand } from '../../types.ts';
-import { inputBaseStyle } from '../../theme/ui-primitives.ts';
-import { tokens } from '../../design-tokens.ts';
-import { resolveMacroSteps } from './voice_macro/keyUtils.ts';
-import { MacroEditorModal } from './voice_macro/MacroEditorModal.tsx';
-import { SpokenMacroTester } from './voice_macro/SpokenMacroTester.tsx';
-import { MacroImportModal } from './voice_macro/MacroImportModal.tsx';
-import { VoiceLabModal } from './voice_macro/VoiceLabModal.tsx';
+} from "@tabler/icons-preact";
+import { invoke } from "@tauri-apps/api/core";
+import { ConfigField } from "../../components/ConfigField.tsx";
+import { Switch } from "../../components/Switch.tsx";
+import { Button } from "../../components/Button.tsx";
+import type { Config, MacroSoundMode, MacroStep, VoiceMacroCommand } from "../../types.ts";
+import { inputBaseStyle } from "../../theme/ui-primitives.ts";
+import { tokens } from "../../design-tokens.ts";
+import { resolveMacroSteps } from "./voice_macro/keyUtils.ts";
+import { MacroEditorModal } from "./voice_macro/MacroEditorModal.tsx";
+import { SpokenMacroTester } from "./voice_macro/SpokenMacroTester.tsx";
+import { MacroImportModal } from "./voice_macro/MacroImportModal.tsx";
+import { VoiceLabModal } from "./voice_macro/VoiceLabModal.tsx";
 import {
   cloneMacro,
   serializeSingleMacro,
   serializeMacroBundle,
-} from './voice_macro/macroSharing.ts';
+} from "./voice_macro/macroSharing.ts";
 
 interface VoiceMacrosSectionProps {
   config: Config;
   updateConfig: (
     key: string,
-    value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]
+    value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[],
   ) => void;
-  showToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
+  showToast?: (message: string, type: "success" | "error" | "info" | "saved") => void;
 }
 
 const actionButtonStyle = {
-  background: 'none',
-  border: 'none',
+  background: "none",
+  border: "none",
   color: tokens.colors.textSecondary,
-  cursor: 'pointer',
-  padding: '3px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: '3px',
+  cursor: "pointer",
+  padding: "3px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "3px",
 };
 
 const dropdownItemStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '7px 10px',
-  borderRadius: '6px',
-  background: 'transparent',
-  border: 'none',
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "7px 10px",
+  borderRadius: "6px",
+  background: "transparent",
+  border: "none",
   color: tokens.colors.textPrimary,
-  fontSize: '11.5px',
+  fontSize: "11.5px",
   fontWeight: 500,
-  cursor: 'pointer',
-  width: '100%',
-  textAlign: 'left' as const,
+  cursor: "pointer",
+  width: "100%",
+  textAlign: "left" as const,
   transition: tokens.transitions.fast,
 };
 
@@ -85,24 +85,24 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       isMenuOpen.value = false;
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         isMenuOpen.value = false;
       }
     };
-    window.addEventListener('click', handleDocumentClick);
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener("click", handleDocumentClick);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener('click', handleDocumentClick);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("click", handleDocumentClick);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isMenuOpen.value]);
 
   const handleTestSound = async () => {
     isPlayingTestSound.value = true;
     try {
-      await invoke('test_voice_macro_sound');
+      await invoke("test_voice_macro_sound");
     } catch (e) {
-      showToast?.(`Failed to play sound: ${e}`, 'error');
+      showToast?.(`Failed to play sound: ${e}`, "error");
     } finally {
       setTimeout(() => {
         isPlayingTestSound.value = false;
@@ -114,10 +114,10 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     isTestingExecution.value = cmd.id;
     const steps = resolveMacroSteps(cmd);
     try {
-      await invoke('test_voice_macro_execution', { steps });
-      showToast?.(`Executed macro "${cmd.phrase}" (${steps.length} steps)`, 'success');
+      await invoke("test_voice_macro_execution", { steps });
+      showToast?.(`Executed macro "${cmd.phrase}" (${steps.length} steps)`, "success");
     } catch (e) {
-      showToast?.(`Failed to execute macro: ${e}`, 'error');
+      showToast?.(`Failed to execute macro: ${e}`, "error");
     } finally {
       setTimeout(() => {
         isTestingExecution.value = null;
@@ -150,7 +150,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     soundTtsVoice?: string | null,
     soundTtsSpeed?: number | null,
     soundTtsEffect?: string | null,
-    soundTtsPitch?: number | null
+    soundTtsPitch?: number | null,
   ) => {
     const currentMacros = config.voice_macros || [];
 
@@ -166,7 +166,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
             key_combination: null,
             hold_ms: null,
             delay_after_ms: null,
-            sound_mode: soundMode || 'default',
+            sound_mode: soundMode || "default",
             sound_tts_text: soundTtsText || null,
             sound_tts_voice: soundTtsVoice || null,
             sound_tts_speed: soundTtsSpeed || null,
@@ -176,8 +176,8 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         }
         return cmd;
       });
-      updateConfig('voice_macros', updated);
-      showToast?.(`Updated macro "${phrase}"`, 'success');
+      updateConfig("voice_macros", updated);
+      showToast?.(`Updated macro "${phrase}"`, "success");
     } else {
       const newCommand: VoiceMacroCommand = {
         id,
@@ -187,15 +187,15 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         key_combination: null,
         hold_ms: null,
         delay_after_ms: null,
-        sound_mode: soundMode || 'default',
+        sound_mode: soundMode || "default",
         sound_tts_text: soundTtsText || null,
         sound_tts_voice: soundTtsVoice || null,
         sound_tts_speed: soundTtsSpeed || null,
         sound_tts_effect: soundTtsEffect || null,
         sound_tts_pitch: soundTtsPitch ?? null,
       };
-      updateConfig('voice_macros', [...currentMacros, newCommand]);
-      showToast?.(`Added macro command "${phrase}"`, 'success');
+      updateConfig("voice_macros", [...currentMacros, newCommand]);
+      showToast?.(`Added macro command "${phrase}"`, "success");
     }
 
     handleCloseModal();
@@ -211,7 +211,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     soundTtsVoice?: string | null,
     soundTtsSpeed?: number | null,
     soundTtsEffect?: string | null,
-    soundTtsPitch?: number | null
+    soundTtsPitch?: number | null,
   ) => {
     const currentMacros = config.voice_macros || [];
     const newCommand: VoiceMacroCommand = {
@@ -222,15 +222,15 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       key_combination: null,
       hold_ms: null,
       delay_after_ms: null,
-      sound_mode: soundMode || 'default',
+      sound_mode: soundMode || "default",
       sound_tts_text: soundTtsText || null,
       sound_tts_voice: soundTtsVoice || null,
       sound_tts_speed: soundTtsSpeed || null,
       sound_tts_effect: soundTtsEffect || null,
       sound_tts_pitch: soundTtsPitch ?? null,
     };
-    updateConfig('voice_macros', [...currentMacros, newCommand]);
-    showToast?.(`Created copy "${phrase}"`, 'success');
+    updateConfig("voice_macros", [...currentMacros, newCommand]);
+    showToast?.(`Created copy "${phrase}"`, "success");
     handleCloseModal();
   };
 
@@ -246,73 +246,73 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     }
     cloned.phrase = phrase;
 
-    if (cloned.sound_mode && cloned.sound_mode !== 'default' && cloned.sound_mode !== 'none') {
+    if (cloned.sound_mode && cloned.sound_mode !== "default" && cloned.sound_mode !== "none") {
       try {
-        await invoke('clone_macro_sound', {
+        await invoke("clone_macro_sound", {
           sourceMacroId: cmd.id,
           targetMacroId: cloned.id,
         });
       } catch (e) {
-        console.warn('Failed to clone macro sound on disk:', e);
+        console.warn("Failed to clone macro sound on disk:", e);
       }
     }
 
-    updateConfig('voice_macros', [...currentMacros, cloned]);
-    showToast?.(`Duplicated macro "${cmd.phrase}"`, 'success');
+    updateConfig("voice_macros", [...currentMacros, cloned]);
+    showToast?.(`Duplicated macro "${cmd.phrase}"`, "success");
   };
 
   const handleShareMacro = async (cmd: VoiceMacroCommand) => {
     const json = serializeSingleMacro(cmd);
     try {
       await navigator.clipboard.writeText(json);
-      showToast?.(`Copied macro "${cmd.phrase}" JSON to clipboard`, 'success');
+      showToast?.(`Copied macro "${cmd.phrase}" JSON to clipboard`, "success");
     } catch {
-      showToast?.('Failed to copy to clipboard', 'error');
+      showToast?.("Failed to copy to clipboard", "error");
     }
   };
 
   const handleExportAllMacros = async () => {
     const currentMacros = config.voice_macros || [];
     if (currentMacros.length === 0) {
-      showToast?.('No macros to export', 'info');
+      showToast?.("No macros to export", "info");
       return;
     }
     const json = serializeMacroBundle(currentMacros);
     try {
       await navigator.clipboard.writeText(json);
-      const blob = new Blob([json], { type: 'application/json' });
+      const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `voquill-macros-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast?.(`Exported ${currentMacros.length} macros to JSON file & clipboard`, 'success');
+      showToast?.(`Exported ${currentMacros.length} macros to JSON file & clipboard`, "success");
     } catch {
-      showToast?.('Failed to export macros', 'error');
+      showToast?.("Failed to export macros", "error");
     }
   };
 
   const handleImportMacros = (newMacros: VoiceMacroCommand[]) => {
     const currentMacros = config.voice_macros || [];
-    updateConfig('voice_macros', [...currentMacros, ...newMacros]);
+    updateConfig("voice_macros", [...currentMacros, ...newMacros]);
     isImportModalOpen.value = false;
     showToast?.(
-      `Successfully imported ${newMacros.length} ${newMacros.length === 1 ? 'macro' : 'macros'}`,
-      'success'
+      `Successfully imported ${newMacros.length} ${newMacros.length === 1 ? "macro" : "macros"}`,
+      "success",
     );
   };
 
   const handleDeleteCommand = (id: string, phrase: string) => {
     const currentMacros = config.voice_macros || [];
     const updated = currentMacros.filter((m) => m.id !== id);
-    updateConfig('voice_macros', updated);
-    invoke('delete_macro_sound', { macroId: id }).catch((e) => {
-      console.warn('Failed to delete macro sound on disk:', e);
+    updateConfig("voice_macros", updated);
+    invoke("delete_macro_sound", { macroId: id }).catch((e) => {
+      console.warn("Failed to delete macro sound on disk:", e);
     });
-    showToast?.(`Removed macro "${phrase}"`, 'info');
+    showToast?.(`Removed macro "${phrase}"`, "info");
     handleCloseModal();
   };
 
@@ -324,11 +324,11 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         label="Always-Listening Voice Macros"
         description="Continuously listen in the background for configured command phrases and execute the corresponding multi-step macro sequences."
       >
-        <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+        <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
           <Switch
             name="Always-Listening Voice Macros"
             checked={config.voice_macros_enabled}
-            onChange={(checked) => updateConfig('voice_macros_enabled', checked)}
+            onChange={(checked) => updateConfig("voice_macros_enabled", checked)}
           />
         </div>
       </ConfigField>
@@ -339,12 +339,12 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       >
         <input
           type="text"
-          value={config.voice_macro_trigger_word || ''}
+          value={config.voice_macro_trigger_word || ""}
           onInput={(e) =>
-            updateConfig('voice_macro_trigger_word', (e.target as HTMLInputElement).value)
+            updateConfig("voice_macro_trigger_word", (e.target as HTMLInputElement).value)
           }
           placeholder="e.g. Computer (or leave blank)"
-          style={{ ...inputBaseStyle, width: '100%' }}
+          style={{ ...inputBaseStyle, width: "100%" }}
         />
       </ConfigField>
 
@@ -354,10 +354,10 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       >
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
             gap: tokens.spacing.sm,
           }}
         >
@@ -366,22 +366,22 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
             onClick={handleTestSound}
             disabled={isPlayingTestSound.value}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              whiteSpace: 'nowrap',
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              whiteSpace: "nowrap",
               flexShrink: 0,
-              padding: '4px 10px',
-              fontSize: '11px',
+              padding: "4px 10px",
+              fontSize: "11px",
             }}
           >
             <IconVolume size={14} />
-            <span style={{ whiteSpace: 'nowrap' }}>Test Sound</span>
+            <span style={{ whiteSpace: "nowrap" }}>Test Sound</span>
           </Button>
           <Switch
             name="Audio Chime Alert"
             checked={config.voice_macro_sound_feedback}
-            onChange={(checked) => updateConfig('voice_macro_sound_feedback', checked)}
+            onChange={(checked) => updateConfig("voice_macro_sound_feedback", checked)}
           />
         </div>
       </ConfigField>
@@ -390,11 +390,11 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         label="Suppress Overlay"
         description="Keep the visual HUD overlay hidden during macro execution so it doesn't interrupt full-screen games."
       >
-        <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+        <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
           <Switch
             name="Suppress Overlay"
             checked={config.voice_macro_suppress_overlay}
-            onChange={(checked) => updateConfig('voice_macro_suppress_overlay', checked)}
+            onChange={(checked) => updateConfig("voice_macro_suppress_overlay", checked)}
           />
         </div>
       </ConfigField>
@@ -405,10 +405,10 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       >
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
+            display: "flex",
+            flexDirection: "column",
             gap: tokens.spacing.md,
-            width: '100%',
+            width: "100%",
           }}
         >
           <SpokenMacroTester showToast={showToast} />
@@ -416,16 +416,16 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
           {/* Action header with Voice Studio, Create Macro, and Three-Dot Utility Menu */}
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              position: 'relative',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "8px",
+              position: "relative",
             }}
           >
             <span
               style={{
-                fontSize: '13px',
+                fontSize: "13px",
                 fontWeight: 600,
                 color: tokens.colors.textSecondary,
               }}
@@ -433,7 +433,9 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
               Custom Macros ({macros.length})
             </span>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "6px", position: "relative" }}
+            >
               <Button
                 variant="ghost"
                 size="sm"
@@ -451,13 +453,13 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                 size="sm"
                 onClick={handleOpenCreateModal}
                 title="Create a new voice macro"
-                style={{ padding: '5px 10px' }}
+                style={{ padding: "5px 10px" }}
               >
                 <IconPlus size={14} />
                 <span>New</span>
               </Button>
 
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: "relative" }}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -466,7 +468,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                     isMenuOpen.value = !isMenuOpen.value;
                   }}
                   title="More actions (Import / Export)"
-                  style={{ padding: '5px 8px', minWidth: '28px' }}
+                  style={{ padding: "5px 8px", minWidth: "28px" }}
                 >
                   <IconDotsVertical size={14} />
                 </Button>
@@ -475,21 +477,21 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                   <div
                     onClick={(e) => e.stopPropagation()}
                     style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 4px)',
+                      position: "absolute",
+                      top: "calc(100% + 4px)",
                       right: 0,
                       zIndex: 100,
-                      minWidth: '160px',
-                      background: 'rgba(26, 29, 38, 0.95)',
-                      backdropFilter: 'blur(16px)',
-                      WebkitBackdropFilter: 'blur(16px)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: '10px',
-                      padding: '4px',
+                      minWidth: "160px",
+                      background: "rgba(26, 29, 38, 0.95)",
+                      backdropFilter: "blur(16px)",
+                      WebkitBackdropFilter: "blur(16px)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      borderRadius: "10px",
+                      padding: "4px",
                       boxShadow: tokens.shadows.lg,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '2px',
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "2px",
                     }}
                   >
                     <button
@@ -500,10 +502,11 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       }}
                       style={dropdownItemStyle}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.08)';
+                        (e.currentTarget as HTMLButtonElement).style.background =
+                          "rgba(255, 255, 255, 0.08)";
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                       }}
                     >
                       <IconUpload size={13} />
@@ -520,15 +523,16 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       style={{
                         ...dropdownItemStyle,
                         opacity: macros.length === 0 ? 0.4 : 1,
-                        cursor: macros.length === 0 ? 'not-allowed' : 'pointer',
+                        cursor: macros.length === 0 ? "not-allowed" : "pointer",
                       }}
                       onMouseEnter={(e) => {
                         if (macros.length > 0) {
-                          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.08)';
+                          (e.currentTarget as HTMLButtonElement).style.background =
+                            "rgba(255, 255, 255, 0.08)";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                       }}
                     >
                       <IconDownload size={13} />
@@ -542,41 +546,41 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
 
           {/* List of Configured Macros */}
           {macros.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {macros.map((cmd) => {
                 const steps = resolveMacroSteps(cmd);
                 return (
                   <div
                     key={cmd.id}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      borderRadius: '6px',
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      gap: '6px',
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 10px",
+                      borderRadius: "6px",
+                      background: "rgba(255, 255, 255, 0.04)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      gap: "6px",
                     }}
                   >
                     <div
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        flexWrap: 'wrap',
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        flexWrap: "wrap",
                         minWidth: 0,
                         flex: 1,
                       }}
                     >
                       <span
                         style={{
-                          fontSize: '13px',
+                          fontSize: "13px",
                           color: tokens.colors.textPrimary,
                           fontWeight: 600,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         "{cmd.phrase}"
@@ -584,13 +588,13 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       {config.voice_macro_trigger_word && (
                         <span
                           style={{
-                            fontSize: '9.5px',
-                            color: '#93c5fd',
-                            background: 'rgba(59, 130, 246, 0.18)',
-                            border: '1px solid rgba(59, 130, 246, 0.35)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
+                            fontSize: "9.5px",
+                            color: "#93c5fd",
+                            background: "rgba(59, 130, 246, 0.18)",
+                            border: "1px solid rgba(59, 130, 246, 0.35)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           Prefix: {config.voice_macro_trigger_word}
@@ -599,45 +603,45 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       {cmd.phrases && cmd.phrases.length > 0 && (
                         <span
                           style={{
-                            fontSize: '9.5px',
-                            color: '#cbd5e1',
-                            background: 'rgba(255, 255, 255, 0.06)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
+                            fontSize: "9.5px",
+                            color: "#cbd5e1",
+                            background: "rgba(255, 255, 255, 0.06)",
+                            border: "1px solid rgba(255, 255, 255, 0.12)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            whiteSpace: "nowrap",
                           }}
-                          title={`Aliases: ${cmd.phrases.map((p) => `"${p}"`).join(', ')}`}
+                          title={`Aliases: ${cmd.phrases.map((p) => `"${p}"`).join(", ")}`}
                         >
-                          +{cmd.phrases.length} {cmd.phrases.length === 1 ? 'alias' : 'aliases'}
+                          +{cmd.phrases.length} {cmd.phrases.length === 1 ? "alias" : "aliases"}
                         </span>
                       )}
                       <span
                         style={{
-                          fontSize: '11px',
+                          fontSize: "11px",
                           color: tokens.colors.textMuted,
-                          whiteSpace: 'nowrap',
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        • {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+                        • {steps.length} {steps.length === 1 ? "step" : "steps"}
                       </span>
 
-                      {cmd.sound_mode === 'tts' && cmd.sound_tts_text && (
+                      {cmd.sound_mode === "tts" && cmd.sound_tts_text && (
                         <span
                           style={{
-                            fontSize: '9.5px',
-                            color: '#f472b6',
-                            background: 'rgba(236, 72, 153, 0.15)',
-                            border: '1px solid rgba(236, 72, 153, 0.3)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '140px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
+                            fontSize: "9.5px",
+                            color: "#f472b6",
+                            background: "rgba(236, 72, 153, 0.15)",
+                            border: "1px solid rgba(236, 72, 153, 0.3)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            whiteSpace: "nowrap",
+                            maxWidth: "140px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
                           }}
                           title={`Voice feedback: "${cmd.sound_tts_text}"`}
                         >
@@ -645,57 +649,57 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                           <span>"{cmd.sound_tts_text}"</span>
                         </span>
                       )}
-                      {cmd.sound_mode === 'custom_file' && (
+                      {cmd.sound_mode === "custom_file" && (
                         <span
                           style={{
-                            fontSize: '9.5px',
-                            color: '#34d399',
-                            background: 'rgba(16, 185, 129, 0.15)',
-                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
+                            fontSize: "9.5px",
+                            color: "#34d399",
+                            background: "rgba(16, 185, 129, 0.15)",
+                            border: "1px solid rgba(16, 185, 129, 0.3)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            whiteSpace: "nowrap",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
                           }}
                         >
                           <IconUpload size={11} />
                           <span>Audio</span>
                         </span>
                       )}
-                      {cmd.sound_mode === 'mic_recording' && (
+                      {cmd.sound_mode === "mic_recording" && (
                         <span
                           style={{
-                            fontSize: '9.5px',
-                            color: '#f87171',
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
+                            fontSize: "9.5px",
+                            color: "#f87171",
+                            background: "rgba(239, 68, 68, 0.15)",
+                            border: "1px solid rgba(239, 68, 68, 0.3)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            whiteSpace: "nowrap",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
                           }}
                         >
                           <IconMicrophone size={11} />
                           <span>Voice Clip</span>
                         </span>
                       )}
-                      {cmd.sound_mode === 'none' && (
+                      {cmd.sound_mode === "none" && (
                         <span
                           style={{
-                            fontSize: '9.5px',
+                            fontSize: "9.5px",
                             color: tokens.colors.textMuted,
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
+                            background: "rgba(255, 255, 255, 0.05)",
+                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            whiteSpace: "nowrap",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
                           }}
                         >
                           <IconVolumeOff size={11} />
@@ -706,9 +710,9 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
 
                     <div
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px',
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "3px",
                         flexShrink: 0,
                       }}
                     >
@@ -749,15 +753,15 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
           ) : (
             <div
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px 16px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px dashed rgba(255, 255, 255, 0.08)',
-                gap: '8px',
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "24px 16px",
+                borderRadius: "8px",
+                background: "rgba(255, 255, 255, 0.02)",
+                border: "1px dashed rgba(255, 255, 255, 0.08)",
+                gap: "8px",
               }}
             >
               <span style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textMuted }}>

@@ -1,22 +1,19 @@
-import { useSignal, useComputed } from '@preact/signals';
+import { useSignal, useComputed } from "@preact/signals";
 import {
   IconClipboard,
   IconCheck,
   IconAlertTriangle,
   IconFileCode,
   IconVolume,
-} from '@tabler/icons-preact';
-import { open } from '@tauri-apps/plugin-dialog';
-import { Modal } from '../../../components/Modal.tsx';
-import { Button } from '../../../components/Button.tsx';
-import type { VoiceMacroCommand } from '../../../types.ts';
-import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
-import { tokens } from '../../../design-tokens.ts';
-import { MacroStepChip } from './MacroStepChip.tsx';
-import {
-  parseAndValidateMacros,
-  sanitizeImportedPhrases,
-} from './macroSharing.ts';
+} from "@tabler/icons-preact";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Modal } from "../../../components/Modal.tsx";
+import { Button } from "../../../components/Button.tsx";
+import type { VoiceMacroCommand } from "../../../types.ts";
+import { inputBaseStyle } from "../../../theme/ui-primitives.ts";
+import { tokens } from "../../../design-tokens.ts";
+import { MacroStepChip } from "./MacroStepChip.tsx";
+import { parseAndValidateMacros, sanitizeImportedPhrases } from "./macroSharing.ts";
 
 interface MacroImportModalProps {
   existingMacros: VoiceMacroCommand[];
@@ -24,12 +21,8 @@ interface MacroImportModalProps {
   onClose: () => void;
 }
 
-export function MacroImportModal({
-  existingMacros,
-  onImport,
-  onClose,
-}: MacroImportModalProps) {
-  const jsonInput = useSignal('');
+export function MacroImportModal({ existingMacros, onImport, onClose }: MacroImportModalProps) {
+  const jsonInput = useSignal("");
   const isLoadingFile = useSignal(false);
   const fileError = useSignal<string | null>(null);
 
@@ -44,14 +37,14 @@ export function MacroImportModal({
     try {
       const selected = await open({
         multiple: false,
-        filters: [{ name: 'JSON Macro Files', extensions: ['json'] }],
+        filters: [{ name: "JSON Macro Files", extensions: ["json"] }],
       });
 
-      if (selected && typeof selected === 'string') {
+      if (selected && typeof selected === "string") {
         isLoadingFile.value = true;
         // Read file using browser fetch on file url or tauri core plugin
         const response = await fetch(
-          selected.startsWith('http') ? selected : `asset://${selected}`
+          selected.startsWith("http") ? selected : `asset://${selected}`,
         ).catch(async () => {
           // Fallback reading via invoke if asset protocol isn't bound for text
           return null;
@@ -61,7 +54,7 @@ export function MacroImportModal({
           const text = await response.text();
           jsonInput.value = text;
         } else {
-          fileError.value = 'Please paste the JSON content directly into the box below.';
+          fileError.value = "Please paste the JSON content directly into the box below.";
         }
       }
     } catch (e) {
@@ -79,7 +72,7 @@ export function MacroImportModal({
         jsonInput.value = text.trim();
       }
     } catch {
-      fileError.value = 'Could not access clipboard. Please paste manually into the text area.';
+      fileError.value = "Could not access clipboard. Please paste manually into the text area.";
     }
   };
 
@@ -102,7 +95,11 @@ export function MacroImportModal({
       footerAlign="space-between"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} style={{ padding: '6px 12px', fontSize: '12px' }}>
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            style={{ padding: "6px 12px", fontSize: "12px" }}
+          >
             Cancel
           </Button>
 
@@ -110,32 +107,60 @@ export function MacroImportModal({
             variant="configAction"
             onClick={handleConfirmImport}
             disabled={validCount === 0}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', fontSize: '12px' }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "6px 14px",
+              fontSize: "12px",
+            }}
           >
             <IconCheck size={14} />
             <span>
               {validCount === 0
-                ? 'Import Macros'
+                ? "Import Macros"
                 : validCount === 1
-                  ? 'Import 1 Macro'
+                  ? "Import 1 Macro"
                   : `Import ${validCount} Macros`}
             </span>
           </Button>
         </>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, minHeight: 0 }}>
         {/* Quick action bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexShrink: 0 }}>
-          <span style={{ fontSize: '11px', color: tokens.colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              color: tokens.colors.textMuted,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.4px",
+            }}
+          >
             Paste Macro JSON or File Content
           </span>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <Button
               variant="ghost"
               onClick={handlePasteFromClipboard}
-              style={{ padding: '3px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              style={{
+                padding: "3px 8px",
+                fontSize: "11px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
             >
               <IconClipboard size={12} />
               <span>Paste Clipboard</span>
@@ -144,10 +169,16 @@ export function MacroImportModal({
               variant="ghost"
               onClick={handleOpenFile}
               disabled={isLoadingFile.value}
-              style={{ padding: '3px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              style={{
+                padding: "3px 8px",
+                fontSize: "11px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
             >
               <IconFileCode size={12} />
-              <span>{isLoadingFile.value ? 'Loading...' : 'Select .json'}</span>
+              <span>{isLoadingFile.value ? "Loading..." : "Select .json"}</span>
             </Button>
           </div>
         </div>
@@ -162,13 +193,13 @@ export function MacroImportModal({
           rows={5}
           style={{
             ...inputBaseStyle,
-            width: '100%',
-            fontFamily: 'monospace',
-            fontSize: '11.5px',
+            width: "100%",
+            fontFamily: "monospace",
+            fontSize: "11.5px",
             lineHeight: 1.4,
-            resize: 'vertical',
-            minHeight: '90px',
-            maxHeight: '180px',
+            resize: "vertical",
+            minHeight: "90px",
+            maxHeight: "180px",
             flexShrink: 0,
           }}
         />
@@ -176,12 +207,12 @@ export function MacroImportModal({
         {fileError.value && (
           <div
             style={{
-              padding: '6px 10px',
-              borderRadius: '5px',
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              fontSize: '11px',
-              color: '#fca5a5',
+              padding: "6px 10px",
+              borderRadius: "5px",
+              background: "rgba(239, 68, 68, 0.12)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              fontSize: "11px",
+              color: "#fca5a5",
               flexShrink: 0,
             }}
           >
@@ -193,31 +224,31 @@ export function MacroImportModal({
         {jsonInput.value.trim() && (
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              padding: '10px',
-              borderRadius: '6px',
-              background: 'rgba(0, 0, 0, 0.25)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              padding: "10px",
+              borderRadius: "6px",
+              background: "rgba(0, 0, 0, 0.25)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
               flex: 1,
               minHeight: 0,
-              overflowY: 'auto',
+              overflowY: "auto",
             }}
           >
             {/* Header message */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               {validCount > 0 ? (
                 <>
                   <IconCheck size={14} color="#34d399" />
-                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#34d399' }}>
-                    Found {validCount} valid {validCount === 1 ? 'macro' : 'macros'} to import
+                  <span style={{ fontSize: "11.5px", fontWeight: 600, color: "#34d399" }}>
+                    Found {validCount} valid {validCount === 1 ? "macro" : "macros"} to import
                   </span>
                 </>
               ) : (
                 <>
                   <IconAlertTriangle size={14} color="#f87171" />
-                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#f87171' }}>
+                  <span style={{ fontSize: "11.5px", fontWeight: 600, color: "#f87171" }}>
                     No valid macros detected in JSON
                   </span>
                 </>
@@ -226,9 +257,11 @@ export function MacroImportModal({
 
             {/* Error notifications if any */}
             {errorList.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "2px", marginTop: "2px" }}
+              >
                 {errorList.map((err, idx) => (
-                  <span key={idx} style={{ fontSize: '10.5px', color: '#fca5a5' }}>
+                  <span key={idx} style={{ fontSize: "10.5px", color: "#fca5a5" }}>
                     • {err}
                   </span>
                 ))}
@@ -237,19 +270,21 @@ export function MacroImportModal({
 
             {/* Command step security notice */}
             {validCount > 0 &&
-              parseResult.value.valid.some((c) => c.steps?.some((s) => s.type === 'RunCommand')) && (
+              parseResult.value.valid.some((c) =>
+                c.steps?.some((s) => s.type === "RunCommand"),
+              ) && (
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    background: 'rgba(245, 158, 11, 0.12)',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    fontSize: '11px',
-                    color: '#fbbf24',
-                    marginTop: '2px',
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    background: "rgba(245, 158, 11, 0.12)",
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    fontSize: "11px",
+                    color: "#fbbf24",
+                    marginTop: "2px",
                   }}
                 >
                   <IconAlertTriangle size={13} color="#fbbf24" style={{ flexShrink: 0 }} />
@@ -259,43 +294,58 @@ export function MacroImportModal({
 
             {/* Preview of valid macros */}
             {validCount > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}
+              >
                 {parseResult.value.valid.map((cmd, idx) => (
                   <div
                     key={idx}
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      padding: '6px 8px',
-                      borderRadius: '4px',
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                      padding: "6px 8px",
+                      borderRadius: "4px",
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid rgba(255, 255, 255, 0.06)",
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: tokens.colors.textPrimary }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: tokens.colors.textPrimary,
+                        }}
+                      >
                         "{cmd.phrase}"
                       </span>
                       {cmd.phrases && cmd.phrases.length > 0 && (
-                        <span style={{ fontSize: '9.5px', color: '#cbd5e1', opacity: 0.8 }}>
+                        <span style={{ fontSize: "9.5px", color: "#cbd5e1", opacity: 0.8 }}>
                           (+{cmd.phrases.length} aliases)
                         </span>
                       )}
-                      <span style={{ fontSize: '10.5px', color: tokens.colors.textMuted }}>
+                      <span style={{ fontSize: "10.5px", color: tokens.colors.textMuted }}>
                         • {cmd.steps?.length || 0} steps
                       </span>
-                      {cmd.sound_mode === 'tts' && cmd.sound_tts_text && (
+                      {cmd.sound_mode === "tts" && cmd.sound_tts_text && (
                         <span
                           style={{
-                            fontSize: '9.5px',
-                            color: '#f472b6',
-                            background: 'rgba(236, 72, 153, 0.15)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
+                            fontSize: "9.5px",
+                            color: "#f472b6",
+                            background: "rgba(236, 72, 153, 0.15)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
                           }}
                         >
                           <IconVolume size={11} />
@@ -305,12 +355,19 @@ export function MacroImportModal({
                     </div>
 
                     {cmd.steps && cmd.steps.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          flexWrap: "wrap",
+                        }}
+                      >
                         {cmd.steps.slice(0, 8).map((step, sIdx) => (
                           <MacroStepChip key={sIdx} step={step} />
                         ))}
                         {cmd.steps.length > 8 && (
-                          <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
+                          <span style={{ fontSize: "10px", color: tokens.colors.textMuted }}>
                             +{cmd.steps.length - 8} more...
                           </span>
                         )}

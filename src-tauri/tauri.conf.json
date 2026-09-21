@@ -65,10 +65,7 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "resources": [
-      "packaging/windows/vulkan-1.dll",
-      "../python-runner/**/*"
-    ],
+    "resources": ["packaging/windows/vulkan-1.dll", "../python-runner/**/*"],
     "externalBin": [],
     "windows": {
       "certificateThumbprint": null,
@@ -81,23 +78,14 @@
     "linux": {
       "deb": {
         "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
-        "depends": [
-          "libgtk-layer-shell0",
-          "libpulse0",
-          "libappindicator3-1"
-        ],
+        "depends": ["libgtk-layer-shell0", "libpulse0", "libappindicator3-1"],
         "files": {
           "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
         }
       },
       "rpm": {
         "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
-        "depends": [
-          "gtk-layer-shell",
-          "webkit2gtk4.1",
-          "pulseaudio-libs",
-          "libappindicator-gtk3"
-        ],
+        "depends": ["gtk-layer-shell", "webkit2gtk4.1", "pulseaudio-libs", "libappindicator-gtk3"],
         "files": {
           "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
         }

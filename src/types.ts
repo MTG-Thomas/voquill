@@ -7,14 +7,14 @@ export interface PostProcessPrompt {
 }
 
 export type MacroStep =
-  | { type: 'KeyPress'; key: string; hold_ms?: number }
-  | { type: 'KeyDown'; key: string }
-  | { type: 'KeyUp'; key: string }
-  | { type: 'Delay'; duration_ms: number }
-  | { type: 'TypeText'; text: string }
-  | { type: 'RunCommand'; command: string };
+  | { type: "KeyPress"; key: string; hold_ms?: number }
+  | { type: "KeyDown"; key: string }
+  | { type: "KeyUp"; key: string }
+  | { type: "Delay"; duration_ms: number }
+  | { type: "TypeText"; text: string }
+  | { type: "RunCommand"; command: string };
 
-export type MacroSoundMode = 'default' | 'none' | 'tts' | 'custom_file' | 'mic_recording';
+export type MacroSoundMode = "default" | "none" | "tts" | "custom_file" | "mic_recording";
 
 export interface BaseVoiceModelInfo {
   id: string;
@@ -72,13 +72,13 @@ export interface VoiceMacroCommand {
   sound_tts_pitch?: number | null;
 }
 
-export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV';
+export type PasteShortcut = "ShiftInsert" | "CtrlV" | "CtrlShiftV";
 
 export interface Config {
   openai_api_key: string;
   api_url: string;
   api_model: string;
-  transcription_mode: 'API' | 'Local';
+  transcription_mode: "API" | "Local";
   local_model_size: string;
   local_engine: string;
   hotkey: string;
@@ -89,16 +89,16 @@ export interface Config {
   playback_device?: string | null;
   enable_recording_logs: boolean;
   input_sensitivity: number;
-  output_method: 'Typewriter' | 'Clipboard';
+  output_method: "Typewriter" | "Clipboard";
   copy_on_typewriter: boolean;
   language: string;
   post_roll_ms: number;
-  hotkey_mode: 'HoldToTalk' | 'Toggle';
+  hotkey_mode: "HoldToTalk" | "Toggle";
   max_recording_duration_minutes: number;
   engine_config: Record<string, unknown> | null;
   dictionary: string[];
   post_process_enabled: boolean;
-  post_process_provider: 'Local' | 'API';
+  post_process_provider: "Local" | "API";
   post_process_engine: string;
   post_process_model: string;
   post_process_api_url: string;
@@ -136,7 +136,7 @@ export interface Config {
 export interface Toast {
   id: number;
   message: string;
-  type: 'success' | 'error' | 'info' | 'saved';
+  type: "success" | "error" | "info" | "saved";
 }
 
 export interface HistoryItem {
@@ -144,14 +144,14 @@ export interface HistoryItem {
   session_uuid?: string;
   text: string;
   timestamp: string;
-  status?: 'success' | 'empty' | 'failed' | 'cancelled' | string;
+  status?: "success" | "empty" | "failed" | "cancelled" | string;
   raw_text?: string | null;
   error_message?: string | null;
   segments?: Segment[] | null;
   audio_file?: string | null;
   duration_secs?: number | null;
   engine?: string | null;
-  source?: 'mic' | 'file' | string | null;
+  source?: "mic" | "file" | string | null;
   language?: string | null;
   prompt_name?: string | null;
 }
@@ -185,7 +185,7 @@ export interface LinuxPermissions {
 }
 
 export interface ConfigureHotkeyResult {
-  outcome: 'configured' | 'requires_in_app_capture' | 'system_managed';
+  outcome: "configured" | "requires_in_app_capture" | "system_managed";
   detail?: string;
 }
 
@@ -219,7 +219,7 @@ export interface ModelInfo {
   category: string;
 }
 
-export type DownloadPhase = 'downloading' | 'extracting';
+export type DownloadPhase = "downloading" | "extracting";
 
 export interface ModelDownloadProgress {
   phase: DownloadPhase;
@@ -270,6 +270,12 @@ export interface StatusUpdatePayload {
   status: string;
 }
 
-export type DictationStatus = 'Ready' | 'Recording' | 'Transcribing' | 'Processing' | 'Typing' | 'Error';
+export type DictationStatus =
+  | "Ready"
+  | "Recording"
+  | "Transcribing"
+  | "Processing"
+  | "Typing"
+  | "Error";
 
-export type AppRoute = 'setup' | 'home' | 'status' | 'history' | 'settings' | 'ui-lab' | 'help';
+export type AppRoute = "setup" | "home" | "status" | "history" | "settings" | "ui-lab" | "help";

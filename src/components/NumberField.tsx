@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useSignal, useSignalEffect } from "@preact/signals";
 import { inputBaseStyle } from "../theme/ui-primitives.ts";
 
 interface NumberFieldProps {
@@ -18,14 +18,14 @@ export function NumberField({
   step = 1,
   disabled = false,
 }: NumberFieldProps) {
-  const [draftValue, setDraftValue] = useState(String(value));
-  const [isFocused, setIsFocused] = useState(false);
+  const draftValue = useSignal(String(value));
+  const isFocused = useSignal(false);
 
-  useEffect(() => {
-    if (!isFocused) {
-      setDraftValue(String(value));
+  useSignalEffect(() => {
+    if (!isFocused.value) {
+      draftValue.value = String(value);
     }
-  }, [value, isFocused]);
+  });
 
   const commitIfValid = (rawValue: string) => {
     if (rawValue.trim() === "") {
@@ -43,7 +43,7 @@ export function NumberField({
       return;
     }
     const rawValue = (event.target as HTMLInputElement).value;
-    setDraftValue(rawValue);
+    draftValue.value = rawValue;
     commitIfValid(rawValue);
   };
 
@@ -51,12 +51,12 @@ export function NumberField({
     if (disabled) {
       return;
     }
-    setIsFocused(false);
-    if (draftValue.trim() === "" || Number.isNaN(Number(draftValue))) {
-      setDraftValue(String(value));
+    isFocused.value = false;
+    if (draftValue.value.trim() === "" || Number.isNaN(Number(draftValue.value))) {
+      draftValue.value = String(value);
       return;
     }
-    commitIfValid(draftValue);
+    commitIfValid(draftValue.value);
   };
 
   return (
@@ -75,9 +75,11 @@ export function NumberField({
       <input
         className="voquill-number-field"
         type="number"
-        value={draftValue}
+        value={draftValue.value}
         onInput={handleInput}
-        onFocus={() => setIsFocused(true)}
+        onFocus={() => {
+          isFocused.value = true;
+        }}
         onBlur={handleBlur}
         onKeyDown={(event) => {
           if (event.key === "Enter") {

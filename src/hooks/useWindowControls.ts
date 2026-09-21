@@ -1,6 +1,6 @@
-import { useSignal } from '@preact/signals';
-import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useSignal } from "@preact/signals";
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface UseWindowControlsReturn {
   handleClose: () => Promise<void>;
@@ -11,14 +11,24 @@ interface UseWindowControlsReturn {
   handleResizeCornerMouseDown: (direction: ResizeDirection) => (event: MouseEvent) => Promise<void>;
 }
 
-type ResizeDirection = 'East' | 'North' | 'NorthEast' | 'NorthWest' | 'South' | 'SouthEast' | 'SouthWest' | 'West';
+type ResizeDirection =
+  | "East"
+  | "North"
+  | "NorthEast"
+  | "NorthWest"
+  | "South"
+  | "SouthEast"
+  | "SouthWest"
+  | "West";
 
-export function useWindowControls(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseWindowControlsReturn {
+export function useWindowControls(
+  showToast: (message: string, type: "success" | "error" | "info" | "saved") => void,
+): UseWindowControlsReturn {
   const trayFallbackNotified = useSignal(false);
 
   const handleClose = async () => {
     try {
-      await invoke('quit_application');
+      await invoke("quit_application");
     } catch {
       await getCurrentWindow().close();
     }
@@ -26,10 +36,13 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
 
   const handleMinimize = async () => {
     try {
-      const target = await invoke<string>('minimize_to_tray_or_taskbar');
-      if (target === 'taskbar' && !trayFallbackNotified.value) {
+      const target = await invoke<string>("minimize_to_tray_or_taskbar");
+      if (target === "taskbar" && !trayFallbackNotified.value) {
         trayFallbackNotified.value = true;
-        showToast('System tray is unavailable on this desktop. Minimized to taskbar instead.', 'info');
+        showToast(
+          "System tray is unavailable on this desktop. Minimized to taskbar instead.",
+          "info",
+        );
       }
     } catch {
       await getCurrentWindow().minimize();
@@ -56,7 +69,7 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
       return;
     }
 
-    if (event.buttons === 1 && !target?.closest('button')) {
+    if (event.buttons === 1 && !target?.closest("button")) {
       event.preventDefault();
       await getCurrentWindow().startDragging();
     }
@@ -64,7 +77,7 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
 
   const handleTitleBarDoubleClick = async (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('button')) {
+    if (target?.closest("button")) {
       return;
     }
 
@@ -82,9 +95,16 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
     try {
       await getCurrentWindow().startResizeDragging(direction);
     } catch (err) {
-      console.error('Failed to start resize dragging:', err);
+      console.error("Failed to start resize dragging:", err);
     }
   };
 
-  return { handleClose, handleMinimize, toggleWindowMaximize, handleTitleBarMouseDown, handleTitleBarDoubleClick, handleResizeCornerMouseDown };
+  return {
+    handleClose,
+    handleMinimize,
+    toggleWindowMaximize,
+    handleTitleBarMouseDown,
+    handleTitleBarDoubleClick,
+    handleResizeCornerMouseDown,
+  };
 }

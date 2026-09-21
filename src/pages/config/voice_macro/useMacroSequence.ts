@@ -1,16 +1,16 @@
-import { useSignal } from '@preact/signals';
-import { useEffect, useRef } from 'preact/hooks';
-import type { MacroStep } from '../../../types.ts';
-import { normalizeKeyName } from './keyUtils.ts';
+import { useSignal } from "@preact/signals";
+import { useEffect, useRef } from "preact/hooks";
+import type { MacroStep } from "../../../types.ts";
+import { normalizeKeyName } from "./keyUtils.ts";
 
 export function useMacroSequence(initialSteps: MacroStep[] = []) {
   const steps = useSignal<MacroStep[]>([...initialSteps]);
   const isRecording = useSignal(false);
-  const manualKeyInput = useSignal('');
-  const manualTextInput = useSignal('');
-  const manualCommandInput = useSignal('');
+  const manualKeyInput = useSignal("");
+  const manualTextInput = useSignal("");
+  const manualCommandInput = useSignal("");
   const editingDurationIndex = useSignal<number | null>(null);
-  const editingDurationValue = useSignal('');
+  const editingDurationValue = useSignal("");
 
   const lastEventTime = useSignal<number>(0);
   const pressedKeysDownTime = useSignal<Record<string, number>>({});
@@ -26,7 +26,7 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     if (lastEventTime.value > 0) {
       const delayMs = now - lastEventTime.value;
       if (delayMs >= 35 && updated.length > 0) {
-        updated.push({ type: 'Delay', duration_ms: Math.min(delayMs, 5000) });
+        updated.push({ type: "Delay", duration_ms: Math.min(delayMs, 5000) });
       }
     }
     updated.push(step);
@@ -40,18 +40,18 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     e.preventDefault();
     e.stopPropagation();
 
-    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+    if (e.key === "Escape" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
       isRecording.value = false;
       return;
     }
 
     const keyName = normalizeKeyName(e);
-    const isModifier = ['Ctrl', 'Shift', 'Alt', 'Super'].includes(keyName);
+    const isModifier = ["Ctrl", "Shift", "Alt", "Super"].includes(keyName);
 
     if (isModifier) {
       if (!pressedKeysDownTime.value[keyName]) {
         pressedKeysDownTime.value = { ...pressedKeysDownTime.value, [keyName]: Date.now() };
-        appendStepWithDelay({ type: 'KeyDown', key: keyName });
+        appendStepWithDelay({ type: "KeyDown", key: keyName });
       }
     } else if (!pressedKeysDownTime.value[keyName]) {
       pressedKeysDownTime.value = { ...pressedKeysDownTime.value, [keyName]: Date.now() };
@@ -65,7 +65,7 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     e.stopPropagation();
 
     const keyName = normalizeKeyName(e);
-    const isModifier = ['Ctrl', 'Shift', 'Alt', 'Super'].includes(keyName);
+    const isModifier = ["Ctrl", "Shift", "Alt", "Super"].includes(keyName);
     const downTime = pressedKeysDownTime.value[keyName] || Date.now();
 
     const updatedPresses = { ...pressedKeysDownTime.value };
@@ -73,22 +73,22 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     pressedKeysDownTime.value = updatedPresses;
 
     if (isModifier) {
-      appendStepWithDelay({ type: 'KeyUp', key: keyName });
+      appendStepWithDelay({ type: "KeyUp", key: keyName });
     } else {
       const holdDuration = Math.min(Math.max(Date.now() - downTime, 25), 2000);
-      appendStepWithDelay({ type: 'KeyPress', key: keyName, hold_ms: holdDuration });
+      appendStepWithDelay({ type: "KeyPress", key: keyName, hold_ms: holdDuration });
     }
   };
 
   useEffect(() => {
     if (!isRecording.value) return;
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
     };
   }, [isRecording.value]);
 
@@ -112,35 +112,35 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     steps.value = updated;
   };
 
-  const addManualKey = (type: 'KeyPress' | 'KeyDown' | 'KeyUp') => {
+  const addManualKey = (type: "KeyPress" | "KeyDown" | "KeyUp") => {
     const key = manualKeyInput.value.trim();
     if (!key) return;
-    if (type === 'KeyPress') {
-      steps.value = [...steps.value, { type: 'KeyPress', key, hold_ms: 50 }];
-    } else if (type === 'KeyDown') {
-      steps.value = [...steps.value, { type: 'KeyDown', key }];
-    } else if (type === 'KeyUp') {
-      steps.value = [...steps.value, { type: 'KeyUp', key }];
+    if (type === "KeyPress") {
+      steps.value = [...steps.value, { type: "KeyPress", key, hold_ms: 50 }];
+    } else if (type === "KeyDown") {
+      steps.value = [...steps.value, { type: "KeyDown", key }];
+    } else if (type === "KeyUp") {
+      steps.value = [...steps.value, { type: "KeyUp", key }];
     }
-    manualKeyInput.value = '';
+    manualKeyInput.value = "";
   };
 
   const addManualDelay = () => {
-    steps.value = [...steps.value, { type: 'Delay', duration_ms: 100 }];
+    steps.value = [...steps.value, { type: "Delay", duration_ms: 100 }];
   };
 
   const addManualText = () => {
     const text = manualTextInput.value.trim();
     if (!text) return;
-    steps.value = [...steps.value, { type: 'TypeText', text }];
-    manualTextInput.value = '';
+    steps.value = [...steps.value, { type: "TypeText", text }];
+    manualTextInput.value = "";
   };
 
   const addManualCommand = () => {
     const command = manualCommandInput.value.trim();
     if (!command) return;
-    steps.value = [...steps.value, { type: 'RunCommand', command }];
-    manualCommandInput.value = '';
+    steps.value = [...steps.value, { type: "RunCommand", command }];
+    manualCommandInput.value = "";
   };
 
   const startEditDuration = (index: number, currentMs: number) => {
@@ -153,10 +153,10 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     if (!isNaN(num) && num >= 0) {
       const updated = [...steps.value];
       const targetStep = updated[index];
-      if (targetStep.type === 'Delay') {
-        updated[index] = { type: 'Delay', duration_ms: num };
-      } else if (targetStep.type === 'KeyPress') {
-        updated[index] = { type: 'KeyPress', key: targetStep.key, hold_ms: num };
+      if (targetStep.type === "Delay") {
+        updated[index] = { type: "Delay", duration_ms: num };
+      } else if (targetStep.type === "KeyPress") {
+        updated[index] = { type: "KeyPress", key: targetStep.key, hold_ms: num };
       }
       steps.value = updated;
     }
@@ -172,11 +172,11 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     const targetStep = updated[index];
     if (!targetStep) return;
 
-    if (targetStep.type === 'TypeText') {
-      updated[index] = { type: 'TypeText', text: textOrCommand };
+    if (targetStep.type === "TypeText") {
+      updated[index] = { type: "TypeText", text: textOrCommand };
       steps.value = updated;
-    } else if (targetStep.type === 'RunCommand') {
-      updated[index] = { type: 'RunCommand', command: textOrCommand.trim() };
+    } else if (targetStep.type === "RunCommand") {
+      updated[index] = { type: "RunCommand", command: textOrCommand.trim() };
       steps.value = updated;
     }
   };
@@ -201,7 +201,7 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     const elements = document.elementsFromPoint(e.clientX, e.clientY);
     let targetRow: HTMLElement | null = null;
     for (const el of elements) {
-      const row = el.closest('[data-step-index]') as HTMLElement | null;
+      const row = el.closest("[data-step-index]") as HTMLElement | null;
       if (row) {
         targetRow = row;
         break;
@@ -209,7 +209,7 @@ export function useMacroSequence(initialSteps: MacroStep[] = []) {
     }
 
     if (targetRow) {
-      const targetIndex = parseInt(targetRow.getAttribute('data-step-index') || '-1', 10);
+      const targetIndex = parseInt(targetRow.getAttribute("data-step-index") || "-1", 10);
       if (targetIndex >= 0) {
         const rect = targetRow.getBoundingClientRect();
         const isTopHalf = e.clientY < rect.top + rect.height / 2;

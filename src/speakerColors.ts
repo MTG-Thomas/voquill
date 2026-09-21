@@ -1,6 +1,6 @@
-import { tokens } from './design-tokens.ts';
+import { tokens } from "./design-tokens.ts";
 
-const speakerColors = ['#43b581', '#faa61a', '#7289da', '#f04747', '#b9bbbe'];
+const speakerColors = ["#43b581", "#faa61a", "#7289da", "#f04747", "#b9bbbe"];
 
 const personLabelPattern = /^Person\s+(\d+)$/i;
 

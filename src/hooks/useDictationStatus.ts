@@ -1,13 +1,13 @@
-import { useSignal } from '@preact/signals';
-import type { DictationStatus, StatusUpdatePayload } from '../types.ts';
-import { isDictationStatus, normalizeStatusUpdate } from '../status.ts';
+import { useSignal } from "@preact/signals";
+import type { DictationStatus, StatusUpdatePayload } from "../types.ts";
+import { isDictationStatus, normalizeStatusUpdate } from "../status.ts";
 
 interface UseDictationStatusOptions {
   accept?: readonly DictationStatus[];
 }
 
 export function useDictationStatus(options?: UseDictationStatusOptions) {
-  const status = useSignal<DictationStatus>('Ready');
+  const status = useSignal<DictationStatus>("Ready");
   const lastSeq = useSignal(0);
   const accept = options?.accept;
 

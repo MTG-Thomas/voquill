@@ -1,7 +1,7 @@
-import { useSignal } from '@preact/signals';
-import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-shell';
-import type { UpdateCheckResult } from '../types.ts';
+import { useSignal } from "@preact/signals";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-shell";
+import type { UpdateCheckResult } from "../types.ts";
 
 interface UseUpdatesReturn {
   updateResult: UpdateCheckResult | null;
@@ -16,7 +16,9 @@ interface UseUpdatesReturn {
   getLastCheckedLabel: () => string;
 }
 
-export function useUpdates(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseUpdatesReturn {
+export function useUpdates(
+  showToast: (message: string, type: "success" | "error" | "info" | "saved") => void,
+): UseUpdatesReturn {
   const updateResult = useSignal<UpdateCheckResult | null>(null);
   const lastCheckedAt = useSignal<number | null>(null);
   const checkingUpdates = useSignal(false);
@@ -28,20 +30,20 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
 
     checkingUpdates.value = true;
     try {
-      const result = await invoke<UpdateCheckResult>('check_for_updates');
+      const result = await invoke<UpdateCheckResult>("check_for_updates");
       updateResult.value = result;
       lastCheckedAt.value = Date.now();
       if (result.updateAvailable || showUpToDateModal) {
         showUpdateModal.value = true;
       }
       if (!result.updateAvailable && showUpToDateModal) {
-        showToast('You are already on the latest version.', 'info');
+        showToast("You are already on the latest version.", "info");
       }
     } catch (error) {
       if (showUpToDateModal) {
-        showToast(`Failed to check for updates: ${error}`, 'error');
+        showToast(`Failed to check for updates: ${error}`, "error");
       } else {
-        console.log('Background update check failed:', error);
+        console.log("Background update check failed:", error);
       }
     } finally {
       checkingUpdates.value = false;
@@ -53,31 +55,32 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
 
     installingUpdate.value = true;
     try {
-      showToast('Starting update... Voquill will restart shortly.', 'info');
-      await invoke('install_update');
+      showToast("Starting update... Voquill will restart shortly.", "info");
+      await invoke("install_update");
     } catch (error) {
       installingUpdate.value = false;
-      showToast(`Failed to start update: ${error}`, 'error');
+      showToast(`Failed to start update: ${error}`, "error");
     }
   };
 
   const openLatestReleasePage = async () => {
-    const releaseUrl = updateResult.value?.releaseUrl || 'https://github.com/jackbrumley/voquill/releases/latest';
+    const releaseUrl =
+      updateResult.value?.releaseUrl || "https://github.com/jackbrumley/voquill/releases/latest";
     try {
       await open(releaseUrl);
     } catch (error) {
-      showToast(`Failed to open release page: ${error}`, 'error');
+      showToast(`Failed to open release page: ${error}`, "error");
     }
   };
 
   const getLastCheckedLabel = (): string => {
     if (!lastCheckedAt.value) {
-      return 'Not checked yet';
+      return "Not checked yet";
     }
 
     const elapsedMs = Date.now() - lastCheckedAt.value;
     if (elapsedMs < 60_000) {
-      return 'Just now';
+      return "Just now";
     }
 
     const elapsedMinutes = Math.floor(elapsedMs / 60_000);
@@ -91,7 +94,7 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
     }
 
     const elapsedDays = Math.floor(elapsedHours / 24);
-    return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
+    return `${elapsedDays} day${elapsedDays === 1 ? "" : "s"} ago`;
   };
 
   return {
@@ -100,7 +103,9 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
     checkingUpdates: checkingUpdates.value,
     installingUpdate: installingUpdate.value,
     showUpdateModal: showUpdateModal.value,
-    setShowUpdateModal: (show) => { showUpdateModal.value = show; },
+    setShowUpdateModal: (show) => {
+      showUpdateModal.value = show;
+    },
     checkForUpdates,
     installUpdate,
     openLatestReleasePage,

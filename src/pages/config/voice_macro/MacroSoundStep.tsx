@@ -1,8 +1,8 @@
-import { useEffect } from 'preact/hooks';
-import { useSignal, useSignalEffect } from '@preact/signals';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { useEffect } from "preact/hooks";
+import { useSignal, useSignalEffect } from "@preact/signals";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   Icon,
   IconVolume,
@@ -15,14 +15,19 @@ import {
   IconLoader2,
   IconAlertTriangle,
   IconAdjustmentsHorizontal,
-} from '@tabler/icons-preact';
-import type { DownloadPhase, MacroSoundMode, TtsModelDownloadProgress, VoicePreset } from '../../../types.ts';
-import { tokens } from '../../../design-tokens.ts';
-import { Button } from '../../../components/Button.tsx';
-import { DownloadProgressBar } from '../../../components/DownloadProgressBar.tsx';
-import { SelectField } from '../../../components/SelectField.tsx';
-import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
-import { VoiceLabModal } from './VoiceLabModal.tsx';
+} from "@tabler/icons-preact";
+import type {
+  DownloadPhase,
+  MacroSoundMode,
+  TtsModelDownloadProgress,
+  VoicePreset,
+} from "../../../types.ts";
+import { tokens } from "../../../design-tokens.ts";
+import { Button } from "../../../components/Button.tsx";
+import { DownloadProgressBar } from "../../../components/DownloadProgressBar.tsx";
+import { SelectField } from "../../../components/SelectField.tsx";
+import { inputBaseStyle } from "../../../theme/ui-primitives.ts";
+import { VoiceLabModal } from "./VoiceLabModal.tsx";
 
 interface MacroSoundStepProps {
   macroId: string;
@@ -60,7 +65,7 @@ export function MacroSoundStep({
   const isSynthesizing = useSignal(false);
   const isDownloading = useSignal(false);
   const downloadProgress = useSignal(0);
-  const downloadPhase = useSignal<DownloadPhase>('downloading');
+  const downloadPhase = useSignal<DownloadPhase>("downloading");
   const playTimer = useSignal<ReturnType<typeof setTimeout> | null>(null);
   const previewError = useSignal<string | null>(null);
   const isRecordingMic = useSignal(false);
@@ -68,19 +73,19 @@ export function MacroSoundStep({
   const isVoiceLabModalOpen = useSignal(false);
 
   const fetchPresets = () => {
-    invoke<VoicePreset[]>('get_custom_voice_presets')
+    invoke<VoicePreset[]>("get_custom_voice_presets")
       .then((presets) => {
         const list = presets || [];
         customPresets.value = list;
         if (list.length > 0) {
           const currentFound = list.find((p) => p.id === ttsVoice);
-          if (!currentFound && (!ttsVoice || ttsVoice === 'titan-mech' || ttsVoice === 'default')) {
+          if (!currentFound && (!ttsVoice || ttsVoice === "titan-mech" || ttsVoice === "default")) {
             handleSelectPreset(list[0].id, list);
           }
         }
       })
       .catch((err) => {
-        console.warn('Failed to fetch custom voice presets:', err);
+        console.warn("Failed to fetch custom voice presets:", err);
         customPresets.value = [];
       });
   };
@@ -92,13 +97,13 @@ export function MacroSoundStep({
   useEffect(() => {
     let isMounted = true;
     const unlistenPromise = listen<TtsModelDownloadProgress>(
-      'tts-model-download-progress',
+      "tts-model-download-progress",
       (event) => {
         if (!isMounted) return;
         isDownloading.value = true;
         downloadProgress.value = event.payload.progress;
         downloadPhase.value = event.payload.phase;
-      }
+      },
     );
 
     return () => {
@@ -114,7 +119,7 @@ export function MacroSoundStep({
     const list = listOverride || customPresets.value;
     const matched = list.find((p) => p.id === selectedId);
     if (matched) {
-      if (onTtsEffectChange) onTtsEffectChange('custom');
+      if (onTtsEffectChange) onTtsEffectChange("custom");
       if (matched.pitch !== undefined && matched.pitch !== null && onTtsPitchChange) {
         onTtsPitchChange(matched.pitch);
       }
@@ -129,9 +134,9 @@ export function MacroSoundStep({
       if (playTimer.value) clearTimeout(playTimer.value);
       isPlaying.value = false;
       try {
-        await invoke('stop_macro_sound_playback');
+        await invoke("stop_macro_sound_playback");
       } catch (e) {
-        console.warn('Failed to stop sound:', e);
+        console.warn("Failed to stop sound:", e);
       }
       return;
     }
@@ -141,25 +146,28 @@ export function MacroSoundStep({
     isSynthesizing.value = true;
 
     try {
-      if (soundMode === 'default') {
-        await invoke('test_voice_macro_sound');
+      if (soundMode === "default") {
+        await invoke("test_voice_macro_sound");
         isSynthesizing.value = false;
         isPlaying.value = true;
         if (playTimer.value) clearTimeout(playTimer.value);
-        playTimer.value = setTimeout(() => { isPlaying.value = false; }, 800);
-      } else if (soundMode === 'tts') {
-        const text = ttsText.trim() || 'Command confirmed';
+        playTimer.value = setTimeout(() => {
+          isPlaying.value = false;
+        }, 800);
+      } else if (soundMode === "tts") {
+        const text = ttsText.trim() || "Command confirmed";
         const selectedId = ttsVoice || activePreset?.id;
         if (!selectedId) {
-          previewError.value = 'Please create or select a custom voice preset in Voice Studio first.';
+          previewError.value =
+            "Please create or select a custom voice preset in Voice Studio first.";
           isSynthesizing.value = false;
           return;
         }
-        const res = await invoke<{ duration_secs: number }>('preview_tts_voice', {
+        const res = await invoke<{ duration_secs: number }>("preview_tts_voice", {
           text,
           voiceId: selectedId,
           speed: ttsSpeed || activePreset?.speed || 1.0,
-          effect: ttsEffect || 'custom',
+          effect: ttsEffect || "custom",
           pitch: ttsPitch ?? activePreset?.pitch ?? 0.0,
         });
         isDownloading.value = false;
@@ -168,13 +176,17 @@ export function MacroSoundStep({
         fetchPresets();
         const durMs = Math.round(((res && res.duration_secs) || 3.0) * 1000) + 400;
         if (playTimer.value) clearTimeout(playTimer.value);
-        playTimer.value = setTimeout(() => { isPlaying.value = false; }, durMs);
+        playTimer.value = setTimeout(() => {
+          isPlaying.value = false;
+        }, durMs);
       } else {
-        await invoke('play_macro_sound_preview', { macroId });
+        await invoke("play_macro_sound_preview", { macroId });
         isSynthesizing.value = false;
         isPlaying.value = true;
         if (playTimer.value) clearTimeout(playTimer.value);
-        playTimer.value = setTimeout(() => { isPlaying.value = false; }, 2500);
+        playTimer.value = setTimeout(() => {
+          isPlaying.value = false;
+        }, 2500);
       }
     } catch (e) {
       previewError.value = String(e);
@@ -191,16 +203,16 @@ export function MacroSoundStep({
         multiple: false,
         filters: [
           {
-            name: 'Audio Files',
-            extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'],
+            name: "Audio Files",
+            extensions: ["mp3", "wav", "ogg", "flac", "m4a", "aac", "wma"],
           },
         ],
       });
 
-      if (selected && typeof selected === 'string') {
+      if (selected && typeof selected === "string") {
         const filename = selected.split(/[\\/]/).pop() || selected;
         importedFileName.value = filename;
-        await invoke('import_macro_audio_file', {
+        await invoke("import_macro_audio_file", {
           macroId,
           sourcePath: selected,
         });
@@ -214,8 +226,8 @@ export function MacroSoundStep({
     if (isRecordingMic.value) {
       isRecordingMic.value = false;
       try {
-        await invoke('stop_mic_test');
-        await invoke('play_macro_sound_preview', { macroId });
+        await invoke("stop_mic_test");
+        await invoke("play_macro_sound_preview", { macroId });
       } catch (e) {
         previewError.value = `Recording stop failed: ${e}`;
       }
@@ -223,7 +235,7 @@ export function MacroSoundStep({
       previewError.value = null;
       isRecordingMic.value = true;
       try {
-        await invoke('start_mic_test');
+        await invoke("start_mic_test");
       } catch (e) {
         isRecordingMic.value = false;
         previewError.value = `Microphone record failed: ${e}`;
@@ -232,24 +244,24 @@ export function MacroSoundStep({
   };
 
   const soundModeTabs: { id: MacroSoundMode; label: string; icon: Icon }[] = [
-    { id: 'default', label: 'Chirp', icon: IconVolume },
-    { id: 'tts', label: 'AI Voice', icon: IconSparkles },
-    { id: 'custom_file', label: 'Audio File', icon: IconUpload },
-    { id: 'mic_recording', label: 'Record Mic', icon: IconMicrophone },
-    { id: 'none', label: 'Mute', icon: IconVolumeOff },
+    { id: "default", label: "Chirp", icon: IconVolume },
+    { id: "tts", label: "AI Voice", icon: IconSparkles },
+    { id: "custom_file", label: "Audio File", icon: IconUpload },
+    { id: "mic_recording", label: "Record Mic", icon: IconMicrophone },
+    { id: "none", label: "Mute", icon: IconVolumeOff },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}>
       {/* Sound Mode Selection Pills */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         <label
           style={{
-            fontSize: '11px',
+            fontSize: "11px",
             fontWeight: 600,
             color: tokens.colors.textMuted,
-            textTransform: 'uppercase',
-            letterSpacing: '0.4px',
+            textTransform: "uppercase",
+            letterSpacing: "0.4px",
           }}
         >
           Audio Feedback Mode
@@ -257,13 +269,13 @@ export function MacroSoundStep({
 
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: '4px',
-            background: 'rgba(0, 0, 0, 0.25)',
-            padding: '3px',
-            borderRadius: '999px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 1fr)",
+            gap: "4px",
+            background: "rgba(0, 0, 0, 0.25)",
+            padding: "3px",
+            borderRadius: "999px",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
           }}
         >
           {soundModeTabs.map((tab) => {
@@ -275,28 +287,26 @@ export function MacroSoundStep({
                 type="button"
                 onClick={() => onSoundModeChange(tab.id)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  padding: '5px 4px',
-                  borderRadius: '999px',
-                  fontSize: '11px',
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "4px",
+                  padding: "5px 4px",
+                  borderRadius: "999px",
+                  fontSize: "11px",
                   fontWeight: isActive ? 600 : 500,
                   background: isActive
-                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.35) 0%, rgba(129, 140, 248, 0.2) 100%)'
-                    : 'transparent',
-                  border: isActive
-                    ? '1px solid rgba(99, 102, 241, 0.55)'
-                    : '1px solid transparent',
-                  color: isActive ? '#ffffff' : tokens.colors.textSecondary,
-                  cursor: 'pointer',
+                    ? "linear-gradient(135deg, rgba(88, 101, 242, 0.35) 0%, rgba(129, 140, 248, 0.2) 100%)"
+                    : "transparent",
+                  border: isActive ? "1px solid rgba(99, 102, 241, 0.55)" : "1px solid transparent",
+                  color: isActive ? "#ffffff" : tokens.colors.textSecondary,
+                  cursor: "pointer",
                   transition: tokens.transitions.fast,
-                  whiteSpace: 'nowrap',
+                  whiteSpace: "nowrap",
                 }}
               >
-                <IconComponent size={13} color={isActive ? '#818cf8' : tokens.colors.textMuted} />
-                <span style={{ fontSize: '10.5px' }}>{tab.label}</span>
+                <IconComponent size={13} color={isActive ? "#818cf8" : tokens.colors.textMuted} />
+                <span style={{ fontSize: "10.5px" }}>{tab.label}</span>
               </button>
             );
           })}
@@ -304,16 +314,16 @@ export function MacroSoundStep({
       </div>
 
       {/* Mode Specific Settings */}
-      {soundMode === 'tts' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {soundMode === "tts" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           {/* Spoken Confirmation Phrase */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <label
               style={{
-                fontSize: '11px',
+                fontSize: "11px",
                 fontWeight: 600,
                 color: tokens.colors.textMuted,
-                textTransform: 'uppercase',
+                textTransform: "uppercase",
               }}
             >
               Spoken Confirmation Phrase
@@ -323,19 +333,19 @@ export function MacroSoundStep({
               value={ttsText}
               onInput={(e) => onTtsTextChange((e.target as HTMLInputElement).value)}
               placeholder="e.g. Airstrike inbound, landing gear deployed..."
-              style={{ ...inputBaseStyle, padding: '8px 10px', fontSize: '12px' }}
+              style={{ ...inputBaseStyle, padding: "8px 10px", fontSize: "12px" }}
             />
           </div>
 
           {/* Voice Preset Picker */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <label
                 style={{
-                  fontSize: '11px',
+                  fontSize: "11px",
                   fontWeight: 600,
                   color: tokens.colors.textMuted,
-                  textTransform: 'uppercase',
+                  textTransform: "uppercase",
                 }}
               >
                 Voice Preset
@@ -346,20 +356,20 @@ export function MacroSoundStep({
                   isVoiceLabModalOpen.value = true;
                 }}
                 style={{
-                  background: 'none',
-                  border: 'none',
+                  background: "none",
+                  border: "none",
                   color: tokens.colors.textSecondary,
-                  fontSize: '10.5px',
+                  fontSize: "10.5px",
                   fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '0 2px',
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "0 2px",
                   transition: tokens.transitions.fast,
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+                  (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.color = tokens.colors.textSecondary;
@@ -376,36 +386,59 @@ export function MacroSoundStep({
                 options={customPresets.value.map((p) => ({
                   value: p.id,
                   label: p.name,
-                  searchText: `${p.name} ${p.description || ''} ${p.model_key || ''}`,
+                  searchText: `${p.name} ${p.description || ""} ${p.model_key || ""}`,
                 }))}
                 onChange={(val) => handleSelectPreset(val)}
                 ariaLabel="Voice Preset"
-                style={{ width: '100%', fontSize: '12px' }}
+                style={{ width: "100%", fontSize: "12px" }}
               />
             ) : (
               <div
                 style={{
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  background: 'rgba(88, 101, 242, 0.08)',
-                  border: '1px solid rgba(88, 101, 242, 0.25)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  background: "rgba(88, 101, 242, 0.08)",
+                  border: "1px solid rgba(88, 101, 242, 0.25)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: tokens.colors.textPrimary, fontWeight: 600 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "11.5px",
+                    color: tokens.colors.textPrimary,
+                    fontWeight: 600,
+                  }}
+                >
                   <IconSparkles size={14} color="#9ba5ff" />
                   <span>No Custom Presets Yet</span>
                 </div>
-                <p style={{ fontSize: '11px', color: tokens.colors.textMuted, margin: 0, lineHeight: 1.4 }}>
+                <p
+                  style={{
+                    fontSize: "11px",
+                    color: tokens.colors.textMuted,
+                    margin: 0,
+                    lineHeight: 1.4,
+                  }}
+                >
                   Open Voice Studio to design, tune DSP filters, and save your custom voices.
                 </p>
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => { isVoiceLabModalOpen.value = true; }}
-                  style={{ alignSelf: 'flex-start', marginTop: '2px', fontSize: '11px', padding: '4px 10px' }}
+                  onClick={() => {
+                    isVoiceLabModalOpen.value = true;
+                  }}
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: "2px",
+                    fontSize: "11px",
+                    padding: "4px 10px",
+                  }}
                 >
                   <IconAdjustmentsHorizontal size={13} />
                   <span>Open Voice Studio</span>
@@ -416,62 +449,62 @@ export function MacroSoundStep({
         </div>
       )}
 
-      {soundMode === 'custom_file' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {soundMode === "custom_file" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <label
             style={{
-              fontSize: '11px',
+              fontSize: "11px",
               fontWeight: 600,
               color: tokens.colors.textMuted,
-              textTransform: 'uppercase',
+              textTransform: "uppercase",
             }}
           >
             Imported Audio Sound File
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Button
               variant="secondary"
               onClick={handleBrowseFile}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+              style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}
             >
               <IconUpload size={14} />
               <span>Choose Audio File...</span>
             </Button>
             {importedFileName.value && (
-              <span style={{ fontSize: '12px', color: tokens.colors.textSecondary }}>
+              <span style={{ fontSize: "12px", color: tokens.colors.textSecondary }}>
                 {importedFileName.value}
               </span>
             )}
           </div>
-          <p style={{ fontSize: '11px', color: tokens.colors.textMuted, margin: 0 }}>
+          <p style={{ fontSize: "11px", color: tokens.colors.textMuted, margin: 0 }}>
             Supports MP3, WAV, FLAC, OGG, M4A, AAC. Audio is normalized and cached with the macro.
           </p>
         </div>
       )}
 
-      {soundMode === 'mic_recording' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {soundMode === "mic_recording" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <label
             style={{
-              fontSize: '11px',
+              fontSize: "11px",
               fontWeight: 600,
               color: tokens.colors.textMuted,
-              textTransform: 'uppercase',
+              textTransform: "uppercase",
             }}
           >
             Record Directly from Microphone
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Button
-              variant={isRecordingMic.value ? 'danger' : 'secondary'}
+              variant={isRecordingMic.value ? "danger" : "secondary"}
               onClick={handleToggleMicRecord}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+              style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}
             >
               <IconMicrophone size={14} />
-              <span>{isRecordingMic.value ? 'Stop Recording & Save' : 'Record Mic Snippet'}</span>
+              <span>{isRecordingMic.value ? "Stop Recording & Save" : "Record Mic Snippet"}</span>
             </Button>
             {isRecordingMic.value && (
-              <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>
+              <span style={{ fontSize: "11px", color: "#ef4444", fontWeight: 600 }}>
                 ● Recording in progress... speak now
               </span>
             )}
@@ -479,14 +512,14 @@ export function MacroSoundStep({
         </div>
       )}
 
-      {soundMode === 'default' && (
+      {soundMode === "default" && (
         <div
           style={{
-            padding: '10px 12px',
-            borderRadius: '8px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            fontSize: '11.5px',
+            padding: "10px 12px",
+            borderRadius: "8px",
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            fontSize: "11.5px",
             color: tokens.colors.textSecondary,
           }}
         >
@@ -494,14 +527,14 @@ export function MacroSoundStep({
         </div>
       )}
 
-      {soundMode === 'none' && (
+      {soundMode === "none" && (
         <div
           style={{
-            padding: '10px 12px',
-            borderRadius: '8px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            fontSize: '11.5px',
+            padding: "10px 12px",
+            borderRadius: "8px",
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            fontSize: "11.5px",
             color: tokens.colors.textMuted,
           }}
         >
@@ -511,29 +544,29 @@ export function MacroSoundStep({
 
       {/* Model Download Progress Bar */}
       {isDownloading.value && (
-        <div style={{ width: '100%', marginTop: '4px' }}>
+        <div style={{ width: "100%", marginTop: "4px" }}>
           <DownloadProgressBar
             isDownloading={isDownloading.value}
             progress={downloadProgress.value}
             phase={downloadPhase.value}
-            itemLabel={activePreset ? activePreset.name : 'TTS Voice Model'}
+            itemLabel={activePreset ? activePreset.name : "TTS Voice Model"}
           />
         </div>
       )}
 
       {/* Test Preview Action Button */}
-      {soundMode !== 'none' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+      {soundMode !== "none" && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
           <Button
-            variant={isPlaying.value ? 'danger' : 'primary'}
+            variant={isPlaying.value ? "danger" : "primary"}
             onClick={handleTestPreview}
             disabled={isSynthesizing.value || isDownloading.value}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              fontSize: '12px',
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              fontSize: "12px",
             }}
           >
             {isSynthesizing.value ? (
@@ -564,11 +597,11 @@ export function MacroSoundStep({
       {previewError.value && (
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '11px',
-            color: '#f87171',
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            fontSize: "11px",
+            color: "#f87171",
           }}
         >
           <IconAlertTriangle size={13} />

@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
-import { readFileSync, copyFileSync, mkdirSync, existsSync, writeFileSync, readdirSync } from "node:fs";
+import {
+  readFileSync,
+  copyFileSync,
+  mkdirSync,
+  existsSync,
+  writeFileSync,
+  readdirSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,16 +23,6 @@ const OUT_DIR = resolve(ROOT, "release-artifacts");
 function sha256(filePath) {
   const content = readFileSync(filePath);
   return createHash("sha256").update(content).digest("hex");
-}
-
-function globFirst(dir, pattern) {
-  if (!existsSync(dir)) return null;
-  const entries = readdirSync(dir);
-  const regex = new RegExp(pattern);
-  for (const entry of entries) {
-    if (regex.test(entry)) return resolve(dir, entry);
-  }
-  return null;
 }
 
 // Tauri embeds the version in the artifact filename (e.g. voquill_1.5.0_amd64.deb).
@@ -67,9 +64,18 @@ function packageLinux() {
   const appimage = globFirstForVersion(resolve(bundleDir, "appimage"), /\.AppImage$/);
 
   let count = 0;
-  if (deb) { copyAndChecksum(deb, `voquill-${VERSION}-linux-x64.deb`); count++; }
-  if (rpm) { copyAndChecksum(rpm, `voquill-${VERSION}-linux-x64.rpm`); count++; }
-  if (appimage) { copyAndChecksum(appimage, `voquill-${VERSION}-linux-x64.AppImage`); count++; }
+  if (deb) {
+    copyAndChecksum(deb, `voquill-${VERSION}-linux-x64.deb`);
+    count++;
+  }
+  if (rpm) {
+    copyAndChecksum(rpm, `voquill-${VERSION}-linux-x64.rpm`);
+    count++;
+  }
+  if (appimage) {
+    copyAndChecksum(appimage, `voquill-${VERSION}-linux-x64.AppImage`);
+    count++;
+  }
 
   if (count === 0) {
     console.log("  No Linux build artifacts found. Run 'npm run tauri:build' first.");
@@ -85,8 +91,14 @@ function packageWindows() {
   const nsis = globFirstForVersion(resolve(bundleDir, "nsis"), /\.exe$/);
 
   let count = 0;
-  if (msi) { copyAndChecksum(msi, `voquill-${VERSION}-windows-x64.msi`); count++; }
-  if (nsis) { copyAndChecksum(nsis, `voquill-${VERSION}-windows-x64-setup.exe`); count++; }
+  if (msi) {
+    copyAndChecksum(msi, `voquill-${VERSION}-windows-x64.msi`);
+    count++;
+  }
+  if (nsis) {
+    copyAndChecksum(nsis, `voquill-${VERSION}-windows-x64-setup.exe`);
+    count++;
+  }
 
   if (count === 0) {
     console.log("  No Windows build artifacts found. Run 'npm run tauri:build' first.");

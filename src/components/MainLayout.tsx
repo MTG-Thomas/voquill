@@ -1,13 +1,26 @@
-import { Button } from './Button.tsx';
-import { ActionFooter } from './ActionFooter.tsx';
-import { HomePage } from '../pages/HomePage.tsx';
-import { HelpPage } from '../pages/HelpPage.tsx';
-import { ConfigPage } from '../pages/ConfigPage.tsx';
-import { HistoryPage } from '../pages/HistoryPage.tsx';
-import { UiLabPage } from '../pages/UiLabPage.tsx';
-import { TabBar } from './TabBar.tsx';
-import { appContentStyle } from '../theme/ui-primitives.ts';
-import type { Config, DictationStatus, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
+import { Button } from "./Button.tsx";
+import { ActionFooter } from "./ActionFooter.tsx";
+import { HomePage } from "../pages/HomePage.tsx";
+import { HelpPage } from "../pages/HelpPage.tsx";
+import { ConfigPage } from "../pages/ConfigPage.tsx";
+import { HistoryPage } from "../pages/HistoryPage.tsx";
+import { UiLabPage } from "../pages/UiLabPage.tsx";
+import { TabBar } from "./TabBar.tsx";
+import { appContentStyle } from "../theme/ui-primitives.ts";
+import type {
+  Config,
+  DictationStatus,
+  DownloadPhase,
+  HistoryItem,
+  AudioDevice,
+  EngineCapabilities,
+  GpuStatus,
+  HotkeyBindingState,
+  OverlayPositioningCapabilities,
+  ModelInfo,
+  UpdateCheckResult,
+  AppRoute,
+} from "../types.ts";
 
 interface MainLayoutProps {
   activeRoute: AppRoute;
@@ -28,7 +41,7 @@ interface MainLayoutProps {
   isApplyingHotkey: boolean;
   availableMics: AudioDevice[];
   availableSpeakers?: AudioDevice[];
-  micTestStatus: 'playing' | 'idle' | 'recording' | 'processing';
+  micTestStatus: "playing" | "idle" | "recording" | "processing";
   micVolume: number;
   isMicTriggered?: boolean;
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
@@ -44,7 +57,10 @@ interface MainLayoutProps {
   onNavigate: (route: AppRoute) => void;
   onLogUI: (msg: string) => void;
   onSetActiveConfigSection: (value: string | null) => void;
-  onUpdateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
+  onUpdateConfig: (
+    key: string,
+    value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[],
+  ) => void;
   onTestApiKey: () => void;
   onDownloadModel: (size: string, engine?: string) => void;
   onLoadModels: () => void;
@@ -67,9 +83,9 @@ interface MainLayoutProps {
   onClearHistory: () => void;
   onDeleteHistoryItem: (id: number) => void;
   onSearchHistory: (query: string) => void;
-  onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
+  onToggleOutputMethod: (method: "Typewriter" | "Clipboard") => void;
   onOpenUpdateModal: () => void;
-  onShowToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
+  onShowToast?: (message: string, type: "success" | "error" | "info" | "saved") => void;
   tabContentRef: { current: HTMLDivElement | null };
 }
 
@@ -79,30 +95,32 @@ export function MainLayout(props: MainLayoutProps) {
       <TabBar
         active={props.activeRoute}
         tabs={[
-          { value: 'home', label: 'Home' },
-          { value: 'history', label: 'History' },
-          { value: 'settings', label: 'Settings' },
-          { value: 'help', label: 'Help' },
+          { value: "home", label: "Home" },
+          { value: "history", label: "History" },
+          { value: "settings", label: "Settings" },
+          { value: "help", label: "Help" },
         ]}
         onNavigate={props.onNavigate}
         onLogUI={props.onLogUI}
       />
 
       <div style={appContentStyle} ref={props.tabContentRef}>
-        {props.activeRoute === 'home' && (
+        {props.activeRoute === "home" && (
           <HomePage
             appVersion={props.appVersion}
             config={props.config}
             dictationStatus={props.dictationStatus}
             onToggleOutputMethod={props.onToggleOutputMethod}
-            onToggleDiarization={(enabled) => props.onUpdateConfig('diarization_enabled_files', enabled)}
+            onToggleDiarization={(enabled) =>
+              props.onUpdateConfig("diarization_enabled_files", enabled)
+            }
             hasUpdateAvailable={props.updateResult?.updateAvailable === true}
             onOpenUpdateModal={props.onOpenUpdateModal}
             onCopyToClipboard={props.onCopyToClipboard}
           />
         )}
 
-        {props.activeRoute === 'help' && (
+        {props.activeRoute === "help" && (
           <HelpPage
             config={props.config}
             modelStatus={props.modelStatus}
@@ -110,7 +128,7 @@ export function MainLayout(props: MainLayoutProps) {
           />
         )}
 
-        {props.activeRoute === 'settings' && (
+        {props.activeRoute === "settings" && (
           <ConfigPage
             config={props.config}
             gpuStatus={props.gpuStatus}
@@ -160,7 +178,7 @@ export function MainLayout(props: MainLayoutProps) {
           />
         )}
 
-        {props.activeRoute === 'history' && (
+        {props.activeRoute === "history" && (
           <HistoryPage
             history={props.history}
             searchQuery={props.searchQuery}
@@ -171,18 +189,20 @@ export function MainLayout(props: MainLayoutProps) {
           />
         )}
 
-        {props.activeRoute === 'ui-lab' && (
+        {props.activeRoute === "ui-lab" && (
           <UiLabPage
             appVersion={props.appVersion}
-            onBackToSettings={() => props.onNavigate('settings')}
+            onBackToSettings={() => props.onNavigate("settings")}
             onOpenUpdateModal={props.onOpenUpdateModal}
           />
         )}
       </div>
 
-      {props.activeRoute === 'history' && (
+      {props.activeRoute === "history" && (
         <ActionFooter>
-          <Button variant="danger" pill floating onClick={props.onClearHistory}>Clear History</Button>
+          <Button variant="danger" pill floating onClick={props.onClearHistory}>
+            Clear History
+          </Button>
         </ActionFooter>
       )}
     </>
