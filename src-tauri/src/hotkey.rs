@@ -1,4 +1,4 @@
-use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
 pub fn parse_hotkey_string(
     hotkey_str: &str,
@@ -74,4 +74,46 @@ pub fn parse_hotkey_string(
 
     let code = key_code.unwrap_or(Code::Space);
     Ok(Shortcut::new(Some(modifiers), code))
+}
+
+/// Register `hotkey_string` as this process's global shortcut through the
+/// Tauri global-shortcut plugin.
+///
+/// The plugin reports "already registered" whenever the chord is held by
+/// *any* process, so a failure right after our own `unregister_all` is
+/// ambiguous: either our binding survived the clear (desired end state, treat
+/// as success) or another application owns the chord (report an actionable
+/// error instead of a bare plugin message).
+pub fn register_plugin_hotkey(
+    app_handle: &tauri::AppHandle,
+    hotkey_string: &str,
+    platform_label: &str,
+) -> Result<(), String> {
+    crate::log_info!("Re-registering {platform_label} hotkey: {hotkey_string}");
+
+    if let Err(error) = app_handle.global_shortcut().unregister_all() {
+        crate::log_warn!(
+            "Failed to clear existing {platform_label} hotkeys before re-registering '{hotkey_string}': {error}"
+        );
+    }
+
+    let shortcut = parse_hotkey_string(hotkey_string)
+        .map_err(|error| format!("Failed to parse hotkey string: {error}"))?;
+
+    if let Err(error) = app_handle.global_shortcut().register(shortcut) {
+        let already_ours = app_handle.global_shortcut().is_registered(shortcut);
+        if already_ours {
+            crate::log_info!(
+                "{platform_label} hotkey '{hotkey_string}' is already registered by this app; keeping existing binding"
+            );
+            return Ok(());
+        }
+        crate::log_info!("Failed to register {platform_label} global hotkey: {error}");
+        return Err(format!(
+            "Failed to register {platform_label} global hotkey '{hotkey_string}': {error}. Another application is likely using this shortcut — pick a different hotkey in Settings."
+        ));
+    }
+
+    crate::log_info!("{platform_label} global hotkey registered: {hotkey_string}");
+    Ok(())
 }
