@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use std::process::Command;
 use std::sync::Arc;
 use tauri::{Manager, WebviewWindow};
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 use crate::platform::traits::{
     DisplayBackend, GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
@@ -268,17 +267,7 @@ impl GlobalShortcutEngine for MacOsBackend {
             config.hotkey.clone()
         };
 
-        crate::log_info!("Re-registering macOS hotkey: {}", hotkey_string);
-        let _ = app_handle.global_shortcut().unregister_all();
-
-        let shortcut = crate::hotkey::parse_hotkey_string(&hotkey_string)
-            .map_err(|error| format!("Failed to parse hotkey string: {error}"))?;
-        app_handle
-            .global_shortcut()
-            .register(shortcut)
-            .map_err(|error| format!("Failed to register macOS global hotkey: {error}"))?;
-
-        Ok(())
+        crate::hotkey::register_plugin_hotkey(&app_handle, &hotkey_string, "macOS")
     }
 }
 
