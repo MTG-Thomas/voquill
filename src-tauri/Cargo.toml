@@ -33,7 +33,6 @@ chrono = { version = "0.4", features = ["serde"] }
 libloading = "0.9.0"
 ringbuf = "0.4.7"
 arboard = "3.6.1"
-whisper-rs = { version = "^0.16", features = ["vulkan"] }
 tokio-util = { version = "0.7", features = ["io"] }
 sha2 = "0.10"
 async-trait = "0.1"
@@ -66,6 +65,7 @@ symphonia = { version = "0.5", default-features = false, features = [
 tauri-plugin-autostart = "2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+whisper-rs = { version = "0.16.0", features = ["vulkan"] }
 libc = "0.2"
 pulsectl-rs = "0.3"
 ashpd = { version = "0.12.3", features = ["tokio"] }
