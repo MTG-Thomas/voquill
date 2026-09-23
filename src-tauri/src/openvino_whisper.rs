@@ -435,7 +435,10 @@ for line in sys.stdin:
         samples = read_wav_mono_16k(audio_path)
         log_phase(f"decoded audio in {time.perf_counter() - phase_started_at:.3f}s")
 
-        generation_kwargs = {}
+        # NOTE: GENERATE_HINT is intentionally absent. It is an LLM-pipeline-only
+        # property; WhisperPipeline on NPU rejects it with
+        # "Option 'GENERATE_HINT' is not supported" (benchmarked 2026-09-23).
+        generation_kwargs = {"max_new_tokens": 224}
         if language and not model_path.name.endswith(".en-int8-ov"):
             generation_kwargs["language"] = language
 
