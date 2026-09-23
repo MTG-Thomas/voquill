@@ -174,6 +174,12 @@ fn send_worker_request(
 
 fn start_worker(model_path: &Path, device: &str) -> Result<OpenVinoWorker, TranscriptionError> {
     let python = resolve_python_runtime();
+    crate::log_info!(
+        "Starting OpenVINO worker: interpreter='{}' model='{}' device='{}'",
+        python.executable.display(),
+        model_path.display(),
+        device
+    );
     let mut command = Command::new(&python.executable);
     hide_console_window(&mut command);
     for argument in &python.arguments {
@@ -188,12 +194,15 @@ fn start_worker(model_path: &Path, device: &str) -> Result<OpenVinoWorker, Trans
         command.arg("-3");
     }
 
+    let cache_dir = crate::paths::openvino_cache_dir().map_err(TranscriptionError::Model)?;
+
     let mut child = command
         .arg("-u")
         .arg("-c")
         .arg(PYTHON_WORKER)
         .arg(model_path)
         .arg(device)
+        .arg(&cache_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -387,6 +396,7 @@ import numpy as np
 
 model_path = Path(sys.argv[1])
 device = sys.argv[2]
+cache_dir = Path(sys.argv[3]) if len(sys.argv) > 3 else None
 worker_started_at = time.perf_counter()
 
 def log_phase(message):
@@ -420,6 +430,8 @@ def read_wav_mono_16k(audio_path):
     return samples
 
 kwargs = {"STATIC_PIPELINE": True} if device == "NPU" else {}
+if device == "NPU" and cache_dir is not None:
+    kwargs["CACHE_DIR"] = str(cache_dir)
 log_phase(f"constructing WhisperPipeline kwargs={kwargs}")
 phase_started_at = time.perf_counter()
 pipeline = ov_genai.WhisperPipeline(str(model_path), device, **kwargs)
