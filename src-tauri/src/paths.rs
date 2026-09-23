@@ -53,6 +53,16 @@ pub fn tts_models_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// Persistent OpenVINO compiled-blob cache. Without an explicit CACHE_DIR,
+/// every fresh NPU worker process pays a full multi-minute compilation;
+/// with it, cold starts drop to seconds (benchmarked 192s -> 2s for
+/// large-v3-turbo INT8 on Lunar Lake NPU). Kept outside `models/` so model
+/// presence scans never mistake blobs for snapshots.
+pub fn openvino_cache_dir() -> Result<PathBuf, String> {
+    let dir = app_root()?.join("openvino-cache");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
 #[allow(dead_code)]
 pub fn sounds_dir() -> Result<PathBuf, String> {
     let dir = app_root()?.join("sounds");
