@@ -33,7 +33,16 @@ function runCargoDirect(args) {
   const cargo = commandExists("cargo")
     ? "cargo"
     : path.join(process.env.USERPROFILE ?? process.env.HOME ?? "", ".cargo", "bin", "cargo.exe");
-  const child = spawn(cargo, args, { stdio: "inherit", shell: false });
+  const env = { ...process.env };
+  // Reuse rustc artifacts across builds and worktrees when sccache is present.
+  if (!env.RUSTC_WRAPPER && commandExists("sccache")) {
+    env.RUSTC_WRAPPER = "sccache";
+  }
+  // Mirror CI by sharing one target directory for local cargo checks/tests, so
+  // repeat invocations and sibling worktrees reuse warm dependency artifacts
+  // instead of cold-building a target directory each time.
+  env.CARGO_TARGET_DIR ||= path.join(os.tmpdir(), "voquill-target");
+  const child = spawn(cargo, args, { stdio: "inherit", shell: false, env });
   child.on("exit", (code, signal) => {
     if (signal) {
       process.kill(process.pid, signal);
@@ -91,6 +100,9 @@ function runCargoOnWindows(args) {
 
   const cargoArgs = args.map(quoteCmd).join(" ");
   const pathPrefix = [llvmBin, cmakeBin, path.join(vulkanRoot, "Bin")].join(";");
+  const sccacheSetup = commandExists("sccache")
+    ? [`set ${quoteCmd("RUSTC_WRAPPER=sccache")}`, "&&"]
+    : [];
   const command = [
     "call",
     quoteCmd(vsDevCmd),
@@ -103,6 +115,7 @@ function runCargoOnWindows(args) {
     "&&",
     `set ${quoteCmd("CARGO_TARGET_DIR=C:\\voquill-build")}`,
     "&&",
+    ...sccacheSetup,
     "cargo",
     cargoArgs,
   ].join(" ");
