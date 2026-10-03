@@ -50,7 +50,7 @@ async fn finish_session(
         return;
     }
     *state.active_session.lock().unwrap() = None;
-    *session_state.lock().unwrap() = SessionState::Idle;
+    SessionState::reset_to_idle(session_state);
     crate::app::status::emit_status_to_frontend("Ready").await;
 }
 
@@ -197,12 +197,7 @@ async fn record_and_transcribe_inner(
 
     // Capture has ended, however it ended (release, toggle stop, cancel, or
     // the max-duration auto-stop): the recording phase is over.
-    {
-        let mut session = session_state.lock().unwrap();
-        if *session == SessionState::Recording {
-            *session = SessionState::Transcribing;
-        }
-    }
+    let _ = SessionState::end_capture(session_state);
 
     if session_token.load(Ordering::SeqCst) {
         crate::log_info!(
