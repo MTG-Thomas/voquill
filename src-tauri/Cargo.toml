@@ -65,7 +65,7 @@ symphonia = { version = "0.5", default-features = false, features = [
 tauri-plugin-autostart = "2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-whisper-rs = { version = "0.16.0", features = ["vulkan"] }
+whisper-rs = { version = "0.16.0" }
 libc = "0.2"
 pulsectl-rs = "0.3"
 ashpd = { version = "0.12.3", features = ["tokio"] }
@@ -80,7 +80,7 @@ arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 whisper-rs = { version = "0.16.0", features = ["metal"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-whisper-rs = { version = "0.16.0", features = ["vulkan"] }
+whisper-rs = { version = "0.16.0" }
 winreg = "0.55"
 windows = { version = "0.62", features = [
     "Win32_UI_Input_KeyboardAndMouse", 
@@ -99,6 +99,11 @@ windows = { version = "0.62", features = [
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+# Whisper.cpp Vulkan GPU acceleration ("Turbo Mode"). Opt-in because the Vulkan
+# backend generates thousands of compute shaders on every clean build, which
+# dominates compile time for checks, tests, and fresh worktrees. Release
+# bundles enable this explicitly; local checks stay CPU-only.
+vulkan = ["whisper-rs/vulkan"]
 
 [[bin]]
 name = "voquill"

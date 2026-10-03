@@ -145,11 +145,11 @@ jobs:
         if: runner.os == 'Windows'
         env:
           VOQUILL_SKIP_DEPS_CHECK: "1"
-        run: npm run tauri -- build --bundles nsis,msi
+        run: npm run tauri -- build --bundles nsis,msi --features vulkan
 
       - name: Build Tauri bundles (Linux)
         if: runner.os == 'Linux'
-        run: npm run tauri -- build --bundles deb,rpm
+        run: npm run tauri -- build --bundles deb,rpm --features vulkan
 
       - name: Build Tauri bundles (macOS)
         if: runner.os == 'macOS'
