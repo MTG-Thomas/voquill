@@ -42,7 +42,7 @@ The security workflow runs:
 - Shell execute, spawn, and kill permissions are forbidden.
 - The overlay capability must not receive shell or app-open permissions.
 
-The check warns, but does not fail, when Windows release artifacts are unsigned. Treat that as the next release-hardening step once a signing certificate is available.
+The check warns, but does not fail, when Windows release artifacts are unsigned (no `certificateThumbprint` in config and no `WINDOWS_CODESIGN_THUMBPRINT` in the environment). Signing automation is ready; the remaining step is acquiring a certificate — see [WINDOWS_CODESIGN.md](WINDOWS_CODESIGN.md).
 
 ## Release Provenance
 
