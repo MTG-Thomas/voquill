@@ -38,9 +38,20 @@ process.env.GGML_AVX_VNNI = "OFF";
 // before every release build so these flags always reach the compiler.
 const args = process.argv.slice(2);
 
-// Reuse rustc artifacts across builds and worktrees when sccache is present.
-if (!process.env.RUSTC_WRAPPER && commandExists("sccache")) {
+// Reuse build artifacts across builds and worktrees when sccache is present.
+// RUSTC_WRAPPER covers rustc; the CMake launcher variables cover native
+// C/C++ builds such as whisper.cpp (built through the cmake crate). This also
+// keeps the whisper-rs-sys clean-then-rebuild below cheap: the rebuild hits
+// the cache instead of recompiling every object.
+const useSccache = commandExists("sccache");
+if (!process.env.RUSTC_WRAPPER && useSccache) {
   process.env.RUSTC_WRAPPER = "sccache";
+}
+if (!process.env.CMAKE_C_COMPILER_LAUNCHER && useSccache) {
+  process.env.CMAKE_C_COMPILER_LAUNCHER = "sccache";
+}
+if (!process.env.CMAKE_CXX_COMPILER_LAUNCHER && useSccache) {
+  process.env.CMAKE_CXX_COMPILER_LAUNCHER = "sccache";
 }
 
 // Production bundles keep whisper.cpp Vulkan acceleration ("Turbo Mode") on

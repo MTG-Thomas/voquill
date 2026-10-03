@@ -34,9 +34,20 @@ function runCargoDirect(args) {
     ? "cargo"
     : path.join(process.env.USERPROFILE ?? process.env.HOME ?? "", ".cargo", "bin", "cargo.exe");
   const env = { ...process.env };
-  // Reuse rustc artifacts across builds and worktrees when sccache is present.
-  if (!env.RUSTC_WRAPPER && commandExists("sccache")) {
+  // Reuse build artifacts across builds and worktrees when sccache is present.
+  // RUSTC_WRAPPER covers rustc; the CMake launcher variables cover native
+  // C/C++ builds such as whisper.cpp, which whisper-rs-sys compiles through
+  // the cmake crate (CMake reads these from the environment). Explicit caller
+  // settings win in every case.
+  const useSccache = commandExists("sccache");
+  if (!env.RUSTC_WRAPPER && useSccache) {
     env.RUSTC_WRAPPER = "sccache";
+  }
+  if (!env.CMAKE_C_COMPILER_LAUNCHER && useSccache) {
+    env.CMAKE_C_COMPILER_LAUNCHER = "sccache";
+  }
+  if (!env.CMAKE_CXX_COMPILER_LAUNCHER && useSccache) {
+    env.CMAKE_CXX_COMPILER_LAUNCHER = "sccache";
   }
   // Mirror CI by sharing one target directory for local cargo checks/tests, so
   // repeat invocations and sibling worktrees reuse warm dependency artifacts
@@ -101,7 +112,14 @@ function runCargoOnWindows(args) {
   const cargoArgs = args.map(quoteCmd).join(" ");
   const pathPrefix = [llvmBin, cmakeBin, path.join(vulkanRoot, "Bin")].join(";");
   const sccacheSetup = commandExists("sccache")
-    ? [`set ${quoteCmd("RUSTC_WRAPPER=sccache")}`, "&&"]
+    ? [
+        `set ${quoteCmd("RUSTC_WRAPPER=sccache")}`,
+        "&&",
+        `set ${quoteCmd("CMAKE_C_COMPILER_LAUNCHER=sccache")}`,
+        "&&",
+        `set ${quoteCmd("CMAKE_CXX_COMPILER_LAUNCHER=sccache")}`,
+        "&&",
+      ]
     : [];
   const command = [
     "call",
