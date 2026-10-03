@@ -9,7 +9,7 @@ pub async fn start_recording(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let session_before = *state.session_state.lock().unwrap();
+    let session_before = SessionState::current(&state.session_state);
     crate::log_info!(
         "start_recording invoked: session_state={:?}, configuring_hotkey={}",
         session_before,
@@ -21,18 +21,10 @@ pub async fn start_recording(
         return Err("Currently configuring hotkey".to_string());
     }
 
-    {
-        let session = state.session_state.lock().unwrap();
-        if *session != SessionState::Idle {
-            return Err("Session already active".to_string());
-        }
-    }
-
     // Mark the session as Recording up front so a hotkey release landing
     // while the audio engine initializes is still observed as a stop.
-    {
-        let mut session = state.session_state.lock().unwrap();
-        *session = SessionState::Recording;
+    if !SessionState::acquire_recording(&state.session_state) {
+        return Err("Session already active".to_string());
     }
     crate::app::status::emit_status_update("Recording").await;
 
@@ -106,18 +98,18 @@ pub async fn start_recording(
 
     if !engine_initialized_or_ready {
         crate::log_info!("Recording cannot start: no audio device available");
-        *state.session_state.lock().unwrap() = SessionState::Idle;
+        SessionState::reset_to_idle(&state.session_state);
         crate::app::status::emit_status_to_frontend("Error").await;
         return Ok(());
     }
 
     // If a release (or toggle stop) landed while the engine was initializing,
     // stop_recording already moved the session on; do not start a capture.
-    if *state.session_state.lock().unwrap() != SessionState::Recording {
+    if SessionState::current(&state.session_state) != SessionState::Recording {
         crate::log_info!(
             "start_recording: session left Recording during engine init; aborting start"
         );
-        *state.session_state.lock().unwrap() = SessionState::Idle;
+        SessionState::reset_to_idle(&state.session_state);
         crate::app::status::emit_status_to_frontend("Ready").await;
         return Ok(());
     }
@@ -157,16 +149,15 @@ pub async fn start_recording(
 
 #[tauri::command]
 pub async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let should_emit = {
-        let mut session = state.session_state.lock().unwrap();
-        if *session == SessionState::Recording {
-            *session = SessionState::Transcribing;
-            crate::log_info!("stop_recording: Recording -> Transcribing (capture will finalize)");
-            true
-        } else {
-            crate::log_info!("stop_recording: ignored in session state {:?}", *session);
-            false
-        }
+    let should_emit = if SessionState::end_capture(&state.session_state) {
+        crate::log_info!("stop_recording: Recording -> Transcribing (capture will finalize)");
+        true
+    } else {
+        crate::log_info!(
+            "stop_recording: ignored in session state {:?}",
+            SessionState::current(&state.session_state)
+        );
+        false
     };
 
     if should_emit {
@@ -180,7 +171,7 @@ pub async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), Str
 /// transcription output. Triggered by pressing the hotkey while a session is
 /// active past the recording phase.
 pub async fn cancel_session(state: tauri::State<'_, AppState>) {
-    let session = *state.session_state.lock().unwrap();
+    let session = SessionState::current(&state.session_state);
     if session == SessionState::Idle {
         return;
     }
@@ -199,14 +190,14 @@ pub async fn cancel_session(state: tauri::State<'_, AppState>) {
             // discards the audio, and finishes the session (Idle + Ready).
             // active_session stays attached so no new capture can overlap the
             // one that is still unwinding.
-            *state.session_state.lock().unwrap() = SessionState::Transcribing;
+            let _ = SessionState::end_capture(&state.session_state);
         }
         SessionState::Transcribing | SessionState::Typing => {
             // Capture already finished, so it is safe to detach immediately:
             // the in-flight pipeline discards its result and cannot clobber a
             // newer session because its token no longer matches.
             *state.active_session.lock().unwrap() = None;
-            *state.session_state.lock().unwrap() = SessionState::Idle;
+            SessionState::reset_to_idle(&state.session_state);
             crate::app::status::emit_status_to_frontend("Ready").await;
         }
         SessionState::Idle => {}
