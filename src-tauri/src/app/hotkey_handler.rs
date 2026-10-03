@@ -48,6 +48,9 @@ pub async fn handle_hotkey_release(state: tauri::State<'_, AppState>) {
 /// recording lifecycle: starts only from Idle, otherwise a no-op.
 /// Toggle-mode stops and in-flight cancels stay on the toggle path so a
 /// desktop-bound start shortcut can never stop or discard a session.
+///
+/// Linux-only: the sole caller is the Wayland external activation socket.
+#[cfg(target_os = "linux")]
 pub async fn handle_external_activation_start(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
@@ -63,6 +66,9 @@ pub async fn handle_external_activation_start(
 
 /// External activation (`voquill --record-stop`) into the existing
 /// recording lifecycle: stops an active recording, otherwise a no-op.
+///
+/// Linux-only: the sole caller is the Wayland external activation socket.
+#[cfg(target_os = "linux")]
 pub async fn handle_external_activation_stop(state: tauri::State<'_, AppState>) {
     let session = *state.session_state.lock().unwrap();
 
