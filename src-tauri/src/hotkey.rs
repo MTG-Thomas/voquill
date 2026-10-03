@@ -117,3 +117,27 @@ pub fn register_plugin_hotkey(
     crate::log_info!("{platform_label} global hotkey registered: {hotkey_string}");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_issue_26_push_to_talk_chord() {
+        let shortcut = parse_hotkey_string("ctrl+shift+space").expect("PTT chord must parse");
+        assert_eq!(shortcut.mods, Modifiers::CONTROL | Modifiers::SHIFT);
+        assert_eq!(shortcut.key, Code::Space);
+    }
+
+    #[test]
+    fn equivalent_chord_spellings_resolve_to_same_shortcut() {
+        let canonical = parse_hotkey_string("ctrl+shift+space").expect("must parse");
+        let longhand = parse_hotkey_string("control+shift+space").expect("must parse");
+        assert_eq!(canonical, longhand);
+    }
+
+    #[test]
+    fn unknown_key_is_rejected() {
+        assert!(parse_hotkey_string("ctrl+shift+hyperkey").is_err());
+    }
+}
