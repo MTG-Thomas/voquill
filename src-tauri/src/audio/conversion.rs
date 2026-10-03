@@ -1,5 +1,7 @@
 use hound::{WavSpec, WavWriter};
-use rubato::{InterpolationParameters, InterpolationType, Resampler, SincFixedOut, WindowFunction};
+use rubato::{
+    Resampler, SincFixedOut, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+};
 
 use super::decode::decode_compressed_audio;
 
@@ -312,23 +314,25 @@ pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
         return samples.to_vec();
     }
 
-    let params = InterpolationParameters {
+    let params = SincInterpolationParameters {
         sinc_len: 64,
         f_cutoff: 0.95,
-        interpolation: InterpolationType::Linear,
+        interpolation: SincInterpolationType::Linear,
         oversampling_factor: 16,
         window: WindowFunction::BlackmanHarris2,
     };
     let ratio = to as f64 / from as f64;
     let chunk_size = 1024;
-    let mut resampler = SincFixedOut::<f32>::new(ratio, params, chunk_size, 1);
+    // Fixed ratio: max relative deviation 1.0 since set_resample_ratio is never called.
+    let mut resampler = SincFixedOut::<f32>::new(ratio, 1.0, params, chunk_size, 1)
+        .expect("SincFixedOut construction failed");
 
     let expected_output_len = (samples.len() as f64 * ratio).round() as usize;
     let mut output = Vec::with_capacity(expected_output_len + chunk_size);
     let mut pos = 0;
 
     while pos < samples.len() {
-        let needed = resampler.nbr_frames_needed();
+        let needed = resampler.input_frames_next();
         let end = (pos + needed).min(samples.len());
         let chunk = samples[pos..end].to_vec();
         let input_chunk = if chunk.len() < needed {
@@ -340,7 +344,7 @@ pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
         };
 
         let resampled = resampler
-            .process(&[input_chunk])
+            .process(&[input_chunk], None)
             .expect("SincFixedOut resampling failed");
         if let Some(chan) = resampled.into_iter().next() {
             output.extend(chan);
