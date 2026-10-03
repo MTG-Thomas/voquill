@@ -57,6 +57,29 @@ When running Voquill on Linux, you may see a warning in the terminal:
 2. **Builds Frontend** - Runs `npm run build` (type-check + Vite build).
 3. **Builds Application** - Runs `tauri build` to create the final executable and installers.
 
+## GPU (Turbo Mode) and Build Performance
+
+Whisper.cpp's Vulkan backend ("Turbo Mode") is enabled by the opt-in `vulkan` Cargo
+feature. It is **not** compiled by default because building it generates thousands
+of compute shaders on every clean build, which dominates compile time for local
+checks, tests, and fresh worktrees.
+
+- **Release bundles** enable it explicitly (`--features vulkan`) on Linux and
+  Windows. macOS uses Metal and is unaffected.
+- **Local checks** (`npm run cargo:check`, direct `cargo check`/`clippy`/`test`)
+  are CPU-only and skip shader generation. The app still runs; it simply reports
+  no GPU support, so use a full `npm run tauri:build` when you need Turbo Mode.
+- **Local acceleration**: the npm Cargo/Tauri runners reuse `sccache` when it is
+  installed and share a single `CARGO_TARGET_DIR` (`$TMPDIR/voquill-target`) for
+  local builds, so repeat builds and parallel worktrees reuse warm artifacts
+  instead of cold-building a private `src-tauri/target` each time.
+
+To force Turbo Mode for a local build:
+
+```bash
+npm run tauri -- build --features vulkan
+```
+
 ## Output
 
 After a successful build, you can find the artifacts in:
@@ -69,4 +92,5 @@ After a successful build, you can find the artifacts in:
 - **Frontend build issues**: If the UI fails to build, try clearing `node_modules` and running the build again.
 - **Rust compilation errors**: Ensure your Rust toolchain is up to date with `rustup update`.
 - **Windows whisper/Vulkan build failures**: Run `npm run deps:check`, then use `npm run cargo:check` or `npm run tauri:dev` instead of `cargo` directly from `src-tauri/`. The cargo runner loads Visual Studio, CMake, LLVM, the Vulkan SDK, and sets `CARGO_TARGET_DIR=C:\voquill-build` to avoid long-path failures.
+- **No GPU / Turbo Mode engine missing locally**: Vulkan is opt-in. Build with `npm run tauri -- build --features vulkan` (Linux/Windows) to enable Whisper.cpp GPU acceleration.
 - **Fedora AppImage bundling**: Some Fedora toolchains ship RELR-enabled libraries that fail when stripped by the linuxdeploy binary bundled with Tauri. On Fedora, use `npm run tauri -- build --bundles deb,rpm` for distro packages, and build AppImage on Ubuntu/Mint/Kubuntu.
