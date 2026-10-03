@@ -13,9 +13,14 @@ npm run typecheck
 npm run harden:check
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --features vulkan -- -D warnings
 ```
 
 On Windows, the Rust checks may need the same native build dependencies as the Tauri build. On this workstation that includes `C:\Program Files\CMake\bin`, `C:\Program Files\LLVM\bin`, and the Vulkan SDK on `PATH`.
+
+The default clippy pass is CPU-only and fast. The `--features vulkan` pass builds whisper.cpp's shader set and is the slow one (several minutes on a cold cache); it mirrors what release bundles and CI run, so keep it before opening a release PR.
+
+For local builds, the npm Cargo/Tauri runners reuse `sccache` when installed and share a single `CARGO_TARGET_DIR` (`$TMPDIR/voquill-target`) across worktrees. Prefer `npm run cargo:check` or `npm run tauri -- ...` over invoking `cargo` directly so these caches and the platform toolchain setup apply.
 
 ## Security Gates
 
