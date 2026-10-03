@@ -43,3 +43,32 @@ pub async fn handle_hotkey_release(state: tauri::State<'_, AppState>) {
         let _ = stop_recording(state).await;
     }
 }
+
+/// External activation (`voquill --record-start`) into the existing
+/// recording lifecycle: starts only from Idle, otherwise a no-op.
+/// Toggle-mode stops and in-flight cancels stay on the toggle path so a
+/// desktop-bound start shortcut can never stop or discard a session.
+pub async fn handle_external_activation_start(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) {
+    let session = *state.session_state.lock().unwrap();
+
+    crate::log_info!("External activation start: session_state={:?}", session);
+
+    if session == SessionState::Idle {
+        let _ = start_recording(state, app_handle).await;
+    }
+}
+
+/// External activation (`voquill --record-stop`) into the existing
+/// recording lifecycle: stops an active recording, otherwise a no-op.
+pub async fn handle_external_activation_stop(state: tauri::State<'_, AppState>) {
+    let session = *state.session_state.lock().unwrap();
+
+    crate::log_info!("External activation stop: session_state={:?}", session);
+
+    if session == SessionState::Recording {
+        let _ = stop_recording(state).await;
+    }
+}

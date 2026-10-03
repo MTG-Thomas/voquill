@@ -1,3 +1,4 @@
+pub mod activation;
 pub mod env;
 pub mod input;
 pub mod overlay;
@@ -62,7 +63,7 @@ impl InputSimulation for WaylandBackend {
 #[async_trait]
 impl GlobalShortcutEngine for WaylandBackend {
     async fn start_engine(&self, app_handle: tauri::AppHandle, force: bool) -> Result<(), String> {
-        shortcuts::start_linux_portal_hotkey_engine(app_handle, force).await
+        shortcuts::start_wayland_activation_engine(app_handle, force).await
     }
 }
 

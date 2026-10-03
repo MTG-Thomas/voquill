@@ -217,6 +217,28 @@ pub fn run_setup(
         }
     }
 
+    #[cfg(target_os = "linux")]
+    {
+        // Bind the external activation socket before the activation engine
+        // starts so its availability probe never races the bind. Desktops
+        // with GlobalShortcuts ignore this listener entirely.
+        match crate::platform::linux::wayland::activation::prepare_external_activation_listener() {
+            Ok(listener) => {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    crate::platform::linux::wayland::activation::serve_external_activation_listener(
+                        listener,
+                        app_handle,
+                    )
+                    .await;
+                });
+            }
+            Err(error) => {
+                crate::log_warn!("External activation unavailable: {}", error);
+            }
+        }
+    }
+
     let hotkey_string = initial_config.hotkey.clone();
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {

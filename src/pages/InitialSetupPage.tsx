@@ -38,6 +38,12 @@ interface SystemShortcutContext {
   distro?: string;
   desktop?: string;
   settings_path: string;
+  external_activation?: {
+    start_command: string;
+    stop_command: string;
+    toggle_command: string;
+    setup_hint: string;
+  };
 }
 
 interface SetupConfig {
@@ -113,6 +119,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     isDownloading,
     portalVersion,
     isSystemManagedShortcut,
+    systemShortcutContext,
     isApplyingHotkey,
     hotkeyError,
     availableMics,
@@ -302,6 +309,17 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               {!permissions?.shortcuts && permissions?.shortcuts_detail && (
                 <div style={warningTextStyle}>{permissions.shortcuts_detail}</div>
               )}
+              {permissions?.shortcuts_status === "external" &&
+                systemShortcutContext?.external_activation && (
+                  <div style={helperTextStyle}>
+                    Your desktop manages shortcuts externally. Add a custom shortcut in{" "}
+                    {systemShortcutContext.settings_path} with command{" "}
+                    <span style={{ fontFamily: "monospace" }}>
+                      {systemShortcutContext.external_activation.toggle_command}
+                    </span>
+                    . {systemShortcutContext.external_activation.setup_hint}
+                  </div>
+                )}
               {hotkeyError && <div style={warningTextStyle}>{hotkeyError}</div>}
             </SettingRow>
 

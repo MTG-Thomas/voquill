@@ -215,6 +215,22 @@ pub async fn configure_hotkey(
     state: tauri::State<'_, AppState>,
 ) -> Result<ConfigureHotkeyResult, String> {
     if is_wayland_session() {
+        let provider =
+            crate::platform::linux::wayland::activation::select_current_activation_provider().await;
+        if provider
+            == crate::platform::linux::wayland::activation::ActivationProvider::ExternalDesktopBinding
+        {
+            let guidance =
+                crate::platform::linux::wayland::activation::external_activation_guidance();
+            return Ok(ConfigureHotkeyResult {
+                outcome: "external_activation".to_string(),
+                detail: Some(format!(
+                    "This desktop does not support app-managed shortcuts. Bind '{}' as a custom shortcut in system settings.",
+                    guidance.toggle_command
+                )),
+            });
+        }
+
         let capabilities =
             crate::platform::linux::wayland::portal::capabilities::detect_global_shortcuts_capabilities()
                 .await?;
