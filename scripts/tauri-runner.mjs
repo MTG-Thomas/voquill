@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { logError, run } from "@tauri-apps/cli/main.js";
 
 if (process.platform === "win32") {
@@ -38,8 +41,32 @@ if (process.argv[2] === "build") {
   });
 }
 
+// Windows Authenticode signing activates only when a certificate thumbprint is
+// provided via the environment (see docs/WINDOWS_CODESIGN.md). The thumbprint
+// is merged into the Tauri config through a temporary --config overlay so the
+// committed tauri.conf.json never carries signing identity material.
+const cliArgs = process.argv.slice(2);
+if (process.platform === "win32" && cliArgs[0] === "build") {
+  const thumbprint = (process.env.WINDOWS_CODESIGN_THUMBPRINT ?? "")
+    .replace(/[\s:-]/g, "")
+    .toUpperCase();
+  if (thumbprint) {
+    const overlayPath = join(tmpdir(), `voquill-signing-${process.pid}.json`);
+    writeFileSync(
+      overlayPath,
+      JSON.stringify({ bundle: { windows: { certificateThumbprint: thumbprint } } }),
+    );
+    cliArgs.push("--config", overlayPath);
+    console.log(`Windows code signing enabled (thumbprint ${thumbprint}).`);
+  } else {
+    console.log(
+      "Windows code signing disabled: WINDOWS_CODESIGN_THUMBPRINT is not set; artifacts will be unsigned.",
+    );
+  }
+}
+
 try {
-  await run(process.argv.slice(2), "tauri");
+  await run(cliArgs, "tauri");
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   if (typeof logError === "function") logError(message);
