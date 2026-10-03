@@ -53,10 +53,17 @@ for (const command of frontendInvokedAppCommands) {
   }
 }
 
-if (tauriConfig.bundle?.windows?.certificateThumbprint === null) {
+const windowsSigningThumbprint =
+  tauriConfig.bundle?.windows?.certificateThumbprint ||
+  process.env.WINDOWS_CODESIGN_THUMBPRINT ||
+  null;
+
+if (windowsSigningThumbprint === null) {
   warnings.push(
-    "Windows release artifacts are unsigned; set certificateThumbprint when signing is ready.",
+    "Windows release artifacts are unsigned; configure WINDOWS_CODESIGN_THUMBPRINT (see docs/WINDOWS_CODESIGN.md) when signing is ready.",
   );
+} else if (!tauriConfig.bundle?.windows?.timestampUrl) {
+  warnings.push("Windows signing is configured but bundle.windows.timestampUrl is empty.");
 }
 
 for (const warning of warnings) {

@@ -31,6 +31,10 @@ On a Windows machine:
 npm run tauri:build
 ```
 
+Set `WINDOWS_CODESIGN_THUMBPRINT` before building to Authenticode-sign the
+installers; see [WINDOWS_CODESIGN.md](WINDOWS_CODESIGN.md). Without it the
+artifacts ship unsigned.
+
 ### Package Release Artifacts
 
 After building on each platform, run the packaging script to rename the build
