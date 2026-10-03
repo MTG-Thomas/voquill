@@ -114,10 +114,7 @@ pub async fn deliver_output(
         let _ = window.emit("history-updated", ());
     }
 
-    {
-        let mut session = session_state.lock().unwrap();
-        *session = SessionState::Typing;
-    }
+    SessionState::begin_typing(session_state);
     crate::app::status::emit_status_to_frontend("Typing").await;
 
     tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_before_ms)).await;
