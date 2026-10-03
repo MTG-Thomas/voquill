@@ -45,13 +45,22 @@ Expected artifacts:
 
 ## Signing
 
-Windows artifacts are unsigned for now. Add signing only after we have a certificate and decide where secrets should live.
+Windows NSIS and MSI artifacts are Authenticode-signed automatically when
+signing secrets are configured, and ship unsigned otherwise. Full details,
+including the remaining certificate-acquisition blocker and the finishing
+checklist, live in [WINDOWS_CODESIGN.md](WINDOWS_CODESIGN.md).
 
-Likely future secrets:
+Secrets (register only one path):
 
-- `TAURI_SIGNING_PRIVATE_KEY`
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
-- Windows code-signing certificate material or a signing service token
+- PFX import: `WINDOWS_CODESIGN_PFX_BASE64` + `WINDOWS_CODESIGN_PFX_PASSWORD`
+- Store certificate: `WINDOWS_CODESIGN_THUMBPRINT`
+
+The release workflow imports or selects the certificate before the Windows
+build, the Tauri bundler signs during packaging, and
+`scripts/verify-windows-signatures.ps1` fails the job when signing was
+expected but any artifact is missing, unsigned, or invalid. `SHA256SUMS.txt`
+is generated from the final (signed, when configured) artifacts, so WinGet
+manifests must take the MSI hash from there.
 
 ## Operator Checklist
 
