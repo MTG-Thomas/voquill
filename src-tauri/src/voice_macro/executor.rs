@@ -28,20 +28,12 @@ pub async fn execute_macro_steps(
     );
 
     // Guard: Set session state to Typing for the duration of macro execution
-    {
-        let mut session = state.session_state.lock().unwrap();
-        *session = SessionState::Typing;
-    }
+    SessionState::begin_typing(&state.session_state);
 
     let result = execute_macro_steps_inner(app_handle, steps, &mut held_keys).await;
 
     // Reset session state to Idle when finished
-    {
-        let mut session = state.session_state.lock().unwrap();
-        if *session == SessionState::Typing {
-            *session = SessionState::Idle;
-        }
-    }
+    let _ = SessionState::end_typing(&state.session_state);
 
     // Safety Guard: Release any keys still held down to prevent stuck keys!
     if !held_keys.is_empty() {
