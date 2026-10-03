@@ -17,6 +17,62 @@ pub enum SessionState {
     Typing,
 }
 
+impl SessionState {
+    /// Read the current session state.
+    pub fn current(state: &Mutex<SessionState>) -> SessionState {
+        *state.lock().unwrap()
+    }
+
+    /// Atomically acquire a new recording session (`Idle -> Recording`).
+    /// Returns false and leaves the state untouched unless the session is
+    /// `Idle`, so concurrent start attempts cannot overlap.
+    pub fn acquire_recording(state: &Mutex<SessionState>) -> bool {
+        let mut guard = state.lock().unwrap();
+        if *guard != SessionState::Idle {
+            return false;
+        }
+        *guard = SessionState::Recording;
+        true
+    }
+
+    /// End capture (`Recording -> Transcribing`). Returns false and leaves the
+    /// state untouched unless the session is `Recording`.
+    pub fn end_capture(state: &Mutex<SessionState>) -> bool {
+        let mut guard = state.lock().unwrap();
+        if *guard != SessionState::Recording {
+            return false;
+        }
+        *guard = SessionState::Transcribing;
+        true
+    }
+
+    /// Enter the typing phase. Unconditional: output delivery always moves a
+    /// live pipeline into `Typing`, and voice-macro execution borrows the
+    /// `Typing` state as its re-entrancy guard from `Idle`.
+    pub fn begin_typing(state: &Mutex<SessionState>) {
+        *state.lock().unwrap() = SessionState::Typing;
+    }
+
+    /// Leave the typing phase (`Typing -> Idle`). Returns false and leaves the
+    /// state untouched unless the session is `Typing`, so a macro finishing
+    /// after a cancel cannot clobber a newer session.
+    pub fn end_typing(state: &Mutex<SessionState>) -> bool {
+        let mut guard = state.lock().unwrap();
+        if *guard != SessionState::Typing {
+            return false;
+        }
+        *guard = SessionState::Idle;
+        true
+    }
+
+    /// Unconditionally return the session to `Idle`. Used by abort, cancel,
+    /// and finish paths whose guards live at the call site (engine failure,
+    /// cancel token, session-token ownership).
+    pub fn reset_to_idle(state: &Mutex<SessionState>) {
+        *state.lock().unwrap() = SessionState::Idle;
+    }
+}
+
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub session_state: Arc<Mutex<SessionState>>,
@@ -240,5 +296,123 @@ mod tests {
         assert_eq!(format!("{:?}", SessionState::Recording), "Recording");
         assert_eq!(format!("{:?}", SessionState::Transcribing), "Transcribing");
         assert_eq!(format!("{:?}", SessionState::Typing), "Typing");
+    }
+
+    #[test]
+    fn acquire_recording_only_from_idle() {
+        for start in [
+            SessionState::Idle,
+            SessionState::Recording,
+            SessionState::Transcribing,
+            SessionState::Typing,
+        ] {
+            let state = Mutex::new(start);
+            assert_eq!(
+                SessionState::acquire_recording(&state),
+                start == SessionState::Idle,
+                "acquire from {start:?}"
+            );
+            assert_eq!(
+                SessionState::current(&state),
+                if start == SessionState::Idle {
+                    SessionState::Recording
+                } else {
+                    start
+                },
+                "state after acquire from {start:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn end_capture_only_from_recording() {
+        for start in [
+            SessionState::Idle,
+            SessionState::Recording,
+            SessionState::Transcribing,
+            SessionState::Typing,
+        ] {
+            let state = Mutex::new(start);
+            assert_eq!(
+                SessionState::end_capture(&state),
+                start == SessionState::Recording,
+                "end_capture from {start:?}"
+            );
+            assert_eq!(
+                SessionState::current(&state),
+                if start == SessionState::Recording {
+                    SessionState::Transcribing
+                } else {
+                    start
+                },
+                "state after end_capture from {start:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn begin_typing_from_any_state() {
+        for start in [
+            SessionState::Idle,
+            SessionState::Recording,
+            SessionState::Transcribing,
+            SessionState::Typing,
+        ] {
+            let state = Mutex::new(start);
+            SessionState::begin_typing(&state);
+            assert_eq!(SessionState::current(&state), SessionState::Typing);
+        }
+    }
+
+    #[test]
+    fn end_typing_only_from_typing() {
+        for start in [
+            SessionState::Idle,
+            SessionState::Recording,
+            SessionState::Transcribing,
+            SessionState::Typing,
+        ] {
+            let state = Mutex::new(start);
+            assert_eq!(
+                SessionState::end_typing(&state),
+                start == SessionState::Typing,
+                "end_typing from {start:?}"
+            );
+            assert_eq!(
+                SessionState::current(&state),
+                if start == SessionState::Typing {
+                    SessionState::Idle
+                } else {
+                    start
+                },
+                "state after end_typing from {start:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn reset_to_idle_from_any_state() {
+        for start in [
+            SessionState::Idle,
+            SessionState::Recording,
+            SessionState::Transcribing,
+            SessionState::Typing,
+        ] {
+            let state = Mutex::new(start);
+            SessionState::reset_to_idle(&state);
+            assert_eq!(SessionState::current(&state), SessionState::Idle);
+        }
+    }
+
+    #[test]
+    fn full_lifecycle_through_transitions() {
+        let state = Mutex::new(SessionState::Idle);
+        assert!(SessionState::acquire_recording(&state));
+        assert!(!SessionState::acquire_recording(&state));
+        assert!(SessionState::end_capture(&state));
+        assert!(!SessionState::end_capture(&state));
+        SessionState::begin_typing(&state);
+        assert!(SessionState::end_typing(&state));
+        assert_eq!(SessionState::current(&state), SessionState::Idle);
     }
 }
