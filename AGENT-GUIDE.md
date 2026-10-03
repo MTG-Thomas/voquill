@@ -65,7 +65,7 @@ voquill/                          # npm root — scripts, Vite, Preact UI
 **Build output locations**
 
 - **Linux:** `src-tauri/target/release/bundle/`
-- **Windows (via `npm run cargo:*` / `npm run tauri:*`):** `C:\voquill-build\release\bundle/` — the cargo runner sets `CARGO_TARGET_DIR` to avoid long-path failures.
+- **Windows (via `npm run cargo:*` / `npm run tauri:*`):** `C:\voquill-build\release\bundle/` — the cargo runner sets `CARGO_TARGET_DIR` to avoid long-path failures. Prepare a release with `npm run tauri -- build --bundles ... --features vulkan`; the `vulkan` feature is opt-in so local checks stay CPU-only and fast.
 
 ---
 
