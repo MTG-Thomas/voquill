@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { logError, run } from "@tauri-apps/cli/main.js";
+
+function commandExists(command) {
+  const locator = process.platform === "win32" ? "where.exe" : "which";
+  return spawnSync(locator, [command], { stdio: "ignore" }).status === 0;
+}
 
 if (process.platform === "win32") {
   process.env.CARGO_TARGET_DIR ||= "C:\\voquill-build";
@@ -28,9 +33,30 @@ process.env.GGML_AVX_VNNI = "OFF";
 // objects (e.g. compiled with /arch:AVX512 from a previous GGML_NATIVE=ON
 // build) get silently relinked into the release binary. Clean the package
 // before every release build so these flags always reach the compiler.
+const args = process.argv.slice(2);
+
+// Reuse rustc artifacts across builds and worktrees when sccache is present.
+if (!process.env.RUSTC_WRAPPER && commandExists("sccache")) {
+  process.env.RUSTC_WRAPPER = "sccache";
+}
+
+// Production bundles keep whisper.cpp Vulkan acceleration ("Turbo Mode") on
+// the platforms that ship it. Development builds and plain cargo checks stay
+// CPU-only so they skip the expensive shader generation. Explicit caller
+// features win.
+const isBuild = args[0] === "build";
+const supportsVulkan = process.platform === "linux" || process.platform === "win32";
+const hasExplicitFeatures =
+  args.includes("--features") || args.includes("-f") || args.includes("--no-default-features");
+if (isBuild && supportsVulkan && !hasExplicitFeatures) {
+  // Insert before `--` so passthrough arguments keep their position.
+  const passthroughIndex = args.indexOf("--");
+  args.splice(passthroughIndex === -1 ? args.length : passthroughIndex, 0, "--features", "vulkan");
+}
+
 // NOTE: cargo clean -p without --release only cleans dev-profile artifacts,
 // so --release is required here to match the `tauri build` profile.
-if (process.argv[2] === "build") {
+if (isBuild) {
   execFileSync("cargo", ["clean", "-p", "whisper-rs-sys", "--release"], {
     cwd: new URL("../src-tauri", import.meta.url),
     env: process.env,
@@ -39,7 +65,7 @@ if (process.argv[2] === "build") {
 }
 
 try {
-  await run(process.argv.slice(2), "tauri");
+  await run(args, "tauri");
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   if (typeof logError === "function") logError(message);
