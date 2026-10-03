@@ -42,6 +42,15 @@ struct Cli {
     /// Start hidden in the system tray
     #[arg(short, long)]
     start_hidden: bool,
+    /// Start recording via the running instance (Linux external activation)
+    #[arg(long)]
+    record_start: bool,
+    /// Stop recording via the running instance (Linux external activation)
+    #[arg(long)]
+    record_stop: bool,
+    /// Toggle recording via the running instance (Linux external activation)
+    #[arg(long)]
+    record_toggle: bool,
 }
 
 mod app;
@@ -91,6 +100,9 @@ pub struct PortalDiagnostics {
     pub active_trigger: Option<String>,
     pub status: String,
     pub detail: Option<String>,
+    pub activation_provider: String,
+    pub external_activation_available: bool,
+    pub external_activation_detail: Option<String>,
 }
 
 /// Logs detected CPU SIMD capabilities to the session log so crash reports
@@ -114,6 +126,27 @@ fn log_cpu_features() {}
 
 fn main() {
     let cli = Cli::parse();
+
+    // External activation fast path: forward to the running instance and
+    // exit without booting Tauri, so desktop key bindings stay instant.
+    if cli.record_start || cli.record_stop || cli.record_toggle {
+        #[cfg(target_os = "linux")]
+        {
+            std::process::exit(
+                platform::linux::wayland::activation::run_external_activation_cli(
+                    cli.record_start,
+                    cli.record_stop,
+                    cli.record_toggle,
+                ),
+            );
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            eprintln!("--record-start/--record-stop/--record-toggle are only supported on Linux.");
+            std::process::exit(2);
+        }
+    }
+
     let start_hidden = cli.start_hidden;
 
     // Third-party Vulkan "implicit layers" (Steam overlay, OBS capture, NVIDIA

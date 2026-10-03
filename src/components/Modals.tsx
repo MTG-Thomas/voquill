@@ -122,6 +122,36 @@ export function Modals(props: ModalsProps) {
               {props.systemShortcutContext?.settings_path ||
                 "Settings -> Apps -> Voquill -> Global Shortcuts"}
             </div>
+            {props.systemShortcutContext?.external_activation && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <p style={modalShortcutNoteStyle}>
+                  This desktop does not support app-managed shortcuts. Add a custom shortcut with
+                  one of these commands:
+                </p>
+                {[
+                  props.systemShortcutContext.external_activation.toggle_command,
+                  props.systemShortcutContext.external_activation.start_command,
+                  props.systemShortcutContext.external_activation.stop_command,
+                ].map((command) => (
+                  <div
+                    key={command}
+                    style={{
+                      ...modalShortcutPathStyle,
+                      background: "rgba(255, 255, 255, 0.05)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      borderRadius: "8px",
+                      padding: "10px 14px",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {command}
+                  </div>
+                ))}
+                <p style={modalShortcutNoteStyle}>
+                  {props.systemShortcutContext.external_activation.setup_hint}
+                </p>
+              </div>
+            )}
             {props.hotkeyBindingState?.active_trigger && (
               <p style={modalShortcutNoteStyle}>
                 Current shortcut: <strong>{props.hotkeyBindingState.active_trigger}</strong>

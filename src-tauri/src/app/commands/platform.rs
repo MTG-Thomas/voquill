@@ -46,6 +46,9 @@ pub async fn get_portal_diagnostics() -> Result<PortalDiagnostics, String> {
         active_trigger: None,
         status: "unsupported".to_string(),
         detail: Some("Portal diagnostics are only available on Linux Wayland.".to_string()),
+        activation_provider: "none".to_string(),
+        external_activation_available: false,
+        external_activation_detail: None,
     })
 }
 
@@ -65,6 +68,9 @@ pub struct SystemShortcutContext {
     distro: Option<String>,
     desktop: Option<String>,
     settings_path: String,
+    #[cfg(target_os = "linux")]
+    external_activation:
+        Option<crate::platform::linux::wayland::activation::ExternalActivationGuidance>,
 }
 
 #[derive(Serialize)]
@@ -119,13 +125,35 @@ pub async fn get_system_shortcut_context() -> Result<SystemShortcutContext, Stri
             Some(value) if value.eq_ignore_ascii_case("KDE") => {
                 "System Settings -> Keyboard -> Shortcuts -> Voquill".to_string()
             }
+            Some(value) if value.eq_ignore_ascii_case("COSMIC") => {
+                "System Settings -> Keyboard -> View and Customize Shortcuts -> Custom Shortcuts"
+                    .to_string()
+            }
             _ => "System Settings -> search for 'Voquill' or 'Keyboard Shortcuts'".to_string(),
+        };
+
+        // Capability-driven: external guidance is offered only when the
+        // external provider is actually selected, regardless of desktop name.
+        let external_activation = if is_wayland_session() {
+            let provider =
+                crate::platform::linux::wayland::activation::select_current_activation_provider()
+                    .await;
+            if provider
+                == crate::platform::linux::wayland::activation::ActivationProvider::ExternalDesktopBinding
+            {
+                Some(crate::platform::linux::wayland::activation::external_activation_guidance())
+            } else {
+                None
+            }
+        } else {
+            None
         };
 
         Ok(SystemShortcutContext {
             distro,
             desktop,
             settings_path,
+            external_activation,
         })
     }
 

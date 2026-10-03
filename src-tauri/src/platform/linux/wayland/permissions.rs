@@ -6,20 +6,44 @@ use tauri::AppHandle;
 
 pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
     let audio = Camera::new().await.is_ok();
-    let shortcuts = config.shortcuts_token.is_some();
 
     let input_emulation = config.input_token.is_some();
+
+    let provider =
+        crate::platform::linux::wayland::activation::select_current_activation_provider().await;
+    let (shortcuts, shortcuts_status, shortcuts_detail) = if provider
+        == crate::platform::linux::wayland::activation::ActivationProvider::ExternalDesktopBinding
+    {
+        let available =
+            crate::platform::linux::wayland::activation::is_external_activation_available();
+        let guidance = crate::platform::linux::wayland::activation::external_activation_guidance();
+        (
+            available,
+            "external".to_string(),
+            Some(format!(
+                "Desktop-managed shortcut activation via '{}'.",
+                guidance.toggle_command
+            )),
+        )
+    } else {
+        let bound = config.shortcuts_token.is_some();
+        (
+            bound,
+            if bound {
+                "bound".to_string()
+            } else {
+                "unbound".to_string()
+            },
+            None,
+        )
+    };
 
     LinuxPermissions {
         audio,
         shortcuts,
         input_emulation,
-        shortcuts_status: if shortcuts {
-            "bound".to_string()
-        } else {
-            "unbound".to_string()
-        },
-        shortcuts_detail: None,
+        shortcuts_status,
+        shortcuts_detail,
         manual_overlay_offset_supported: false,
         overlay_positioning_detail: Some(
             "Manual overlay position adjustment is not available on your system.".to_string(),

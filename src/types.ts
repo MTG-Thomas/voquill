@@ -192,7 +192,7 @@ export interface LinuxPermissions {
 }
 
 export interface ConfigureHotkeyResult {
-  outcome: "configured" | "requires_in_app_capture" | "system_managed";
+  outcome: "configured" | "requires_in_app_capture" | "system_managed" | "external_activation";
   detail?: string;
 }
 
@@ -203,10 +203,18 @@ export interface HotkeyBindingState {
   active_trigger?: string;
 }
 
+export interface ExternalActivationGuidance {
+  start_command: string;
+  stop_command: string;
+  toggle_command: string;
+  setup_hint: string;
+}
+
 export interface SystemShortcutContext {
   distro?: string;
   desktop?: string;
   settings_path: string;
+  external_activation?: ExternalActivationGuidance;
 }
 
 export interface OverlayPositioningCapabilities {

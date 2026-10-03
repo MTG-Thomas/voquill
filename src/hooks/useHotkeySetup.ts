@@ -99,7 +99,7 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
         isRecordingHotkey.value = true;
         recordedKeys.value = new Set();
         showToast("Press your desired key combination in the modal.", "info");
-      } else if (result.outcome === "system_managed") {
+      } else if (result.outcome === "system_managed" || result.outcome === "external_activation") {
         showSystemShortcutModal.value = true;
       } else {
         showToast(result.detail || "Shortcut configured successfully!", "success");
