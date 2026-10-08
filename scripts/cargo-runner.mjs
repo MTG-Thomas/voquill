@@ -29,6 +29,28 @@ function quoteCmd(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
 
+function privateCargoTargetDir() {
+  const home = os.homedir();
+  const cache = path.join(home, ".cache");
+  const voquill = path.join(cache, "voquill");
+  const target = path.join(voquill, "cargo-target");
+  const uid = process.getuid?.();
+
+  for (const directory of [home, cache, voquill, target]) {
+    if (!fs.existsSync(directory)) fs.mkdirSync(directory, { mode: 0o700 });
+    const metadata = fs.lstatSync(directory);
+    if (
+      !metadata.isDirectory() ||
+      (uid !== undefined && metadata.uid !== uid) ||
+      (metadata.mode & 0o022) !== 0 ||
+      ((directory === voquill || directory === target) && (metadata.mode & 0o077) !== 0)
+    ) {
+      throw new Error(`Unsafe Cargo target directory: ${directory}`);
+    }
+  }
+  return target;
+}
+
 function runCargoDirect(args) {
   const cargo = commandExists("cargo")
     ? "cargo"
@@ -49,10 +71,9 @@ function runCargoDirect(args) {
   if (!env.CMAKE_CXX_COMPILER_LAUNCHER && useSccache) {
     env.CMAKE_CXX_COMPILER_LAUNCHER = "sccache";
   }
-  // Mirror CI by sharing one target directory for local cargo checks/tests, so
-  // repeat invocations and sibling worktrees reuse warm dependency artifacts
-  // instead of cold-building a target directory each time.
-  env.CARGO_TARGET_DIR ||= path.join(os.tmpdir(), "voquill-target");
+  // Share artifacts between this user's worktrees without using a predictable
+  // path in a shared temporary directory. Explicit caller settings still win.
+  env.CARGO_TARGET_DIR ||= privateCargoTargetDir();
   const child = spawn(cargo, args, { stdio: "inherit", shell: false, env });
   child.on("exit", (code, signal) => {
     if (signal) {
