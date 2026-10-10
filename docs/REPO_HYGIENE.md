@@ -20,7 +20,7 @@ On Windows, the Rust checks may need the same native build dependencies as the T
 
 The default clippy pass is CPU-only and fast. The `--features vulkan` pass builds whisper.cpp's shader set and is the slow one (several minutes on a cold cache); it mirrors what release bundles and CI run, so keep it before opening a release PR.
 
-For local builds, the npm Cargo/Tauri runners reuse `sccache` when installed and share a single `CARGO_TARGET_DIR` (`$TMPDIR/voquill-target`) across worktrees. Prefer `npm run cargo:check` or `npm run tauri -- ...` over invoking `cargo` directly so these caches and the platform toolchain setup apply.
+For local builds, the npm Cargo/Tauri runners reuse `sccache` when installed and share a private per-user `CARGO_TARGET_DIR` (`~/.cache/voquill/cargo-target`) across worktrees. Prefer `npm run cargo:check` or `npm run tauri -- ...` over invoking `cargo` directly so these caches and the platform toolchain setup apply.
 
 ## Security Gates
 

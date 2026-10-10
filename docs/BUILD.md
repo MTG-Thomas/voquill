@@ -71,9 +71,9 @@ checks, tests, and fresh worktrees.
   no GPU support, so use a full `npm run tauri:build` when you need Turbo Mode.
 - **Local acceleration**: the npm Cargo/Tauri runners reuse `sccache` when it is
   installed (`RUSTC_WRAPPER` for Rust plus `CMAKE_C/CXX_COMPILER_LAUNCHER` for
-  native C/C++ such as whisper.cpp) and share a single `CARGO_TARGET_DIR`
-  (`$TMPDIR/voquill-target`) for local builds, so repeat builds and parallel
-  worktrees reuse warm artifacts instead of cold-building a private
+  native C/C++ such as whisper.cpp) and share a private per-user `CARGO_TARGET_DIR`
+  (`~/.cache/voquill/cargo-target`) for local builds, so repeat builds and parallel
+  worktrees reuse warm artifacts instead of cold-building a separate
   `src-tauri/target` each time.
 
 To force Turbo Mode for a local build:
