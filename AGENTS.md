@@ -8,6 +8,8 @@ Preserve Windows and Linux parity, including both Wayland and X11; macOS is expe
 
 Do not block the UI or hide failures. Use explicit state transitions for nontrivial lifecycle flows, async model/audio/network I/O, and standard data-path resolution. Follow the existing component's styling and design tokens. Keep changes scoped; explain structural moves or module renames and obtain user approval before doing them. Do not make Git commits without explicit user approval. Compiler warnings are errors. Use descriptive names in touched code without unrelated renames; expose actionable errors and keep simple, focused modules.
 
+The Linux app id is `org.voquill.voquill` (`APP_ID` in `platform/linux/wayland/env.rs`). It must match the Tauri `identifier` and must not end in `.desktop` or `.app`. The real launcher is `org.voquill.voquill.desktop`; the bundler stub stays hidden. `config/storage.rs` writes `config.json` atomically. Do not auto-save before the on-disk config has loaded. An unreadable file aborts startup; an unparseable file is moved to `config.json.invalid-<timestamp>`.
+
 ## Verification
 
 Run the pre-PR checklist in `docs/REPO_HYGIENE.md`:

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
   "productName": "Voquill",
-  "version": "1.7.6",
-  "identifier": "org.voquill.desktop",
+  "version": "1.7.7",
+  "identifier": "org.voquill.voquill",
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
@@ -77,24 +77,27 @@
     },
     "linux": {
       "deb": {
-        "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
+        "desktopTemplate": "packaging/bundler-stub.desktop.hbs",
         "depends": ["libgtk-layer-shell0", "libpulse0", "libappindicator3-1"],
         "files": {
-          "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
+          "/usr/share/applications/org.voquill.voquill.desktop": "packaging/org.voquill.voquill.desktop",
+          "/usr/share/metainfo/org.voquill.voquill.metainfo.xml": "org.voquill.voquill.metainfo.xml"
         }
       },
       "rpm": {
-        "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
+        "desktopTemplate": "packaging/bundler-stub.desktop.hbs",
         "depends": ["gtk-layer-shell", "webkit2gtk4.1", "pulseaudio-libs", "libappindicator-gtk3"],
         "files": {
-          "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
+          "/usr/share/applications/org.voquill.voquill.desktop": "packaging/org.voquill.voquill.desktop",
+          "/usr/share/metainfo/org.voquill.voquill.metainfo.xml": "org.voquill.voquill.metainfo.xml"
         }
       },
       "appimage": {
         "bundleMediaFramework": false,
         "files": {
-          "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml",
-          "/usr/share/appdata/org.voquill.desktop.appdata.xml": "org.voquill.desktop.metainfo.xml"
+          "/usr/share/applications/voquill.desktop": "packaging/org.voquill.voquill.desktop",
+          "/usr/share/metainfo/org.voquill.voquill.metainfo.xml": "org.voquill.voquill.metainfo.xml",
+          "/usr/share/appdata/org.voquill.voquill.appdata.xml": "org.voquill.voquill.metainfo.xml"
         }
       }
     }

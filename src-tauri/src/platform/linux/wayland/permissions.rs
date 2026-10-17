@@ -42,6 +42,7 @@ pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
         audio,
         shortcuts,
         input_emulation,
+        input_emulation_restoring: false,
         shortcuts_status,
         shortcuts_detail,
         manual_overlay_offset_supported: false,

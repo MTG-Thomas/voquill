@@ -285,6 +285,7 @@ impl PermissionManager for MacOsBackend {
             audio: true,
             shortcuts: true,
             input_emulation: true,
+            input_emulation_restoring: false,
             shortcuts_status: "ready".to_string(),
             shortcuts_detail: Some(
                 "macOS may still prompt for Microphone, Accessibility, and Input Monitoring at runtime."
