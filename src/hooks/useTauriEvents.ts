@@ -21,6 +21,7 @@ interface UseTauriEventsOptions {
   onMicReadinessWarnings: (warnings: AudioReadinessWarning[]) => void;
   onDownloadProgress: (progress: ModelDownloadProgress) => void;
   onPostProcessGpuStatusChanged: () => void;
+  onInputSessionStateChanged: () => void;
   onFocus: () => void;
   onHashChange: () => void;
 }
@@ -72,6 +73,9 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
     const unlistenPostProcessGpuStatus = listen("post-process-gpu-status-changed", () => {
       latest.value.onPostProcessGpuStatusChanged();
     });
+    const unlistenInputSessionState = listen("input-session-state-changed", () => {
+      latest.value.onInputSessionStateChanged();
+    });
 
     const onFocus = () => latest.value.onFocus();
     const onHashChange = () => latest.value.onHashChange();
@@ -92,6 +96,7 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
       unlistenMicReadiness.then((fn) => fn());
       unlistenDownloadProgress.then((fn) => fn());
       unlistenPostProcessGpuStatus.then((fn) => fn());
+      unlistenInputSessionState.then((fn) => fn());
     };
   }, []);
 }

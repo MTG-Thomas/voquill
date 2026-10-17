@@ -1,4 +1,4 @@
-import { useSignal } from "@preact/signals";
+import { useComputed, useSignal, type ReadonlySignal } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AudioDevice,
@@ -17,6 +17,9 @@ interface UseAudioSetupReturn {
   isMicTriggered: boolean;
   micTestPassed: boolean;
   hasLoadedSetupStatus: boolean;
+  /// Signal (not a plain value) so routing effects re-run when the backend
+  /// finishes resuming the input emulation portal session.
+  isInputSessionRestoring: ReadonlySignal<boolean>;
   hasLoadedMics: boolean;
   hasLoadedSpeakers: boolean;
   loadMics: () => Promise<void>;
@@ -46,6 +49,9 @@ export function useAudioSetup(
   const isMicTriggered = useSignal<boolean>(false);
   const micTestPassed = useSignal(false);
   const hasLoadedSetupStatus = useSignal(false);
+  const isInputSessionRestoring = useComputed(
+    () => permissions.value?.input_emulation_restoring ?? false,
+  );
   const hasLoadedMics = useSignal(false);
   const hasLoadedSpeakers = useSignal(false);
 
@@ -148,6 +154,7 @@ export function useAudioSetup(
     isMicTriggered: isMicTriggered.value,
     micTestPassed: micTestPassed.value,
     hasLoadedSetupStatus: hasLoadedSetupStatus.value,
+    isInputSessionRestoring,
     hasLoadedMics: hasLoadedMics.value,
     hasLoadedSpeakers: hasLoadedSpeakers.value,
     loadMics,

@@ -1,29 +1,15 @@
 #!/usr/bin/env node
 
-import {
-  readFileSync,
-  copyFileSync,
-  mkdirSync,
-  existsSync,
-  writeFileSync,
-  readdirSync,
-} from "node:fs";
-import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ASSET_NAMES, VERSION, assertPlainVersion } from "./release-assets.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const SRC_TAURI = resolve(ROOT, "src-tauri");
 
-const TAURI_CONF = JSON.parse(readFileSync(resolve(SRC_TAURI, "tauri.conf.json"), "utf8"));
-const VERSION = TAURI_CONF.version;
 const OUT_DIR = resolve(ROOT, "release-artifacts");
-
-function sha256(filePath) {
-  const content = readFileSync(filePath);
-  return createHash("sha256").update(content).digest("hex");
-}
 
 // Tauri embeds the version in the artifact filename (e.g. voquill_1.5.0_amd64.deb).
 // Refuse to package an artifact whose embedded version differs from the configured
@@ -44,19 +30,18 @@ function globFirstForVersion(dir, pattern) {
   return null;
 }
 
-function copyAndChecksum(source, targetName) {
-  const targetPath = resolve(OUT_DIR, targetName);
+// No checksum files are produced: GitHub computes a SHA-256 digest for every
+// uploaded release asset, and the installers verify against that digest.
+function copyArtifact(source, targetName) {
   console.log(`  ${basename(source)}  →  ${targetName}`);
-  copyFileSync(source, targetPath);
-
-  const hash = sha256(targetPath);
-  const checksumPath = `${targetPath}.sha256`;
-  writeFileSync(checksumPath, `${hash}  ${targetName}\n`);
-  console.log(`  ${targetName}.sha256  ✓`);
+  copyFileSync(source, resolve(OUT_DIR, targetName));
 }
 
+// Linux releases come only from the containerized build (npm run release:linux),
+// never from a host `tauri:build`, so the glibc floor is fixed by the container
+// base image rather than by whichever distro the release machine runs.
 function packageLinux() {
-  const bundleDir = resolve(SRC_TAURI, "target", "release", "bundle");
+  const bundleDir = resolve(SRC_TAURI, "target", "linux-release", "bundle");
   console.log("\nPackaging Linux artifacts...\n");
 
   const deb = globFirstForVersion(resolve(bundleDir, "deb"), /\.deb$/);
@@ -65,20 +50,20 @@ function packageLinux() {
 
   let count = 0;
   if (deb) {
-    copyAndChecksum(deb, `voquill-${VERSION}-linux-x64.deb`);
+    copyArtifact(deb, ASSET_NAMES.linuxDeb);
     count++;
   }
   if (rpm) {
-    copyAndChecksum(rpm, `voquill-${VERSION}-linux-x64.rpm`);
+    copyArtifact(rpm, ASSET_NAMES.linuxRpm);
     count++;
   }
   if (appimage) {
-    copyAndChecksum(appimage, `voquill-${VERSION}-linux-x64.AppImage`);
+    copyArtifact(appimage, ASSET_NAMES.linuxAppImage);
     count++;
   }
 
   if (count === 0) {
-    console.log("  No Linux build artifacts found. Run 'npm run tauri:build' first.");
+    console.log("  No Linux build artifacts found. Run 'npm run release:linux' first.");
   }
   return count;
 }
@@ -92,11 +77,11 @@ function packageWindows() {
 
   let count = 0;
   if (msi) {
-    copyAndChecksum(msi, `voquill-${VERSION}-windows-x64.msi`);
+    copyArtifact(msi, ASSET_NAMES.windowsMsi);
     count++;
   }
   if (nsis) {
-    copyAndChecksum(nsis, `voquill-${VERSION}-windows-x64-setup.exe`);
+    copyArtifact(nsis, ASSET_NAMES.windowsSetup);
     count++;
   }
 
@@ -107,6 +92,9 @@ function packageWindows() {
 }
 
 function main() {
+  assertPlainVersion();
+  // Start from an empty folder so its whole contents can be uploaded as-is.
+  rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });
 
   console.log(`Voquill v${VERSION} release packaging`);
@@ -122,7 +110,9 @@ function main() {
 
   console.log(`\nDone. ${total} artifact(s) packaged in ${OUT_DIR}`);
   if (total === 0) {
-    console.log("Nothing to do — build the app first with: npm run tauri:build");
+    const buildCommand =
+      process.platform === "win32" ? "npm run tauri:build" : "npm run release:linux";
+    console.log(`Nothing to do — build the app first with: ${buildCommand}`);
     process.exit(1);
   }
 }
